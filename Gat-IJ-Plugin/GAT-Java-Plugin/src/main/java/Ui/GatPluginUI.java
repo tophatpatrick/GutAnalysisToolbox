@@ -1,4 +1,4 @@
-package UI;
+package Ui;
 
 import ij.IJ;
 import ij.plugin.PlugIn;
