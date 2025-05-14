@@ -5,13 +5,19 @@ import ij.plugin.PlugIn;
 import mdlaf.MaterialLookAndFeel;
 import mdlaf.themes.MaterialOceanicTheme;
 
+import Ui.panes.*;
+import Ui.Handlers.*;
 import javax.swing.*;
 import java.awt.*;
-import java.net.URL;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 public class GatPluginUI implements PlugIn {
+
+    private CardLayout cards = new CardLayout();
+    private JPanel cardPanel = new JPanel(cards);
+    Navigator navigator = name -> cards.show(cardPanel,name);
+
 
     static {
         // Install Material UI L&F on the EDT
@@ -24,90 +30,72 @@ public class GatPluginUI implements PlugIn {
         }
     }
 
-    // Swing timer for live clock
-    private final DateTimeFormatter fmt =
-            DateTimeFormatter.ofPattern("dd-MM-yyyy  HH:mm:ss");
-    private final Timer clockTimer = new Timer(1000, e -> {/* listener set below */});
-
     @Override
-    public void run(String arg) {
+    public void run(String arg){
         SwingUtilities.invokeLater(this::buildAndShow);
     }
 
-    private void buildAndShow() {
-        // --- top‐level window ---
-        JDialog dialog = new JDialog(IJ.getInstance(),
+    private void buildAndShow(){
+
+        //Our main window which will host the plugin
+        JDialog dialog = new JDialog(
+                IJ.getInstance(),
                 "GAT Plugin",
-                false);
-        dialog.setDefaultCloseOperation(WindowConstants.DISPOSE_ON_CLOSE);
-        dialog.setLayout(new BorderLayout(8, 8));
-        dialog.setPreferredSize(new Dimension(900, 550));
-
-        // --- 1) Left toolbar (Material buttons) ---
-        JPanel leftBar = new JPanel();
-        leftBar.setLayout(new BoxLayout(leftBar, BoxLayout.Y_AXIS));
-        leftBar.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
-        leftBar.add(Box.createVerticalGlue());
-        String[] tools = {
-                "Analyse Neurons","Analysis",
-                "Calcium Imaging","Multiplex","Spatial Analysis","Tools"
-        };
-        for (String name : tools) {
-            JButton b = new JButton(name);
-            b.setAlignmentX(Component.CENTER_ALIGNMENT);
-            b.setMaximumSize(new Dimension(160, 36));
-            leftBar.add(b);
-            leftBar.add(Box.createVerticalStrut(6));
-        }
-        leftBar.add(Box.createVerticalGlue());
-        dialog.add(leftBar, BorderLayout.WEST);
-
-        // --- 2) Center info panel ---
-        JPanel center = new JPanel(new BorderLayout(6,6));
-        center.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
-
-        // Clock + Help row
-        JPanel infoRow = new JPanel(new BorderLayout(4,4));
-        JLabel clockLabel = new JLabel();
-        clockLabel.setFont(clockLabel.getFont().deriveFont(Font.BOLD, 14f));
-        // set up timer to update clockLabel
-        clockTimer.addActionListener(e ->
-                clockLabel.setText(fmt.format(LocalDateTime.now()))
+                false
         );
-        clockTimer.setInitialDelay(0);
-        clockTimer.start();
+        dialog.setDefaultCloseOperation(WindowConstants.DISPOSE_ON_CLOSE);
+        dialog.setLayout(new BorderLayout(8,8));
+        dialog.setPreferredSize(new Dimension(900,550));
 
-        infoRow.add(clockLabel, BorderLayout.WEST);
+        // Our left toolbar with buttons
+        JPanel leftBar = new JPanel();
+        leftBar.setLayout(new BoxLayout(leftBar,BoxLayout.Y_AXIS));
+        leftBar.setBorder(BorderFactory.createEmptyBorder(10,10,10,10));
+        leftBar.add(Box.createVerticalGlue());
 
-        JLabel titleLabel = new JLabel("Gut Analysis ToolBox");
-        titleLabel.setFont(titleLabel.getFont().deriveFont(16f));
-        titleLabel.setHorizontalAlignment(SwingConstants.CENTER);
-        infoRow.add(titleLabel, BorderLayout.CENTER);
 
 
-        JButton help = new JButton("Help and Support");
-        infoRow.add(help, BorderLayout.EAST);
-        center.add(infoRow, BorderLayout.NORTH);
 
-        // --- 3) Image placeholder ---
-        // 2b) Image placeholder, loaded from resources
-        JLabel imageLabel = new JLabel("", SwingConstants.CENTER);
-        imageLabel.setBorder(BorderFactory.createLineBorder(Color.GRAY, 2));
-        imageLabel.setPreferredSize(new Dimension(550, 450));
+        //Register each of our panes in the card panel
+        Map<String, JPanel> panes = new LinkedHashMap<>();
+        panes.put(HomePane.Name, new HomePane(navigator));
+        panes.put(AnalysisPane.Name,        new AnalysisPane(navigator));
+        panes.put(AnalyseNeuronsPane.Name,  new AnalyseNeuronsPane(navigator));
+        panes.put(CalciumImagingPane.Name,  new CalciumImagingPane(navigator));
+        panes.put(MultiplexPane.Name,       new MultiplexPane(navigator));
+        panes.put(ToolsPane.Name,           new ToolsPane(navigator));
+        panes.put(SpatialAnalysisPane.Name, new SpatialAnalysisPane(navigator));
 
-        URL imgUrl = getClass().getResource("/org/example/images/myImage.png");
-        if (imgUrl != null) {
-            imageLabel.setIcon(new ImageIcon(imgUrl));
-        } else {
-            imageLabel.setText("Dashboard Placeholder");
+        //Register the panes in the card panel and create the button
+        for (Map.Entry<String, JPanel> e: panes.entrySet()){
+            String name = e.getKey();
+            JPanel pane = e.getValue();
+
+            //add to the CardLayout
+            cardPanel.add(pane,name);
+
+
+            JButton btn = new JButton(name);
+            btn.setAlignmentX(Component.CENTER_ALIGNMENT);
+            btn.setMaximumSize(new Dimension(160,36));
+            btn.addActionListener(ae -> cards.show(cardPanel,name));
+
+            leftBar.add(btn);
+            leftBar.add(Box.createVerticalStrut(6));
+
         }
-        center.add(imageLabel, BorderLayout.CENTER);
 
-        dialog.add(center, BorderLayout.CENTER);
+        leftBar.add(Box.createVerticalGlue());
 
-        // --- finalise & display ---
+        dialog.add(leftBar, BorderLayout.WEST);
+        dialog.add(cardPanel, BorderLayout.CENTER);
+
+
+
         dialog.pack();
         dialog.setLocationRelativeTo(null);
         dialog.setVisible(true);
+        navigator.show(HomePane.Name);
+
     }
 }

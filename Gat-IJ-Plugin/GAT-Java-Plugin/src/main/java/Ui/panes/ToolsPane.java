@@ -1,12 +1,14 @@
 package Ui.panes;
 
+import Ui.Handlers.Navigator;
+
 import javax.swing.*;
 import java.awt.*;
 
 public class ToolsPane extends JPanel {
-    public static final String Name = "ToolsPane";
+    public static final String Name = "Tools";
 
-    public ToolsPane(){
+    public ToolsPane(Navigator navigator){
         setLayout(new BorderLayout());
         add(new JLabel("Welcome to the Tools Pane", SwingConstants.CENTER),BorderLayout.CENTER);
     }
