@@ -1,4 +1,4 @@
-package Ui.panes;
+package Ui.panes.Tools;
 
 import Ui.Handlers.Navigator;
 

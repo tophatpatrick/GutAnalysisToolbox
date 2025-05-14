@@ -1,10 +1,10 @@
 package Ui.panes;
 
 import Ui.Handlers.Navigator;
+import Ui.panes.Tools.HelpAndSupportPane;
 
 import javax.swing.*;
 import java.awt.*;
-import java.net.URL;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 

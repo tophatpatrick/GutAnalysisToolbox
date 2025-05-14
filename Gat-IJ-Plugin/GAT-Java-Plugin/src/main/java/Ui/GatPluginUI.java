@@ -1,5 +1,7 @@
 package Ui;
 
+import Ui.panes.SettingPanes.*;
+import Ui.panes.Tools.*;
 import ij.IJ;
 import ij.plugin.PlugIn;
 import mdlaf.MaterialLookAndFeel;
@@ -55,6 +57,9 @@ public class GatPluginUI implements PlugIn {
 
         //Register other panels
         cardPanel.add(new HelpAndSupportPane(navigator),HelpAndSupportPane.Name);
+        cardPanel.add(new NeuronWorkflowPane(navigator),NeuronWorkflowPane.Name);
+        cardPanel.add(new MultiChannelNoHuPane(navigator),MultiChannelNoHuPane.Name);
+        cardPanel.add(new MultichannelPane(navigator),MultichannelPane.Name);
 
 
 
