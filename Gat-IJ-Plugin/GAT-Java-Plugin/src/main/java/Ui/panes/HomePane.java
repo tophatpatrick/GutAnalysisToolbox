@@ -35,6 +35,7 @@ public class HomePane extends JPanel{
         infoRow.add(titleLabel, BorderLayout.CENTER);
 
         JButton helpBtn = new JButton("Help & Support");
+        helpBtn.addActionListener(ae -> navigator.show(HelpAndSupportPane.Name));
         infoRow.add(helpBtn, BorderLayout.EAST);
 
         add(infoRow, BorderLayout.NORTH);

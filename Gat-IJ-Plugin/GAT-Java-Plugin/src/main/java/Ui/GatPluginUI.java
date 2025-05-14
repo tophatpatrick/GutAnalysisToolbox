@@ -53,6 +53,9 @@ public class GatPluginUI implements PlugIn {
         leftBar.setBorder(BorderFactory.createEmptyBorder(10,10,10,10));
         leftBar.add(Box.createVerticalGlue());
 
+        //Register other panels
+        cardPanel.add(new HelpAndSupportPane(navigator),HelpAndSupportPane.Name);
+
 
 
 
