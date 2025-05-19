@@ -1,7 +1,7 @@
-package Ui.panes.WorkflowDashboards;
+package UI.panes.WorkflowDashboards;
 
-import Ui.Handlers.Navigator;
-import Ui.panes.SettingPanes.NeuronWorkflowPane;
+import UI.Handlers.Navigator;
+import UI.panes.SettingPanes.NeuronWorkflowPane;
 import ij.IJ;
 import ij.ImagePlus;
 import ij.gui.ImageCanvas;
@@ -10,10 +10,7 @@ import ij.gui.Roi;
 import ij.plugin.frame.RoiManager;
 
 import javax.swing.*;
-import javax.swing.table.DefaultTableModel;
 import java.awt.*;
-import java.util.Arrays;
-import java.util.List;
 
 public class AnalyseNeuronDashboard extends JPanel {
     public static final String Name = "Analyse Dashboard";

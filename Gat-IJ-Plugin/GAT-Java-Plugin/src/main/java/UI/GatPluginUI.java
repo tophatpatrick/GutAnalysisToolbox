@@ -1,15 +1,15 @@
-package Ui;
+package UI;
 
-import Ui.panes.SettingPanes.*;
-import Ui.panes.Tools.*;
-import Ui.panes.WorkflowDashboards.AnalyseNeuronDashboard;
+import UI.panes.SettingPanes.*;
+import UI.panes.Tools.*;
+import UI.panes.WorkflowDashboards.AnalyseNeuronDashboard;
 import ij.IJ;
 import ij.plugin.PlugIn;
 import mdlaf.MaterialLookAndFeel;
 import mdlaf.themes.MaterialOceanicTheme;
 
-import Ui.panes.*;
-import Ui.Handlers.*;
+import UI.panes.*;
+import UI.Handlers.*;
 import javax.swing.*;
 import java.awt.*;
 import java.util.LinkedHashMap;

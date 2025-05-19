@@ -1,6 +1,6 @@
-package Ui.panes.Tools;
+package UI.panes.Tools;
 
-import Ui.Handlers.Navigator;
+import UI.Handlers.Navigator;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
@@ -8,7 +8,7 @@ import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.util.Arrays;
-import Ui.panes.SettingPanes.*;
+import UI.panes.SettingPanes.*;
 
 public class AnalyseNeuronsPane extends JPanel {
     public static final String Name = "Analyse Neurons";

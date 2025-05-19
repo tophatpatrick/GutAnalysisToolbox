@@ -1,10 +1,10 @@
-package Ui.panes.SettingPanes;
+package UI.panes.SettingPanes;
 
-import Ui.Handlers.Navigator;
+import UI.Handlers.Navigator;
 
 import javax.swing.*;
 import java.awt.*;
-import Ui.panes.WorkflowDashboards.*;
+import UI.panes.WorkflowDashboards.*;
 
 public class NeuronWorkflowPane extends JPanel{
 

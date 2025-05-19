@@ -1,7 +1,7 @@
-package Ui.panes;
+package UI.panes;
 
-import Ui.Handlers.Navigator;
-import Ui.panes.Tools.HelpAndSupportPane;
+import UI.Handlers.Navigator;
+import UI.panes.Tools.HelpAndSupportPane;
 
 import javax.swing.*;
 import java.awt.*;

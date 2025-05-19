@@ -1,6 +1,6 @@
-package Ui.panes.Tools;
+package UI.panes.Tools;
 
-import Ui.Handlers.Navigator;
+import UI.Handlers.Navigator;
 
 import javax.swing.*;
 import java.awt.*;
