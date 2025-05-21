@@ -45,13 +45,6 @@ public class AnalyseNeuronDashboard extends JPanel {
         rm.runCommand("Open", "/Users/miles/Desktop/UNI/Year5/SEM1/FIT4002/Project/Gat-IJ-Plugin/GAT-Java-Plugin/src/main/resources/Neuron_ROIs_ms_28_wk_colon_DAPI__2.zip");
         rm.setVisible(false);
 
-        //set the overlay manually
-        Overlay overlay = new Overlay();
-        for (int i = 0; i < rm.getCount(); i++) {
-            overlay.add(rm.getRoi(i));
-        }
-        imp.setOverlay(overlay);
-        canvas.repaint();
 
         // ── 3) Extract & style AWT ROI‐Manager UI ──────────────
         java.awt.Panel toolbar = null, checkboxPanel = null;
