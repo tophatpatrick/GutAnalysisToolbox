@@ -64,26 +64,46 @@ public class NeuronWorkflowPane extends JPanel {
         panel.add(new JLabel("Image Selection"));
         panel.add(Box.createVerticalStrut(5));
 
+        // Image path row
         JPanel imageRow = new JPanel(new FlowLayout(FlowLayout.LEFT));
         imageRow.add(new JLabel("Choose the image to segment:"));
-        JTextField imagePath = new JTextField("images\\...", 25);
-        JButton browse = new JButton("Browse");
+        JTextField imagePath = new JTextField(25);
         imageRow.add(imagePath);
-        imageRow.add(browse);
         panel.add(imageRow);
 
+        // Browse + Show Preview buttons row
+        JPanel buttonRow = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        JButton browse = new JButton("Browse");
+        JButton preview = new JButton("Show Preview");
+        preview.setEnabled(false);  // Initially disabled
+
+        browse.addActionListener(e -> {
+            JFileChooser fileChooser = new JFileChooser();
+            int result = fileChooser.showOpenDialog(panel);
+            if (result == JFileChooser.APPROVE_OPTION) {
+                String selectedPath = fileChooser.getSelectedFile().getAbsolutePath();
+                imagePath.setText(selectedPath);
+                preview.setEnabled(true); // Enable preview after valid image selected
+            }
+        });
+
+        buttonRow.add(browse);
+        buttonRow.add(preview);
+        panel.add(buttonRow);
+
+        // Image already open checkbox
         JCheckBox imageOpen = new JCheckBox("Image already open");
+        imageOpen.setAlignmentX(Component.LEFT_ALIGNMENT);
         panel.add(imageOpen);
 
+        panel.add(Box.createVerticalStrut(10));
+
+        // Channel hue selection
         JPanel hueRow = new JPanel(new FlowLayout(FlowLayout.LEFT));
         hueRow.add(new JLabel("Select Channel Hue"));
         JTextField hueField = new JTextField("3", 3);
         hueRow.add(hueField);
         panel.add(hueRow);
-
-        JButton preview = new JButton("Show Preview");
-        preview.setAlignmentX(Component.LEFT_ALIGNMENT);
-        panel.add(preview);
 
         return panel;
     }
