@@ -3,8 +3,12 @@ package UI.panes.SettingPanes;
 import UI.Handlers.Navigator;
 import UI.panes.WorkflowDashboards.*;
 
+import javax.imageio.ImageIO;
 import javax.swing.*;
 import java.awt.*;
+import java.awt.image.BufferedImage;
+import java.io.File;
+import java.io.IOException;
 
 public class NeuronWorkflowPane extends JPanel {
 
@@ -59,42 +63,75 @@ public class NeuronWorkflowPane extends JPanel {
     private JPanel createBasicTab() {
         JPanel panel = new JPanel();
         panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
-
         panel.add(Box.createVerticalStrut(10));
+
         panel.add(new JLabel("Image Selection"));
         panel.add(Box.createVerticalStrut(5));
 
-        // Image path row
+        // Image path row with inline Browse and Preview buttons
         JPanel imageRow = new JPanel(new FlowLayout(FlowLayout.LEFT));
         imageRow.add(new JLabel("Choose the image to segment:"));
-        JTextField imagePath = new JTextField(25);
-        imageRow.add(imagePath);
-        panel.add(imageRow);
 
-        // Browse + Show Preview buttons row
-        JPanel buttonRow = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        JTextField imagePath = new JTextField(30);
+        imageRow.add(imagePath);
+
         JButton browse = new JButton("Browse");
         JButton preview = new JButton("Show Preview");
-        preview.setEnabled(false);  // Initially disabled
+        preview.setEnabled(false); // Disabled until image is selected
+        JCheckBox imageOpen = new JCheckBox("Image already open");
 
+        imageRow.add(browse);
+        imageRow.add(preview);
+        imageRow.add(imageOpen);
+
+        panel.add(imageRow);
+
+        // Handle Browse click
         browse.addActionListener(e -> {
             JFileChooser fileChooser = new JFileChooser();
             int result = fileChooser.showOpenDialog(panel);
             if (result == JFileChooser.APPROVE_OPTION) {
                 String selectedPath = fileChooser.getSelectedFile().getAbsolutePath();
                 imagePath.setText(selectedPath);
-                preview.setEnabled(true); // Enable preview after valid image selected
+                preview.setEnabled(true);
             }
         });
 
-        buttonRow.add(browse);
-        buttonRow.add(preview);
-        panel.add(buttonRow);
+        // Handle Show Preview click
+        preview.addActionListener(e -> {
+            String path = imagePath.getText();
+            if (!path.isEmpty()) {
+                JFrame previewFrame = new JFrame("Image Preview");
+                previewFrame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+                previewFrame.setSize(600, 600);
 
-        // Image already open checkbox
-        JCheckBox imageOpen = new JCheckBox("Image already open");
-        imageOpen.setAlignmentX(Component.LEFT_ALIGNMENT);
-        panel.add(imageOpen);
+                try {
+                    BufferedImage original = ImageIO.read(new File(path));
+                    int maxW = 550;
+                    int maxH = 500;
+
+                    // Calculate scaled dimensions
+                    double widthRatio = (double) maxW / original.getWidth();
+                    double heightRatio = (double) maxH / original.getHeight();
+                    double scale = Math.min(widthRatio, heightRatio);
+
+                    int newW = (int) (original.getWidth() * scale);
+                    int newH = (int) (original.getHeight() * scale);
+
+                    Image scaledImage = original.getScaledInstance(newW, newH, Image.SCALE_SMOOTH);
+                    ImageIcon icon = new ImageIcon(scaledImage);
+
+                    JLabel imgLabel = new JLabel(icon);
+                    JScrollPane scrollPane = new JScrollPane(imgLabel);
+                    previewFrame.add(scrollPane);
+
+                    previewFrame.setLocationRelativeTo(null);
+                    previewFrame.setVisible(true);
+                } catch (IOException ex) {
+                    JOptionPane.showMessageDialog(panel, "Failed to load image.", "Error", JOptionPane.ERROR_MESSAGE);
+                }
+            }
+        });
 
         panel.add(Box.createVerticalStrut(10));
 
