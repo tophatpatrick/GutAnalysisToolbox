@@ -32,34 +32,51 @@ public class AnalyseNeuronDashboard extends JPanel {
 
         // ── 1) Load & show the image ────────────────────────────
         this.imp = IJ.openImage("/Users/miles/Desktop/UNI/Year5/SEM1/FIT4002/Project/Gat-IJ-Plugin/GAT-Java-Plugin/src/main/resources/MAX_ms_28_wk_colon_DAPI__2.tif");
-        this.canvas = new ImageCanvas(imp);
+        imp.show();                         // registers it with WindowManager
+        // now grab its real window and hide it
+        Frame imgWin = imp.getWindow();
+        imgWin.setVisible(false);
+
+        // embed the real canvas
+        this.canvas = imp.getCanvas();
         JScrollPane imgScroll = new JScrollPane(canvas);
         imgScroll.setBorder(BorderFactory.createTitledBorder("Image"));
         imgScroll.setMinimumSize(new Dimension(400,300));
 
         // ── 2) Prepare hidden RoiManager & import ROIs ─────────
         rm1 = RoiManager.getInstance();
-        if (rm1 == null) rm1 = new RoiManager(false);
+        if (rm1 == null) {
+            rm1 = new RoiManager();
+            rm1.setVisible(false);
+        }
         rm = rm1;
         rm.reset();
         rm.runCommand("Open", "/Users/miles/Desktop/UNI/Year5/SEM1/FIT4002/Project/Gat-IJ-Plugin/GAT-Java-Plugin/src/main/resources/Neuron_ROIs_ms_28_wk_colon_DAPI__2.zip");
         rm.setVisible(false);
 
 
-        // ── 3) Extract & style AWT ROI‐Manager UI ──────────────
-        java.awt.Panel toolbar = null, checkboxPanel = null;
-        java.awt.List  awtList       = rm.getList();
+        // ── 3) Extract & style the AWT ROI-Manager UI ─────────────────────────────
+        // 3a) get the list of ROI names
+        java.awt.List awtList = rm.getList();
 
+        // 3b) toolbar is always component(0)
+        java.awt.Panel toolbarPanel = null;
+        if (rm.getComponentCount() > 0 && rm.getComponent(0) instanceof java.awt.Panel) {
+            toolbarPanel = (java.awt.Panel)rm.getComponent(0);
+        }
+        // 3c) the remaining Panel is the checkbox panel
+        java.awt.Panel checkboxPanel = null;
         for (Component c : rm.getComponents()) {
-            if (c instanceof java.awt.Panel) {
-                java.awt.Panel p = (java.awt.Panel)c;
-                if (p.getLayout() instanceof FlowLayout) toolbar = p;
-                else                                   checkboxPanel = p;
+            if (c instanceof java.awt.Panel && c != toolbarPanel) {
+                checkboxPanel = (java.awt.Panel)c;
+                break;
             }
         }
+
+
         // apply dark theme
         Color bg = new Color(48,48,48), fg = Color.WHITE;
-        styleAwtPanel(toolbar,       bg, fg);
+        styleAwtPanel(toolbarPanel,       bg, fg);
         awtList .setBackground(bg);
         awtList .setForeground(fg);
         styleAwtPanel(checkboxPanel, bg, fg);
@@ -92,6 +109,7 @@ public class AnalyseNeuronDashboard extends JPanel {
                     Roi r = rm.getRoi(i);
                     if (r.contains(x, y)) {
                         awtList.select(i);
+                        awtList.makeVisible(i);
                         rm.select(i);
                         rebuildOverlay(i);
                         break;
@@ -105,7 +123,7 @@ public class AnalyseNeuronDashboard extends JPanel {
         // wrap them in a Swing panel exactly like the floating window
         JPanel roiWrapper = new JPanel(new BorderLayout());
         roiWrapper.setBorder(BorderFactory.createTitledBorder("ROI Manager"));
-        if (toolbar       != null) roiWrapper.add(toolbar,       BorderLayout.NORTH);
+        if (toolbarPanel       != null) roiWrapper.add(toolbarPanel,       BorderLayout.NORTH);
         roiWrapper.add(awtList,       BorderLayout.CENTER);
         if (checkboxPanel != null) roiWrapper.add(checkboxPanel, BorderLayout.SOUTH);
 
