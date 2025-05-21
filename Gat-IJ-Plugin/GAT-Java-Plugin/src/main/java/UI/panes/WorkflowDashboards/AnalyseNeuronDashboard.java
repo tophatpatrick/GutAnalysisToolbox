@@ -11,9 +11,7 @@ import ij.plugin.frame.RoiManager;
 
 import javax.swing.*;
 import java.awt.*;
-import java.awt.event.ItemEvent;
-import java.awt.event.MouseAdapter;
-import java.awt.event.MouseEvent;
+import java.awt.event.*;
 
 public class AnalyseNeuronDashboard extends JPanel {
     public static final String Name = "Analyse Dashboard";
@@ -41,7 +39,12 @@ public class AnalyseNeuronDashboard extends JPanel {
         this.canvas = imp.getCanvas();
         JScrollPane imgScroll = new JScrollPane(canvas);
         imgScroll.setBorder(BorderFactory.createTitledBorder("Image"));
-        imgScroll.setMinimumSize(new Dimension(400,300));
+        imgScroll.setPreferredSize(new Dimension(
+                imp.getWidth(),
+                imp.getHeight()
+        ));
+        canvas.setBackground(new Color(41, 58, 63, 255));
+
 
         // ── 2) Prepare hidden RoiManager & import ROIs ─────────
         rm1 = RoiManager.getInstance();
