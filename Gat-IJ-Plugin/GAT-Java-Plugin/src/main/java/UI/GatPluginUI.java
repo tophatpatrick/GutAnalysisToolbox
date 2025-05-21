@@ -61,8 +61,9 @@ public class GatPluginUI implements PlugIn {
         cardPanel.add(new NeuronWorkflowPane(navigator,dialog),NeuronWorkflowPane.Name);
         cardPanel.add(new MultiChannelNoHuPane(navigator),MultiChannelNoHuPane.Name);
         cardPanel.add(new MultichannelPane(navigator),MultichannelPane.Name);
-        cardPanel.add(new AnalyseNeuronDashboard(navigator),AnalyseNeuronDashboard.Name);
 
+        // register your dashboard pane
+        cardPanel.add(new AnalyseNeuronDashboard(navigator),AnalyseNeuronDashboard.Name);
 
 
 
@@ -108,4 +109,5 @@ public class GatPluginUI implements PlugIn {
         navigator.show(HomePane.Name);
 
     }
+
 }
