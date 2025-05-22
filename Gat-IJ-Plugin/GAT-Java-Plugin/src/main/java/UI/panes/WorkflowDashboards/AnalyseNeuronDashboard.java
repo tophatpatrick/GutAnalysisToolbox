@@ -29,7 +29,7 @@ public class AnalyseNeuronDashboard extends JPanel {
         setBorder(BorderFactory.createEmptyBorder(5,5,5,5));
 
         // ── 1) Load & show the image ────────────────────────────
-        this.imp = IJ.openImage("/Users/miles/Desktop/UNI/Year5/SEM1/FIT4002/Project/Gat-IJ-Plugin/GAT-Java-Plugin/src/main/resources/MAX_ms_28_wk_colon_DAPI__2.tif");
+        this.imp = IJ.openImage("Path to the tif image");
         imp.show();                         // registers it with WindowManager
         // now grab its real window and hide it
         Frame imgWin = imp.getWindow();
@@ -54,7 +54,7 @@ public class AnalyseNeuronDashboard extends JPanel {
         }
         rm = rm1;
         rm.reset();
-        rm.runCommand("Open", "/Users/miles/Desktop/UNI/Year5/SEM1/FIT4002/Project/Gat-IJ-Plugin/GAT-Java-Plugin/src/main/resources/Neuron_ROIs_ms_28_wk_colon_DAPI__2.zip");
+        rm.runCommand("Open", "Corresponding ROI zip");
         rm.setVisible(false);
 
 
