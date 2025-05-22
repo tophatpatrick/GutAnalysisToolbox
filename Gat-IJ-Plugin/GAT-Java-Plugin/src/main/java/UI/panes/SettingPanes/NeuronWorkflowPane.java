@@ -63,16 +63,24 @@ public class NeuronWorkflowPane extends JPanel {
     private JPanel createBasicTab() {
         JPanel panel = new JPanel();
         panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
-        panel.add(Box.createVerticalStrut(10));
+//        panel.add(Box.createVerticalStrut(1));
 
-        panel.add(new JLabel("Image Selection"));
-        panel.add(Box.createVerticalStrut(5));
+//        JLabel imageLabel = new JLabel("Image Selection");
+//        imageLabel.setFont(new Font("SansSerif", Font.BOLD, 16));  // Bold, size 16
+//        imageLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
+//        panel.add(imageLabel);
+        JPanel labelWrapper = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
+        JLabel imageLabel = new JLabel("Image Selection");
+        imageLabel.setFont(new Font("SansSerif", Font.BOLD, 16));
+        labelWrapper.add(imageLabel);
+        panel.add(labelWrapper);
+//        panel.add(Box.createVerticalStrut(1));
 
         // Image path row with inline Browse and Preview buttons
-        JPanel imageRow = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        JPanel imageRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
         imageRow.add(new JLabel("Choose the image to segment:"));
 
-        JTextField imagePath = new JTextField(30);
+        JTextField imagePath = new JTextField(25);
         imageRow.add(imagePath);
 
         JButton browse = new JButton("Browse");
@@ -133,7 +141,7 @@ public class NeuronWorkflowPane extends JPanel {
             }
         });
 
-        panel.add(Box.createVerticalStrut(10));
+//        panel.add(Box.createVerticalStrut(1));
 
         // Channel hue selection
         JPanel hueRow = new JPanel(new FlowLayout(FlowLayout.LEFT));
@@ -150,13 +158,20 @@ public class NeuronWorkflowPane extends JPanel {
         panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
 
         panel.add(Box.createVerticalStrut(10));
-        panel.add(new JLabel("Determine Ganglia Outline"));
+
+        JLabel titleLabel = new JLabel("Determine Ganglia Outline");
+        titleLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
+        panel.add(titleLabel);
 
         JCheckBox cellCounts = new JCheckBox("Cell counts per ganglia");
+        cellCounts.setAlignmentX(Component.LEFT_ALIGNMENT);
         panel.add(cellCounts);
 
-        panel.add(new JLabel("Ganglia detection"));
+        JLabel detectionLabel = new JLabel("Ganglia detection");
+        detectionLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
+        panel.add(detectionLabel);
 
+        // Radio buttons in a single row
         ButtonGroup detectionGroup = new ButtonGroup();
         JRadioButton deepImageJ = new JRadioButton("DeepImageJ");
         JRadioButton defineHu = new JRadioButton("Define ganglia using Hu");
@@ -166,19 +181,31 @@ public class NeuronWorkflowPane extends JPanel {
         detectionGroup.add(defineHu);
         detectionGroup.add(manual);
 
-        panel.add(deepImageJ);
-        panel.add(defineHu);
-        panel.add(manual);
+        JPanel radioRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
+        radioRow.setAlignmentX(Component.LEFT_ALIGNMENT);
+        radioRow.setBorder(BorderFactory.createEmptyBorder(0, 0, 0, 0));
+        radioRow.add(deepImageJ);
+        radioRow.add(defineHu);
+        radioRow.add(manual);
+        panel.add(radioRow);
 
-        JPanel channelRow = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        // Channel input row
+        JPanel channelRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
+        channelRow.setAlignmentX(Component.LEFT_ALIGNMENT);
+        channelRow.setBorder(BorderFactory.createEmptyBorder(0, 0, 0, 0));
         channelRow.add(new JLabel("Enter channel number for segmenting ganglia:"));
         JTextField channelInput = new JTextField("2", 3);
         channelRow.add(channelInput);
         panel.add(channelRow);
 
+        // Checkboxes
         JCheckBox spatialAnalysis = new JCheckBox("Perform Spatial Analysis");
         JCheckBox fineTune = new JCheckBox("Finetune Detection Parameters");
         JCheckBox contribute = new JCheckBox("Contribute to GAT");
+
+        spatialAnalysis.setAlignmentX(Component.LEFT_ALIGNMENT);
+        fineTune.setAlignmentX(Component.LEFT_ALIGNMENT);
+        contribute.setAlignmentX(Component.LEFT_ALIGNMENT);
 
         panel.add(spatialAnalysis);
         panel.add(fineTune);
