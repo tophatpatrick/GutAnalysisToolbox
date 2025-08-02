@@ -29,7 +29,7 @@ public class AnalyseNeuronDashboard extends JPanel {
         setBorder(BorderFactory.createEmptyBorder(5,5,5,5));
 
         // ── 1) Load & show the image ────────────────────────────
-        this.imp = IJ.openImage("placeImageHere");
+        this.imp = IJ.openImage("/Users/miles/Desktop/UNI/Year5/SEM1/FIT4002/Project/Gat-IJ-Plugin/GAT-Java-Plugin/target/classes/MAX_ms_28_wk_colon_DAPI__2.tif");
         imp.show();                         // registers it with WindowManager
         // now grab its real window and hide it
         Frame imgWin = imp.getWindow();
@@ -54,7 +54,7 @@ public class AnalyseNeuronDashboard extends JPanel {
         }
         rm = rm1;
         rm.reset();
-        rm.runCommand("Open", "PlaceRoiziphere");
+        rm.runCommand("Open", "/Users/miles/Desktop/UNI/Year5/SEM1/FIT4002/Project/Gat-IJ-Plugin/GAT-Java-Plugin/target/classes/Neuron_ROIs_ms_28_wk_colon_DAPI__2.zip");
         rm.setVisible(false);
 
 
@@ -157,12 +157,6 @@ public class AnalyseNeuronDashboard extends JPanel {
 
         add(mainSplit, BorderLayout.CENTER);
 
-        // ── 6) Back button ─────────────────────────────────────
-        JButton back = new JButton("← Back");
-        back.addActionListener(e -> navigator.show(NeuronWorkflowPane.Name));
-        JPanel bottom = new JPanel(new FlowLayout(FlowLayout.LEFT));
-        bottom.add(back);
-        add(bottom, BorderLayout.SOUTH);
     }
 
     /** Utility to style an AWT Panel and its children for dark theme */
