@@ -1,5 +1,6 @@
 package UI.panes.SettingPanes;
 
+import UI.Handlers.AnalysisWindow;
 import UI.Handlers.Navigator;
 import UI.panes.WorkflowDashboards.*;
 
@@ -47,7 +48,16 @@ public class NeuronWorkflowPane extends JPanel {
                 @Override
                 protected void done() {
                     progress.dispose();
-                    navigator.show(AnalyseNeuronDashboard.Name);
+
+
+                    progress.dispose();
+
+                    AnalyseNeuronDashboard dash = new AnalyseNeuronDashboard(navigator);
+
+                    AnalysisWindow popup = AnalysisWindow.get(owner);
+
+                    // 4. Add a new tab
+                    popup.addTab(AnalyseNeuronDashboard.Name, dash, 1000, 1000);
                 }
             };
 
@@ -97,6 +107,21 @@ public class NeuronWorkflowPane extends JPanel {
         // Handle Browse click
         browse.addActionListener(e -> {
             JFileChooser fileChooser = new JFileChooser();
+
+            // Set a custom file filter
+            fileChooser.setFileFilter(new javax.swing.filechooser.FileFilter() {
+                @Override
+                public boolean accept(File f) {
+                    return f.isDirectory() || f.getName().toLowerCase().endsWith(".tif") || f.getName().toLowerCase().endsWith(".tiff");
+                }
+
+                @Override
+                public String getDescription() {
+                    return "TIFF Images (*.tif, *.tiff)";
+                }
+            });
+
+
             int result = fileChooser.showOpenDialog(panel);
             if (result == JFileChooser.APPROVE_OPTION) {
                 String selectedPath = fileChooser.getSelectedFile().getAbsolutePath();
@@ -214,64 +239,3 @@ public class NeuronWorkflowPane extends JPanel {
         return panel;
     }
 }
-
-//package UI.panes.SettingPanes;
-//
-//import UI.Handlers.Navigator;
-//
-//import javax.swing.*;
-//import java.awt.*;
-//import UI.panes.WorkflowDashboards.*;
-//
-//public class NeuronWorkflowPane extends JPanel{
-//
-//    public static final String Name = "Neuron Workflow";
-//
-//    public NeuronWorkflowPane(Navigator navigator, Window owner){
-//        super(new BorderLayout(10,10));
-//        setBorder(BorderFactory.createEmptyBorder(20,20,20,20));
-//
-//
-//        JLabel lbl = new JLabel(
-//                "<html><h2>Neuron Analysis</h2>"
-//                        + "<p>Configure parameters here…</p></html>",
-//                SwingConstants.CENTER
-//        );
-//        add(lbl, BorderLayout.CENTER);
-//
-//        JButton run = new JButton("Run Analysis");
-//
-//        run.addActionListener(e -> {
-//            // 1) build modal progress dialog
-//            JDialog progress = new JDialog(owner, "Processing…", Dialog.ModalityType.APPLICATION_MODAL);
-//            JProgressBar bar = new JProgressBar();
-//            bar.setIndeterminate(true);
-//            progress.add(bar, BorderLayout.CENTER);
-//            progress.setSize(300,80);
-//            progress.setLocationRelativeTo(owner);
-//
-//            // 2) SwingWorker to simulate the analysis
-//            SwingWorker<Void,Void> worker = new SwingWorker<Void,Void>() {
-//                @Override
-//                protected Void doInBackground() throws Exception {
-//                    Thread.sleep(2000);  // simulate 2 s work
-//                    return null;
-//                }
-//                @Override
-//                protected void done() {
-//                    progress.dispose();
-//                    // switch to your dashboard pane
-//                    navigator.show(AnalyseNeuronDashboard.Name);
-//                }
-//            };
-//            worker.execute();
-//            progress.setVisible(true);
-//        });
-//
-//        JPanel btnPanel = new JPanel();
-//        btnPanel.add(run);
-//        add(btnPanel, BorderLayout.SOUTH);
-//
-//
-//    }
-//}

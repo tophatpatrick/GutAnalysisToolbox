@@ -51,9 +51,8 @@ public class GatPluginUI implements PlugIn {
 //        dialog.setPreferredSize(new Dimension(900,550));
         Dimension fixedSize = new Dimension(900, 550);
         dialog.setPreferredSize(fixedSize);
-        dialog.setMinimumSize(fixedSize);  // Optional but helps enforce min size
-        dialog.setMaximumSize(fixedSize);  // Optional
-        dialog.setResizable(false);        // Lock size
+        dialog.setMinimumSize(fixedSize);
+        dialog.setResizable(true);        // Lock size
 
         // Our left toolbar with buttons
         JPanel leftBar = new JPanel();
