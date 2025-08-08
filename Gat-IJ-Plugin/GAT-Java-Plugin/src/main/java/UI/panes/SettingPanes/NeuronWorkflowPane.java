@@ -28,7 +28,7 @@ public class NeuronWorkflowPane extends JPanel {
         this.navigator = navigator;
         this.owner     = owner;
         setBorder(BorderFactory.createEmptyBorder(20,20,20,20));
-        IJ.run("DeepImageJ Run","");
+
 
         JButton run = new JButton("Run Analysis");
         run.addActionListener(e -> {
