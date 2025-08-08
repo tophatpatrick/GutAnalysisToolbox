@@ -67,7 +67,7 @@ public class GatPluginUI implements PlugIn {
         cardPanel.add(new MultichannelPane(navigator),MultichannelPane.Name);
 
         // register your dashboard pane
-        cardPanel.add(new AnalyseNeuronDashboard(navigator),AnalyseNeuronDashboard.Name);
+
 
 
 
@@ -80,6 +80,8 @@ public class GatPluginUI implements PlugIn {
         panes.put(MultiplexPane.Name,       new MultiplexPane(navigator));
         panes.put(ToolsPane.Name,           new ToolsPane(navigator));
         panes.put(SpatialAnalysisPane.Name, new SpatialAnalysisPane(navigator));
+
+
 
         //Register the panes in the card panel and create the button
         for (Map.Entry<String, JPanel> e: panes.entrySet()){
