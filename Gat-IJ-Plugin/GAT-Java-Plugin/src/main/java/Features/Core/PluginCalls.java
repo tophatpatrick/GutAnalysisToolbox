@@ -3,12 +3,19 @@ package Features.Core;
 
 import ij.IJ;
 import ij.ImagePlus;
+import ij.plugin.frame.RoiManager;
+
 import java.text.DecimalFormat;
 import java.util.Locale;
 
+import static javax.print.attribute.standard.MediaTray.MANUAL;
+
 /** Tiny wrappers for plugin calls via IJ.run(...) */
 public final class PluginCalls {
-    private static final DecimalFormat DF = new DecimalFormat("0.######");
+    private static final DecimalFormat DF =
+            new DecimalFormat("0.######",
+                    java.text.DecimalFormatSymbols.getInstance(java.util.Locale.US));
+
 
     private PluginCalls() {}
 
@@ -18,22 +25,34 @@ public final class PluginCalls {
         return IJ.getImage();
     }
 
-    /** PLUGIN: StarDist 2D -> Label Image. */
+    public static int suggestTiles(int w, int h, double scaleFactor) {
+        int newW = (int)Math.round(w * scaleFactor);
+        int newH = (int)Math.round(h * scaleFactor);
+        int n = 4;
+        if (newW > 2000 || newH > 2000) n = 5;
+        if (newW > 4500 || newH > 4500) n = 8;
+        if (newW > 9000 || newH > 9000) n = 16;
+        if (newW > 15000 || newH > 15000) n = 24;
+        return n;
+    }
+
     public static ImagePlus runStarDist2DLabel(ImagePlus input, String modelZip, double prob, double nms) {
         input.show();
+        int nTiles = suggestTiles(input.getWidth(), input.getHeight(), 1.0); // or scaleFactor used for segInput
         String args =
                 "input=[" + input.getTitle() + "] " +
                         "modelChoice=[Model (.zip) from File] " +
                         "modelFile=[" + modelZip + "] " +
                         "normalizeInput=true percentileBottom=1.0 percentileTop=99.8 " +
                         "probThresh=" + DF.format(prob) + " nmsThresh=" + DF.format(nms) + " " +
-                        "outputType=[Label Image] nTiles=auto excludeBoundary=2 roiPosition=Automatic " +
+                        "outputType=[Label Image] nTiles=" + nTiles + " excludeBoundary=2 roiPosition=Automatic " +
                         "verbose=false showCsbdeepProgress=false showProbAndDist=false";
         IJ.run("StarDist 2D", args);
         ImagePlus label = IJ.getImage();
         label.setCalibration(input.getCalibration());
         return label;
     }
+
 
     /** PLUGIN: MorphoLibJ Remove Border Labels. */
     public static ImagePlus removeBorderLabels(ImagePlus labels) {
@@ -91,4 +110,30 @@ public final class PluginCalls {
     public static double um2ToPx2(double um2, double pxUm) {
         return um2 / (pxUm * pxUm);
     }
+
+    public static ImagePlus roisToLabels(ImagePlus ref, RoiManager rm) {
+        ref.show();
+        IJ.selectWindow(ref.getID());
+        try {
+            IJ.run(ref, "ROI Manager to Label Image", ""); // common name
+        } catch (Throwable t1) {
+            try {
+                IJ.run(ref, "ROI Manager to Label Map", ""); // alt name on some builds
+            } catch (Throwable t2) {
+                IJ.log("[IJPB] ROI→Labels command not found. Enable IJPB-Plugins update site.");
+                return null;
+            }
+        }
+        ImagePlus out = IJ.getImage();
+        out.setCalibration(ref.getCalibration());
+        return out;
+    }
+
+    public static void loadRoiZip(RoiManager rm, String zipPath) {
+        if (rm == null) return;
+        rm.reset();
+        rm.runCommand("Open", zipPath);
+    }
+
+
 }
