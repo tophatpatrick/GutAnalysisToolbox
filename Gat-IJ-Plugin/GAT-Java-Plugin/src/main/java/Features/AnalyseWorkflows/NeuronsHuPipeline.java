@@ -2,8 +2,8 @@ package Features.AnalyseWorkflows;
 
 import ij.IJ;
 import ij.ImagePlus;
-import ij.plugin.frame.RoiManager;
 import ij.measure.Calibration;
+import ij.plugin.frame.RoiManager;
 
 import Features.Core.Params;
 import Features.Core.PluginCalls;
@@ -15,66 +15,65 @@ import java.io.File;
 public class NeuronsHuPipeline {
 
     public void run(Params p) {
-        if (p.stardistModelZip == null || !(new File(p.stardistModelZip).isFile())) {
-            throw new IllegalArgumentException("StarDist model not found: " + p.stardistModelZip);
+        // 0) Basic validation
+        if (p.neuronDeepImageJModelDir == null || !(new File(p.neuronDeepImageJModelDir).isDirectory())) {
+            throw new IllegalArgumentException("DeepImageJ neuron model folder not found: " + p.neuronDeepImageJModelDir);
         }
 
-        // 1) Open image (Bio-Formats if path provided).
+        // 1) Open image (Bio-Formats if path provided)
         ImagePlus imp = (p.imagePath == null) ? IJ.getImage() : PluginCalls.openWithBioFormats(p.imagePath);
         if (imp == null) throw new IllegalStateException("No image available.");
 
         String baseName = stripExt(imp.getTitle());
         File outDir = OutputIO.prepareOutputDir(p.outputDir, imp, baseName);
 
-        // 2) Calibration check.
+        // 2) Calibration check
         Calibration cal = imp.getCalibration();
         if (p.requireMicronUnits && !PluginCalls.isMicronUnit(cal.getUnit()))
             throw new IllegalStateException("Image must be calibrated in microns. Unit: " + cal.getUnit());
-        double pxUm = cal.pixelWidth;
+        double pxUm = cal.pixelWidth; // assume square pixels
 
-        // 3) Projection.
+        // 3) Projection
         ImagePlus max = (imp.getNSlices() > 1)
                 ? (p.useClij2EDF ? PluginCalls.clij2EdfVariance(imp) : ImageOps.mip(imp))
                 : imp.duplicate();
         max.setTitle("MAX_" + baseName);
 
-        // 4) Extract Hu channel.
+        // 4) Extract Hu channel (1-based)
         ImagePlus hu = ImageOps.extractChannel(max, p.huChannel);
         hu.setTitle(p.cellTypeName + "_segmentation");
 
-        // 5) Optional rescale to model resolution.
-        double scaleFactor = 1.0;
-        if (p.rescaleToTrainingPx && pxUm > 0) {
-            scaleFactor = pxUm / p.trainingPixelSizeUm;
-            if (Math.abs(scaleFactor - 1.0) < 1e-3) scaleFactor = 1.0;
-        }
+        // 5) Optional rescale to training resolution (faithful to macro: interpolation=None)
+        double targetPx = p.trainingPixelSizeUm / Math.max(1e-9, p.scale); // macro uses training_pixel_size/scale
+        double scaleFactor = (p.rescaleToTrainingPx && pxUm > 0) ? (pxUm / targetPx) : 1.0;
+        if (Math.abs(scaleFactor - 1.0) < 1e-3) scaleFactor = 1.0;
+
         ImagePlus segInput = (scaleFactor == 1.0)
                 ? hu
-                : ImageOps.resizeToIntensity(hu, (int)Math.round(hu.getWidth()*scaleFactor), (int)Math.round(hu.getHeight()*scaleFactor));
+                : ImageOps.resizeTo(hu, (int)Math.round(hu.getWidth()*scaleFactor), (int)Math.round(hu.getHeight()*scaleFactor));
 
-        // 6) StarDist 2D -> label image.
-        ImagePlus labels = PluginCalls.runStarDist2DLabel(segInput, p.stardistModelZip, p.probThresh, p.nmsThresh);
+        // 6) DeepImageJ → model’s stardist_postprocessing.ijm (prob, overlap) → label image
+        ImagePlus labels = PluginCalls.runDeepImageJNeuronLabel(segInput, new File(p.neuronDeepImageJModelDir), p.probThresh, p.nmsOverlap);
 
-        // 7) Remove border labels + size filtering (area in px²).
-        double effPxUm = segInput.getCalibration().pixelWidth;
-        Double minPx2 = (p.minNeuronAreaUm2 != null) ? PluginCalls.um2ToPx2(p.minNeuronAreaUm2, effPxUm) : null;
-        Double maxPx2 = (p.maxNeuronAreaUm2 != null) ? PluginCalls.um2ToPx2(p.maxNeuronAreaUm2, effPxUm) : null;
-
+        // 7) Remove border labels
         labels = PluginCalls.removeBorderLabels(labels);
-        labels = PluginCalls.labelSizeFilter(labels, minPx2, maxPx2);
 
-        // 8) Scale labels back to MAX size if we scaled.
+        // 8) Scale labels back to MAX size (macro does this before size filter)
         if (labels.getWidth() != max.getWidth() || labels.getHeight() != max.getHeight()) {
             labels = ImageOps.resizeTo(labels, max.getWidth(), max.getHeight());
         }
 
-        // 9) Labels -> ROIs (fills ROI Manager).
+        // 9) Size filtering (faithful to macro): minSizePx = microns / pixelWidth (NOT µm²)
+        int minSizePx = (p.neuronSegMinMicron != null && pxUm > 0) ? (int)Math.max(1, Math.round(p.neuronSegMinMicron / pxUm)) : 1;
+        labels = PluginCalls.labelMinSizeFilterPx(labels, minSizePx);
+
+        // 10) Labels -> ROIs
         RoiManager rm = RoiManager.getInstance2();
         rm.reset();
         PluginCalls.labelsToRois(labels);
         int nHu = rm.getCount();
 
-        // 10) Save outputs.
+        // 11) Save outputs
         OutputIO.saveRois(rm, new File(outDir, p.cellTypeName + "_unmodified_ROIs_" + baseName + ".zip"));
         OutputIO.saveRois(rm, new File(outDir, p.cellTypeName + "_ROIs_" + baseName + ".zip"));
         labels.setTitle(p.cellTypeName + "_label_MAX_" + baseName);

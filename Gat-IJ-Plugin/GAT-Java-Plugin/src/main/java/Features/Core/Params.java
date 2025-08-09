@@ -3,40 +3,43 @@ package Features.Core;
 
 public class Params {
     /** If null, uses current image in Fiji. */
-    public String imagePath = null;
+    // Input/output
+    public String imagePath = null;       // if null, uses current ImageJ active image
+    public String outputDir = null;       // parent output dir (optional). We will create Analysis/<baseName> inside
 
     /** 1-based channel index for Hu segmentation. */
     public int huChannel = 1;
 
+
     /** StarDist 2D model (.zip) for neurons. */
     public String stardistModelZip;
 
-    /** Model training pixel size (um/pixel). */
-    public double trainingPixelSizeUm = 0.568;
+    // Rescaling to model training resolution (faithful to macro)
+    public boolean rescaleToTrainingPx = true;
+    public double trainingPixelSizeUm = 0.568; // matches your settings
+    public double scale = 1.0;                 // macro “Rescaling Factor” knob (default 1.0)
 
-    /** StarDist thresholds. */
-    public double probThresh = 0.50;
-    public double nmsThresh  = 0.40;
-
-    /** Min/Max neuron area (um^2) for label filtering. */
-    public Double minNeuronAreaUm2 = 90.0;
-    public Double maxNeuronAreaUm2 = 1500.0;
+    // DeepImageJ model dir (folder)
+    public String neuronDeepImageJModelDir; // e.g. <Fiji>/models/2D_enteric_neuron.bioimage.io.model
 
     /** If true and Z>1, use CLIJ2 EDF; else MIP. */
     public boolean useClij2EDF = false;
 
-    /** Rescale Hu channel to training pixel size before running the model. */
-    public boolean rescaleToTrainingPx = true;
 
     /** Require microns/um calibration. */
     public boolean requireMicronUnits = true;
 
-    /** Output directory; null => Analysis/<basename> next to image. */
-    public String outputDir = null;
+    // Post-processing knobs (macro names: prob_neuron, overlap_neuron)
+    public double probThresh = 0.5;
+    public double nmsOverlap = 0.3;
+
 
     /** Save flattened overlay image with ROIs. */
     public boolean saveFlattenedOverlay = true;
 
     /** For labels/CSVs. */
-    public String cellTypeName = "Hu";
+    public String cellTypeName = "Neuron";
+
+    // Size filter (faithful to macro’s conversion: microns ÷ pixelWidth)
+    public Double neuronSegMinMicron = 70.0; // “neuron_seg_lower_limit” in microns
 }

@@ -3,81 +3,77 @@ package Features.Tools;
 import ij.IJ;
 import ij.ImagePlus;
 import ij.gui.Overlay;
-import ij.gui.Roi;
 import ij.plugin.frame.RoiManager;
+import ij.io.FileInfo;
 
-import java.io.File;
-import java.io.FileWriter;
-import java.nio.file.Files;
+import java.io.*;
 
 public final class OutputIO {
-    private OutputIO() {}
+    private OutputIO(){}
 
-    public static File prepareOutputDir(String outputDir, ImagePlus imp, String baseName) {
-        File dir = (outputDir == null)
-                ? new File(
-                imp != null && imp.getOriginalFileInfo() != null && imp.getOriginalFileInfo().directory != null
-                        ? imp.getOriginalFileInfo().directory
-                        : System.getProperty("user.home"),
-                "Analysis" + File.separator + baseName)
-                : new File(outputDir);
-        try { Files.createDirectories(dir.toPath()); } catch (Exception ignored) {}
-        return dir;
+    public static File prepareOutputDir(String explicitParent, ImagePlus imp, String baseName) {
+        // 1) Resolve parent dir
+        File parent;
+        if (explicitParent != null && !explicitParent.trim().isEmpty()) {
+            parent = new File(explicitParent);
+        } else {
+            FileInfo fi = imp.getOriginalFileInfo();
+            if (fi != null && fi.directory != null && !fi.directory.trim().isEmpty()) {
+                parent = new File(fi.directory);
+            } else {
+                String fallback = IJ.getDirectory("image");
+                parent = new File(fallback != null ? fallback : System.getProperty("user.home"));
+            }
+        }
+
+        // 2) Analysis/<baseName> with mkdirs() checks
+        File analysis = new File(parent, "Analysis");
+        if (!analysis.exists() && !analysis.mkdirs()) {
+            throw new IllegalStateException("Failed to create dir: " + analysis.getAbsolutePath());
+        }
+
+        File out = uniqueDir(new File(analysis, baseName));
+        if (!out.exists() && !out.mkdirs()) {
+            throw new IllegalStateException("Failed to create dir: " + out.getAbsolutePath());
+        }
+
+        return out;
+    }
+
+    private static File uniqueDir(File target) {
+        if (!target.exists()) return target;
+        int k = 1;
+        while (true) {
+            File t = new File(target.getParentFile(), target.getName() + "_" + k);
+            if (!t.exists()) return t;
+            k++;
+        }
+    }
+
+    public static void saveRois(RoiManager rm, File zip) {
+        rm.runCommand("Save", zip.getAbsolutePath());
     }
 
     public static void saveTiff(ImagePlus imp, File out) {
-        IJ.saveAsTiff(imp, out.getAbsolutePath());
+        IJ.saveAsTiff(imp.duplicate(), out.getAbsolutePath());
     }
 
-    public static void saveRois(RoiManager rm, File outZip) {
-        if (rm == null) return;
-        rm.runCommand("Save", outZip.getAbsolutePath());
+    public static void saveFlattenedOverlay(ImagePlus base, RoiManager rm, File out) {
+        ImagePlus dup = base.duplicate();
+        rm.runCommand(dup, "Show All with labels");
+        Overlay ov = dup.getOverlay();
+        if (ov != null) dup.setOverlay(ov);
+        IJ.run(dup, "Flatten", "");
+        IJ.saveAsTiff(dup, out.getAbsolutePath());
+        dup.close();
     }
 
-    public static void saveFlattenedOverlay(ImagePlus base, RoiManager rm, File outTif) {
-        if (base == null) return;
-
-        Roi[] rois = getRoisSafe(rm);
-
-        // Preserve any existing overlay
-        Overlay old = base.getOverlay();
-        try {
-            Overlay overlay = null;
-            if (rois.length > 0) {
-                overlay = new Overlay();
-                for (Roi r : rois) {
-                    if (r != null) overlay.add((Roi) r.clone());
-                }
-            }
-            base.setOverlay(overlay);
-            ImagePlus flat = base.flatten();
-            IJ.saveAs(flat, "Tiff", outTif.getAbsolutePath());
-            flat.close();
-        } finally {
-            base.setOverlay(old);
-        }
-    }
-
-    private static Roi[] getRoisSafe(RoiManager rm) {
-        if (rm == null) return new Roi[0];
-        try {
-            // Correct method name/case
-            return rm.getRoisAsArray();
-        } catch (Throwable t) {
-            // Back-compact fallback
-            int n = rm.getCount();
-            Roi[] arr = new Roi[n];
-            for (int i = 0; i < n; i++) arr[i] = rm.getRoi(i);
-            return arr;
-        }
-    }
-
-    public static void writeCountsCsv(File outCsv, String baseName, String cellType, int total) {
-        try (FileWriter fw = new FileWriter(outCsv)) {
-            fw.write("File name,Total " + cellType + "\n");
-            fw.write(baseName + "," + total + "\n");
-        } catch (Exception e) {
-            IJ.handleException(e);
+    public static void writeCountsCsv(File csv, String baseName, String cellType, int count) {
+        try (PrintWriter pw = new PrintWriter(new FileWriter(csv))) {
+            pw.println("File name,Total " + cellType);
+            pw.println(baseName + "," + count);
+        } catch (IOException e) {
+            IJ.log("Failed writing CSV: " + e.getMessage());
         }
     }
 }

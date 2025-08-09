@@ -34,14 +34,7 @@ public final class ImageOps {
         return dup;
     }
 
-    /** Resize by factor (no interpolation), update calibration accordingly. */
-    public static ImagePlus resizeBy(ImagePlus src, double factor) {
-        int newW = (int) Math.round(src.getWidth() * factor);
-        int newH = (int) Math.round(src.getHeight() * factor);
-        return resizeTo(src, newW, newH);
-    }
-
-    /** Resize to width/height (no interpolation), update calibration. */
+    /** Resize to W×H with interpolation=None (faithful to macro), and update calibration accordingly. */
     public static ImagePlus resizeTo(ImagePlus src, int newW, int newH) {
         IJ.run(src, "Scale...", "x=- y=- width=" + newW + " height=" + newH + " interpolation=None create");
         ImagePlus out = IJ.getImage();
@@ -52,13 +45,5 @@ public final class ImageOps {
         return out;
     }
 
-    public static ImagePlus resizeToIntensity(ImagePlus src, int newW, int newH) {
-        IJ.run(src, "Scale...", "x=- y=- width=" + newW + " height=" + newH + " interpolation=Bilinear create");
-        ImagePlus out = IJ.getImage();
-        ij.measure.Calibration cal = src.getCalibration().copy();
-        cal.pixelWidth  = cal.pixelWidth  * src.getWidth()  / out.getWidth();
-        cal.pixelHeight = cal.pixelHeight * src.getHeight() / out.getHeight();
-        out.setCalibration(cal);
-        return out;
-    }
+
 }
