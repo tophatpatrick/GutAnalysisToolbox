@@ -44,4 +44,25 @@ public class Params {
 
     // Size filter (faithful to macro’s conversion: microns ÷ pixelWidth)
     public Double neuronSegMinMicron = 70.0; // “neuron_seg_lower_limit” in microns
+
+
+    // Ganglia analysis toggle + mode
+    public boolean cellCountsPerGanglia = false;
+
+    public enum GangliaMode { DEEPIMAGEJ, DEFINE_FROM_HU, MANUAL, IMPORT_ROI }
+    public GangliaMode gangliaMode = GangliaMode.DEEPIMAGEJ;
+
+    // Channels & models
+    public int gangliaChannel = 1;                 // 1-based (required for DEEPIMAGEJ)
+    public String gangliaModelFolderOrYaml = "";   // e.g. Fiji/models/2D_Ganglia_RGB_v2.bioimage.io.model
+
+    // 'Define using Hu' options
+    public double huDilationMicron = 12.0;         // radius to grow somata before union
+
+    // Custom ROI
+    public String customGangliaRoiZip = null;
+    public String gangliaModelPath = null;
 }
+
+
+

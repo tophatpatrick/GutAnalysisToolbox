@@ -43,7 +43,7 @@ public final class PluginCalls {
     /** MorphoLibJ: Label Image -> ROIs */
     public static void labelsToRois(ImagePlus labels) {
         labels.show();
-        // MorphoLibJ "Label Map to ROIs" options to suppress the dialog
+        // MorphoLibJ "Label Map to ROIs"
         String opts = "Connectivity=C4 Vertex Location=Corners Name Pattern=r%03d";
 
         IJ.run(labels, "Label Map to ROIs", opts);
@@ -129,6 +129,75 @@ public final class PluginCalls {
         }
         return lab2d;
     }
+
+    /** Build RGB composite: G = ganglia marker, M = Hu (as in macro). */
+    public static ImagePlus buildGangliaRGB(ImagePlus max, int gangliaC, int huC) {
+        ImagePlus g = Features.Tools.ImageOps.extractChannel(max, gangliaC);
+        ImagePlus h = Features.Tools.ImageOps.extractChannel(max, huC);
+        g.show(); IJ.run(g, "Green", "");
+        h.show(); IJ.run(h, "Magenta", "");
+        IJ.run("Merge Channels...", "c1=[" + g.getTitle() + "] c2=[" + h.getTitle() + "] create");
+        ImagePlus comp = IJ.getImage();
+        IJ.run(comp, "RGB Color", "");
+        // cleanup
+        g.changes = false; g.close();
+        h.changes = false; h.close();
+        return comp;
+    }
+
+    /** DeepImageJ run that returns the active output (no dialog). */
+    public static ImagePlus runDeepImageJ(ImagePlus input, String modelFolderOrYaml) {
+        input.show(); IJ.selectWindow(input.getID());
+        File yaml = resolveDIJYaml(modelFolderOrYaml);
+        String args = "modelPath=[" + yaml.getAbsolutePath() + "] inputPath=null outputFolder=null displayOutput=all";
+        IJ.run("DeepImageJ Run", args);
+        ImagePlus out = IJ.getImage();
+        out.setCalibration(input.getCalibration());
+        return out;
+    }
+
+    private static File resolveDIJYaml(String userPath) {
+        File f = new File(userPath);
+        if (f.isDirectory()) {
+            File y = new File(f, "rdf.yaml");
+            if (!y.isFile()) y = new File(f, "model.yaml");
+            if (!y.isFile()) throw new IllegalArgumentException("No rdf.yaml/model.yaml in: " + f);
+            return y;
+        }
+        return f;
+    }
+
+
+
+    /** From a BINARY mask -> label image (connected components). */
+    public static ImagePlus binaryToLabels(ImagePlus binary) {
+        // ensure 8-bit mask
+        binary.show();
+        IJ.run(binary, "Convert to Mask", "");
+        // 2D connected components → label image
+        IJ.run(binary, "Connected Components Labeling", "connectivity=8");
+        ImagePlus labels = IJ.getImage();
+        labels.setCalibration(binary.getCalibration());
+        return labels;
+    }
+
+    /** Fill ROIs into a blank mask with same size as ref. */
+    public static ImagePlus roisToBinary(ImagePlus ref, RoiManager rm) {
+        ImagePlus mask = IJ.createImage("ganglia_binary", "8-bit black",
+                ref.getWidth(), ref.getHeight(), 1);
+        mask.setCalibration(ref.getCalibration());
+        mask.show();
+        IJ.run(mask, "Select None", "");
+        rm.runCommand(mask, "Show All without labels");
+        rm.runCommand(mask, "Deselect");
+        rm.runCommand(mask, "Measure"); // no-op, just ensure manager is bound
+        rm.runCommand(mask, "Fill");
+        IJ.run(mask, "Select None", "");
+        return mask;
+    }
+
+
+
 
 
 }

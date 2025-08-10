@@ -76,4 +76,20 @@ public final class OutputIO {
             IJ.log("Failed writing CSV: " + e.getMessage());
         }
     }
+
+    public static void writeGangliaCsv(File out, int[] counts, double[] areaUm2) {
+        try (java.io.PrintWriter pw = new java.io.PrintWriter(out)) {
+            pw.println("ganglion_id,neuron_count,area_um2");
+            int n = Math.max(counts.length, areaUm2.length);
+            for (int gid = 1; gid < n; gid++) {
+                int c = (gid < counts.length) ? counts[gid] : 0;
+                double a = (gid < areaUm2.length) ? areaUm2[gid] : 0.0;
+                // skip empty ganglia if you want
+                if (c == 0 && a == 0) continue;
+                pw.printf(java.util.Locale.US, "%d,%d,%.6f%n", gid, c, a);
+            }
+        } catch (Exception e) {
+            ij.IJ.handleException(e);
+        }
+    }
 }

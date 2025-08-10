@@ -41,31 +41,21 @@ public class GatPluginUI implements PlugIn {
     public void run(String arg){
         SwingUtilities.invokeLater(this::buildAndShow);
 
-        GenericDialog gd = new GenericDialog("Analyse Neurons (DeepImageJ) - Test");
-        gd.addStringField("Image path (leave blank to use active image):", "/Users/miles/Desktop/UNI/Year5/SEM2/FIT4002/Testing/ms_28_wk_colon_DAPI_nNOS_Hu_10X.tif");
-        gd.addNumericField("Hu channel (1-based):", 3, 0);
-        gd.addStringField(
-                "DeepImageJ neuron model folder:",
-                new File(new File(IJ.getDirectory("imagej"), "models"), "2D_enteric_neuron_v4_1.zip").getAbsolutePath()
-        );
-        gd.addNumericField("Training pixel size (um/pixel):", 0.568, 3);
-        gd.addNumericField("Probability:", 0.5, 3);
-        gd.addNumericField("Overlap:", 0.3, 3);
-        gd.addNumericField("Min neuron size (microns):", 70, 1);
-        gd.showDialog();
-        if (gd.wasCanceled()) return;
 
         Params p = new Params();
-        p.imagePath = gd.getNextString();
-        p.huChannel = (int) gd.getNextNumber();
-        p.stardistModelZip = gd.getNextString();
-        p.trainingPixelSizeUm = gd.getNextNumber();
-        p.probThresh = gd.getNextNumber();
-        p.nmsThresh = gd.getNextNumber();
-        p.neuronSegMinMicron = gd.getNextNumber();
+        p.imagePath = "/Users/miles/Desktop/UNI/Year5/SEM2/FIT4002/Testing/ms_28_wk_colon_DAPI_nNOS_Hu_10X.tif";
+        p.huChannel = 3;
+        p.stardistModelZip = new File(new File(IJ.getDirectory("imagej"), "models"), "2D_enteric_neuron_v4_1.zip").getAbsolutePath();
+        p.trainingPixelSizeUm = 0.568;
+        p.probThresh = 0.5;
+        p.nmsThresh = 0.3;
+        p.neuronSegMinMicron = 70.0;
         p.saveFlattenedOverlay = true;
         p.rescaleToTrainingPx = true;
         p.useClij2EDF = false;
+        p.cellCountsPerGanglia = true;
+        p.gangliaMode = Params.GangliaMode.DEFINE_FROM_HU;
+        p.huDilationMicron = 12.0;
 
         new NeuronsHuPipeline().run(p);
     }

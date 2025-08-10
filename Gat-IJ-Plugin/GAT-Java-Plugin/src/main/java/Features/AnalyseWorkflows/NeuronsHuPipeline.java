@@ -89,6 +89,36 @@ public class NeuronsHuPipeline {
         PluginCalls.labelsToRois(labels);
         int nHu = rm.getCount();
 
+        // --- Ganglia (optional) ---
+        if (p.cellCountsPerGanglia) {
+            // A) Segment ganglia labels (method chosen in Params)
+            ImagePlus gangliaLabels = GangliaOps.segment(p, max, labels);
+
+            // B) Clean borders (safe 2D)
+            gangliaLabels = PluginCalls.removeBorderLabels(gangliaLabels);
+
+            // C) Save ganglia label image
+            gangliaLabels.setTitle("Ganglia_label_MAX_" + baseName);
+            OutputIO.saveTiff(gangliaLabels, new File(outDir, gangliaLabels.getTitle() + ".tif"));
+
+            // D) Convert to ROIs and save
+            RoiManager rmG = RoiManager.getInstance2();
+            rmG.reset();
+            PluginCalls.labelsToRois(gangliaLabels);
+            OutputIO.saveRois(rmG, new File(outDir, "Ganglia_ROIs_" + baseName + ".zip"));
+            if (p.saveFlattenedOverlay && rmG.getCount() > 0) {
+                OutputIO.saveFlattenedOverlay(max, rmG, new File(outDir, "MAX_" + baseName + "_ganglia_overlay.tif"));
+            }
+
+            // E) Counts per ganglion (centroid-in-label sampling)
+            GangliaOps.Result r = GangliaOps.countPerGanglion(labels, gangliaLabels);
+            OutputIO.writeGangliaCsv(new File(outDir, "Analysis_Ganglia_" + baseName + "_counts.csv"),
+                    r.countsPerGanglion, r.areaUm2);
+
+            IJ.log("Ganglia analysis complete.");
+        }
+
+
         // ==== 10) Save outputs (faithful names/locations) ====
         OutputIO.saveRois(rm, new File(outDir, p.cellTypeName + "_unmodified_ROIs_" + baseName + ".zip"));
         OutputIO.saveRois(rm, new File(outDir, p.cellTypeName + "_ROIs_" + baseName + ".zip"));
