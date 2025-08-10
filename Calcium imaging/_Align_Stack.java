@@ -41,7 +41,7 @@ import java.io.File;
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN 
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-public class Stack_Alignment_Plugin implements PlugIn {
+public class _Align_Stack implements PlugIn {
     
     // Plugin params
     private boolean useSift = true;
