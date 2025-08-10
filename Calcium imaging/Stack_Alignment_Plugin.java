@@ -200,4 +200,145 @@ public class Stack_Alignment_Plugin implements PlugIn {
         processAlignment(channelImp, imgName, sizeX, sizeY, sizeT, directory);
     }
     
+    /**
+     * Process single channel stack
+     */
+    private void processSingleChannelStack(ImagePlus imp, String nameWithoutExt, 
+                                         int sizeX, int sizeY, int sizeT, String directory) {
+        processAlignment(imp, nameWithoutExt, sizeX, sizeY, sizeT, directory);
+    }
     
+    /**
+     * Close other channels except the selected one
+     */
+    private void closeOtherChannels(String baseName, int keepChannel, int totalChannels) {
+        for (int i = 1; i <= totalChannels; i++) {
+            if (i != keepChannel) {
+                ImagePlus toClose = WindowManager.getImage("C" + i + "-" + baseName);
+                if (toClose != null) {
+                    toClose.close();
+                }
+            }
+        }
+    }
+    
+    /**
+     * Perform alignment on the given image
+     */
+    private void processAlignment(ImagePlus imp, String nameWithoutExt, 
+                                int sizeX, int sizeY, int sizeT, String directory) {
+        // Set reference frame
+        if (imp.getNFrames() > 1) {
+            imp.setT(referenceFrame);
+        } else if (imp.getNSlices() > 1) {
+            imp.setSlice(referenceFrame);
+        }
+        
+        ImagePlus currentImp = imp;
+        
+        // Run SIFT
+        if (useSift) {
+            alignWithSift(currentImp, sizeX, sizeY);
+            IJ.wait(100);
+            
+            // Close original and get result
+            imp.close();
+            currentImp = WindowManager.getImage("Aligned " + sizeT + " of " + sizeT);
+            if (currentImp == null) {
+                IJ.error("SIFT alignment failed - could not find aligned image");
+                return;
+            }
+        }
+        
+        // Set reference frame for template matching
+        if (currentImp.getNFrames() > 1) {
+            currentImp.setT(referenceFrame);
+        } else if (currentImp.getNSlices() > 1) {
+            currentImp.setSlice(referenceFrame);
+        }
+        
+        // Run template matching if selected
+        if (useTemplateMatching) {
+            alignWithTemplateMatching(currentImp, sizeX, sizeY);
+            IJ.wait(100);
+        }
+        
+        // Save the aligned image
+        String outputPath = directory + nameWithoutExt + "_aligned.tif";
+        IJ.log("Saving: " + outputPath);
+        IJ.saveAs(currentImp, "Tiff", outputPath);
+    }
+    
+    /**
+     * Run SIFT alignment with appropriate parameters based on image size
+     * Explanation of SIFT parameters: http://www.ini.uzh.ch/~acardona/howto.html#sift_parameters
+     * https://imagej.net/plugins/feature-extraction#parameters
+     */
+    private void alignWithSift(ImagePlus imp, int sizeX, int sizeY) {
+        int size = Math.min(sizeX, sizeY);
+        int maxAlignmentError = (int) Math.ceil(0.1 * size);
+        
+        String siftParams;
+        
+        if (!useDefaultSettings) {
+            double inlierRatio = 0.7;
+            int featureDescSize = 4;
+            
+            if (size < 500) {
+                // For smaller images these parameters work well <- from original macro implementation
+                featureDescSize = 8;
+                maxAlignmentError = 5;
+                inlierRatio = 0.9;
+            }
+            
+            siftParams = "initial_gaussian_blur=1.60 " +
+                        "steps_per_scale_octave=4 " +
+                        "minimum_image_size=64 " +
+                        "maximum_image_size=" + size + " " +
+                        "feature_descriptor_size=" + featureDescSize + " " +
+                        "feature_descriptor_orientation_bins=8 " +
+                        "closest/next_closest_ratio=0.92 " +
+                        "maximal_alignment_error=" + maxAlignmentError + " " +
+                        "inlier_ratio=" + inlierRatio + " " +
+                        "expected_transformation=Affine";
+        } else {
+            maxAlignmentError = (int) Math.ceil(0.1 * size);
+            
+            siftParams = "initial_gaussian_blur=1.60 " +
+                        "steps_per_scale_octave=3 " +
+                        "minimum_image_size=64 " +
+                        "maximum_image_size=" + size + " " +
+                        "feature_descriptor_size=4 " +
+                        "feature_descriptor_orientation_bins=8 " +
+                        "closest/next_closest_ratio=0.92 " +
+                        "maximal_alignment_error=" + maxAlignmentError + " " +
+                        "inlier_ratio=0.05 " +
+                        "expected_transformation=Affine";
+        }
+        
+        IJ.run(imp, "Linear Stack Alignment with SIFT", siftParams);
+    }
+    
+    /**
+     * Run template matching alignment
+     */
+    private void alignWithTemplateMatching(ImagePlus imp, int sizeX, int sizeY) {
+        int xSize = (int) Math.floor(sizeX * 0.7);
+        int ySize = (int) Math.floor(sizeY * 0.7);
+        int x0 = (int) Math.floor(sizeX / 6.0);
+        int y0 = (int) Math.floor(sizeY / 6.0);
+        
+        String templateParams = "method=5 " +
+                               "windowsizex=" + xSize + " " +
+                               "windowsizey=" + ySize + " " +
+                               "x0=" + x0 + " " +
+                               "y0=" + y0 + " " +
+                               "swindow=0 " +
+                               "subpixel=false " +
+                               "itpmethod=0 " +
+                               "ref.slice=3 " +
+                               "show=true";
+        
+        IJ.run(imp, "Align slices in stack...", templateParams);
+    }
+}
