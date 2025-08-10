@@ -45,5 +45,16 @@ public final class ImageOps {
         return out;
     }
 
+    /** Resize to width/height (Bilinear for intensity images), update calibration. */
+    public static ImagePlus resizeToIntensity(ImagePlus src, int newW, int newH) {
+        IJ.run(src, "Scale...", "x=- y=- width=" + newW + " height=" + newH + " interpolation=Bilinear create");
+        ImagePlus out = IJ.getImage();
+        Calibration cal = src.getCalibration().copy();
+        cal.pixelWidth  = cal.pixelWidth  * src.getWidth()  / (double) out.getWidth();
+        cal.pixelHeight = cal.pixelHeight * src.getHeight() / (double) out.getHeight();
+        out.setCalibration(cal);
+        return out;
+    }
+
 
 }

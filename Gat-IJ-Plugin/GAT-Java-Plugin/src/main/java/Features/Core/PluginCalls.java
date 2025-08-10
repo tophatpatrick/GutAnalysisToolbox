@@ -43,15 +43,19 @@ public final class PluginCalls {
     /** MorphoLibJ: Label Image -> ROIs */
     public static void labelsToRois(ImagePlus labels) {
         labels.show();
-        IJ.run(labels, "Label Image to ROIs", "");
+        // MorphoLibJ "Label Map to ROIs" options to suppress the dialog
+        String opts = "Connectivity=C4 Vertex Location=Corners Name Pattern=r%03d";
+
+        IJ.run(labels, "Label Map to ROIs", opts);
     }
 
-    /** MorphoLibJ: Remove labels touching borders */
     public static ImagePlus removeBorderLabels(ImagePlus labels) {
-        labels.show();
-        IJ.run(labels, "Remove Border Labels", "left right top bottom");
+        ImagePlus lab2d = ensure2DLabel(labels);
+        lab2d.show();
+        IJ.run(lab2d, "Remove Border Labels", "left right top bottom");
         ImagePlus out = IJ.getImage();
-        out.setCalibration(labels.getCalibration());
+        out.setCalibration(lab2d.getCalibration());
+        if (out != lab2d) lab2d.close();
         if (out != labels) labels.close();
         return out;
     }
@@ -66,33 +70,65 @@ public final class PluginCalls {
         return out;
     }
 
-    /** DeepImageJ + model's stardist_postprocessing.ijm → returns label image */
-    public static ImagePlus runDeepImageJNeuronLabel(ImagePlus input, File modelDir, double prob, double overlap) {
-        if (modelDir == null || !modelDir.isDirectory())
-            throw new IllegalArgumentException("DeepImageJ model folder not found: " + modelDir);
+    /** Heuristic tiling, same thresholds as the macro (after potential rescale) */
+    public static int suggestTiles(int w, int h) {
+        int n = 4;
+        if (w > 2000 || h > 2000) n = 5;
+        if (w > 4500 || h > 4500) n = 8;
+        if (w > 9000 || h > 9000) n = 16;
+        if (w > 15000 || h > 15000) n = 24;
+        return n;
+    }
 
-        File post = new File(modelDir, "stardist_postprocessing.ijm");
-        if (!post.isFile())
-            throw new IllegalStateException("Missing stardist_postprocessing.ijm in model folder: " + post);
+
+    /**
+     * StarDist 2D (ZIP model) -> Label Image.
+     * Mirrors the macro’s call (normalize 1–99.8, user prob/nms, output=Label Image).
+     */
+    public static ImagePlus runStarDist2DLabel(ImagePlus input, String modelZip, double prob, double nms) {
+        if (modelZip == null || !new File(modelZip).isFile())
+            throw new IllegalArgumentException("StarDist ZIP not found: " + modelZip);
 
         input.show();
-        String args = "modelPath=[" + modelDir.getAbsolutePath() + "] inputPath=null outputFolder=null displayOutput=all";
-        IJ.run("DeepImageJ Run", args);
+        IJ.selectWindow(input.getID());
+        int nTiles = suggestTiles(input.getWidth(), input.getHeight());
 
-        // The DIJ output should be the active image
-        ImagePlus dijOut = IJ.getImage();
+        String title = input.getTitle().replace("'", ""); // be safe with quotes
+        String modelEsc = modelZip.replace("\\", "\\\\"); // Windows escaping
 
-        // Run the model-provided post-processing macro (prob, overlap)
-        String macroArgs = DF.format(prob) + "," + DF.format(overlap);
-        IJ.runMacroFile(post.getAbsolutePath(), macroArgs);
+        String args =
+                "command=[de.csbdresden.stardist.StarDist2D],"
+                        + "args=['input':'" + title + "',"
+                        + " 'modelChoice':'Model (.zip) from File',"
+                        + " 'normalizeInput':'true', 'percentileBottom':'1.0', 'percentileTop':'99.8',"
+                        + " 'probThresh':'" + DF.format(prob) + "', 'nmsThresh':'" + DF.format(nms) + "',"
+                        + " 'outputType':'Label Image'," // or 'Both' if you want ROIs too
+                        + " 'modelFile':'" + modelEsc + "', 'nTiles':'" + nTiles + "',"
+                        + " 'excludeBoundary':'2', 'roiPosition':'Automatic',"
+                        + " 'verbose':'false','showCsbdeepProgress':'false','showProbAndDist':'false'],"
+                        + " process=[false]";
 
-        // Post-processing produces a new active image (label or intermediate)
-        ImagePlus out = IJ.getImage();
-        out.setCalibration(input.getCalibration());
+        IJ.run("Command From Macro", args);
 
-        // Close the raw DIJ output if it’s different
-        if (dijOut != out) dijOut.close();
 
-        return out;
+        ImagePlus label = IJ.getImage();
+        label.setCalibration(input.getCalibration());
+        return label;
     }
+
+    private static ImagePlus ensure2DLabel(ImagePlus src) {
+        ImagePlus lab2d;
+        if (src.getStackSize() > 1) {
+            lab2d = new ImagePlus("labels2d", src.getStack().getProcessor(1).duplicate());
+        } else {
+            lab2d = src.duplicate();
+        }
+        lab2d.setCalibration(src.getCalibration());
+        if (lab2d.getType() != ImagePlus.GRAY16) {
+            IJ.run(lab2d, "16-bit", ""); // MorphoLibJ label ops are happiest with 16-bit labels
+        }
+        return lab2d;
+    }
+
+
 }

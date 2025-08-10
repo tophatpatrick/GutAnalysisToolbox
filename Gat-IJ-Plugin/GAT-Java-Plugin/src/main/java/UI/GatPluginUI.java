@@ -1,9 +1,12 @@
 package UI;
 
+import Features.AnalyseWorkflows.NeuronsHuPipeline;
+import Features.Core.Params;
 import UI.panes.SettingPanes.*;
 import UI.panes.Tools.*;
 import UI.panes.WorkflowDashboards.AnalyseNeuronDashboard;
 import ij.IJ;
+import ij.gui.GenericDialog;
 import ij.plugin.PlugIn;
 import mdlaf.MaterialLookAndFeel;
 import mdlaf.themes.MaterialOceanicTheme;
@@ -12,6 +15,7 @@ import UI.panes.*;
 import UI.Handlers.*;
 import javax.swing.*;
 import java.awt.*;
+import java.io.File;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -36,6 +40,34 @@ public class GatPluginUI implements PlugIn {
     @Override
     public void run(String arg){
         SwingUtilities.invokeLater(this::buildAndShow);
+
+        GenericDialog gd = new GenericDialog("Analyse Neurons (DeepImageJ) - Test");
+        gd.addStringField("Image path (leave blank to use active image):", "/Users/miles/Desktop/UNI/Year5/SEM2/FIT4002/Testing/ms_28_wk_colon_DAPI_nNOS_Hu_10X.tif");
+        gd.addNumericField("Hu channel (1-based):", 3, 0);
+        gd.addStringField(
+                "DeepImageJ neuron model folder:",
+                new File(new File(IJ.getDirectory("imagej"), "models"), "2D_enteric_neuron_v4_1.zip").getAbsolutePath()
+        );
+        gd.addNumericField("Training pixel size (um/pixel):", 0.568, 3);
+        gd.addNumericField("Probability:", 0.5, 3);
+        gd.addNumericField("Overlap:", 0.3, 3);
+        gd.addNumericField("Min neuron size (microns):", 70, 1);
+        gd.showDialog();
+        if (gd.wasCanceled()) return;
+
+        Params p = new Params();
+        p.imagePath = gd.getNextString();
+        p.huChannel = (int) gd.getNextNumber();
+        p.stardistModelZip = gd.getNextString();
+        p.trainingPixelSizeUm = gd.getNextNumber();
+        p.probThresh = gd.getNextNumber();
+        p.nmsThresh = gd.getNextNumber();
+        p.neuronSegMinMicron = gd.getNextNumber();
+        p.saveFlattenedOverlay = true;
+        p.rescaleToTrainingPx = true;
+        p.useClij2EDF = false;
+
+        new NeuronsHuPipeline().run(p);
     }
 
     private void buildAndShow(){
