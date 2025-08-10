@@ -29,7 +29,7 @@ public class AnalyseNeuronDashboard extends JPanel {
         setBorder(BorderFactory.createEmptyBorder(5,5,5,5));
 
         // ── 1) Load & show the image ────────────────────────────
-        this.imp = IJ.openImage("Path to the tif image");
+        this.imp = IJ.openImage(IJ.getFilePath("Choose an image to open"));
         imp.show();                         // registers it with WindowManager
         // now grab its real window and hide it
         Frame imgWin = imp.getWindow();

@@ -23,3 +23,5 @@ Models/*
 # OS junk
 .DS_Store
 Thumbs.db
+Gat-IJ-Plugin/out/artifacts/GAT_Java_Plugin_jar/GAT-Java-Plugin.jar
+Gat-IJ-Plugin/GAT-Java-Plugin/src/main/java/UI/panes/WorkflowDashboards/AnalyseNeuronDashboard.java
