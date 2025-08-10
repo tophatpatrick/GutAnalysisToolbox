@@ -121,3 +121,83 @@ public class Stack_Alignment_Plugin implements PlugIn {
         System.gc();
         IJ.log("Done");
     }
+    
+    /**
+     * Shows the options dialog for alignment parameters
+     * @return true if user clicked OK, false if cancelled
+     */
+    private boolean showOptionsDialog() {
+        String html = "<html>" +
+                     "<font size=+1>" +
+                     "<br>" +
+                     "If selecting Template matching, install plugin from website: " +
+                     "<a href=https://sites.google.com/site/qingzongtseng/template-matching-ij-plugin#install>Installation</a><br>" +
+                     "</font>";
+        
+        GenericDialog gd = new GenericDialog("Alignment Options");
+        gd.addCheckbox("Linear Alignment with SIFT", useSift);
+        gd.addCheckbox("Template Matching", useTemplateMatching);
+        gd.addMessage("At least one option is required. Use first and second option if your\n" +
+                     "images have warping and lots of deformation. If you only have movement in the\n" +
+                     "XY direction (sideways) and no warping, use only the second option");
+        gd.addMessage("If using Template Matching, the plugin can be installed using the Help button");
+        gd.addMessage("Alignment plugins need a reference image/frame to align the rest of\n" +
+                     "the images. Set the frame here or first frame will be used as reference");
+        gd.addNumericField("Choose reference slice for aligning stacks", referenceFrame, 0);
+        gd.addMessage("If alignment is not satisfactory, try ticking this box.");
+        gd.addCheckbox("Default settings", useDefaultSettings);
+        gd.addMessage("If there are empty slices, it may affect alignment");
+        gd.addHelp(html);
+        
+        gd.showDialog();
+        if (gd.wasCanceled()) return false;
+        
+        useSift = gd.getNextBoolean();
+        useTemplateMatching = gd.getNextBoolean();
+        referenceFrame = (int) gd.getNextNumber();
+        useDefaultSettings = gd.getNextBoolean();
+        
+        return true;
+    }
+    
+    /**
+     * Process stack with multiple channels
+     */
+    private void processMultiChannelStack(ImagePlus imp, String imgName, 
+                                        int sizeX, int sizeY, int sizeC, int sizeT, String directory) {
+        // Let user choose which channel to align
+        IJ.showMessage("Multiple channels detected.");
+        
+        String[] channels = new String[sizeC];
+        for (int i = 0; i < sizeC; i++) {
+            channels[i] = String.valueOf(i + 1);
+        }
+        
+        GenericDialog gd = new GenericDialog("Choose Channel");
+        gd.addChoice("Channel", channels, "1");
+        gd.showDialog();
+        if (gd.wasCanceled()) return; // User cancelled
+        
+        int channelToAlign = Integer.parseInt(gd.getNextChoice());
+        
+        // Split channels and keep only the selected one
+        IJ.run(imp, "Split Channels", "");
+        IJ.wait(100); // Wait for channels to split (I believe this is sufficient runtime)
+
+        // Select the chosen channel
+        ImagePlus channelImp = WindowManager.getImage("C" + channelToAlign + "-" + imgName);
+        if (channelImp == null) {
+            IJ.error("Could not find channel: " + channelToAlign);
+            return;
+        }
+        
+        channelImp.setTitle(imgName);
+        
+        // Close other channels
+        closeOtherChannels(imgName, channelToAlign, sizeC);
+        
+        // Process the selected channel
+        processAlignment(channelImp, imgName, sizeX, sizeY, sizeT, directory);
+    }
+    
+    
