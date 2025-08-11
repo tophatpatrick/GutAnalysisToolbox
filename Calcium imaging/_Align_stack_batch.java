@@ -102,4 +102,105 @@ public class _Align_stack_batch implements PlugIn {
         IJ.log("Alignment Finished");
     }
     
+    /**
+     * Shows the options dialog for alignment parameters
+     * @return true if user clicked OK, false if cancelled
+     */
+    private boolean showOptionsDialog() {
+        String html = "<html>" +
+                     "<font size=+1>" +
+                     "<br>" +
+                     "If selecting Template matching, install plugin from website: " +
+                     "<a href=https://sites.google.com/site/qingzongtseng/template-matching-ij-plugin#install>Installation</a><br>" +
+                     "</font>";
+        
+        GenericDialog gd = new GenericDialog("Alignment Options");
+        gd.addCheckbox("Linear Alignment with SIFT", useSift);
+        gd.addRadioButtonGroup("Alignment in XY (no warping). Choose one", 
+                              ALIGNMENT_OPTIONS, 1, ALIGNMENT_OPTIONS.length, ALIGNMENT_OPTIONS[0]);
+        gd.addMessage("Use Linear Alignment with SIFT if your\n" +
+                     "images have warping and lots of deformation. If you only have movement in the\n" +
+                     "XY direction (sideways) and no warping, use either Template Matching or StackReg");
+        gd.addNumericField("Choose reference slice for aligning stacks", referenceFrame, 0);
+        gd.addMessage("Alignment plugins need a reference image/frame to align the rest of\n" +
+                     "the images. Set the frame here or first frame will be used as reference");
+        gd.addMessage("If alignment is not satisfactory, try ticking this box.");
+        gd.addCheckbox("Default settings", useDefaultSettings);
+        gd.addStringField("File extension: ", fileExtension);
+        gd.addMessage("If the files are Leica .lif files, each series within the file will be aligned");
+        gd.addHelp(html);
+        
+        gd.showDialog();
+        if (gd.wasCanceled()) return false;
+        
+        useSift = gd.getNextBoolean();
+        alignmentChoice = gd.getNextRadioButton();
+        referenceFrame = (int) gd.getNextNumber();
+        useDefaultSettings = gd.getNextBoolean();
+        fileExtension = gd.getNextString();
+        
+        return true;
+    }
     
+    /**
+     * Process all files in the directory
+     */
+    private void processFilesInDirectory(File[] files) {
+        for (File file : files) {
+            String filePath = file.getAbsolutePath();
+            
+            if (file.getName().toLowerCase().endsWith(fileExtension.toLowerCase())) {
+                if (fileExtension.equalsIgnoreCase(".lif")) {
+                    processLifFile(filePath);
+                } else {
+                    processSingleFile(filePath);
+                }
+            } else {
+                IJ.log("Skipping " + filePath + " as it does not match the LIF type needed: " + fileExtension);
+            }
+        }
+    }
+    
+    /**
+     * Process a single LIF file with multiple series
+     */
+    private void processLifFile(String filePath) {
+        try {
+            IJ.log("Processing LIF: " + filePath);
+            
+            // Use Bio-Formats to get series count
+            ImageReader reader = new ImageReader();
+            reader.setId(filePath);
+            int seriesCount = reader.getSeriesCount();
+            IJ.log("Series count = " + seriesCount);
+            
+            // Process each series
+            for (int s = 0; s < seriesCount; s++) {
+                try {
+                    // Import using Bio-Formats
+                    ImporterOptions options = new ImporterOptions();
+                    options.setId(filePath);
+                    options.setSeriesOn(s, true);
+                    options.setColorMode(ImporterOptions.COLOR_MODE_DEFAULT);
+                    options.setStackOrder(ImporterOptions.ORDER_XYCZT);
+                    
+                    ImagePlus[] imps = BF.openImagePlus(options);
+                    if (imps.length > 0) {
+                        ImagePlus imp = imps[0];
+                        String seriesName = "Series_" + (s + 1);
+                        imp.setTitle(seriesName);
+                        imp.show();
+                        
+                        reader.setSeries(s);
+                        processFileAlignment(imp, seriesName, reader);
+                    }
+                } catch (Exception e) {
+                    IJ.log("Error processing " + (s + 1) + ": " + e.getMessage());
+                }
+            }
+            
+            reader.close();
+        } catch (Exception e) {
+            IJ.log("Error processing LIF " + filePath + ": " + e.getMessage());
+        }
+    }
