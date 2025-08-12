@@ -54,7 +54,7 @@ public class GatPluginUI implements PlugIn {
         p.rescaleToTrainingPx = true;
         p.useClij2EDF = false;
         p.cellCountsPerGanglia = true;
-        p.gangliaMode = Params.GangliaMode.DEFINE_FROM_HU;
+        p.gangliaMode = Params.GangliaMode.DEEPIMAGEJ;
         p.huDilationMicron = 12.0;
 
         new NeuronsHuPipeline().run(p);
