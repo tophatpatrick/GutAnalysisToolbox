@@ -54,7 +54,7 @@ public class Params {
 
     // Channels & models
     public int gangliaChannel = 1;                 // 1-based (required for DEEPIMAGEJ)
-    public String gangliaModelFolderOrYaml = "";   // e.g. Fiji/models/2D_Ganglia_RGB_v2.bioimage.io.model
+    public String gangliaModelFolder = "";   // e.g. Fiji/models/2D_Ganglia_RGB_v2.bioimage.io.model
 
     // 'Define using Hu' options
     public double huDilationMicron = 12.0;         // radius to grow somata before union
@@ -62,6 +62,12 @@ public class Params {
     // Custom ROI
     public String customGangliaRoiZip = null;
     public String gangliaModelPath = null;
+
+    public Double gangliaProbThresh01 = 0.35;   // 0..1 threshold for DIJ prob map
+    public Double gangliaMinAreaUm2   = 120.0; // try 800–2000 µm²
+    public Boolean gangliaUsePreprocessing = true; // toggle pre script
+    public int     gangliaOpenIterations   = 3;
+    public boolean gangliaInteractiveReview = true;
 }
 
 

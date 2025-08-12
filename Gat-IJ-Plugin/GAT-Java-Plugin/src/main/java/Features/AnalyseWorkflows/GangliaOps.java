@@ -75,19 +75,15 @@ public final class GangliaOps {
     // ---------- methods (reuse PluginCalls everywhere possible) ----------
 
     private static ImagePlus deepImageJ(Params p, ImagePlus maxProjection) {
-        // Build composite G/M like macro (Green = ganglia marker, Magenta = Hu)
-        ImagePlus comp = PluginCalls.buildGangliaRGB(maxProjection, p.gangliaChannel, p.huChannel);
-        ImagePlus probOrBin = PluginCalls.runDeepImageJ(comp, p.gangliaModelFolderOrYaml);
+        ImagePlus bin = PluginCalls.runDeepImageJForGanglia(
+                maxProjection, p.gangliaChannel, p.huChannel, p.gangliaModelFolder, 200.0, p);
 
-        // Make binary robustly (model-dependent output)
-        probOrBin.show();
-        IJ.run(probOrBin, "Select None", "");
-        IJ.run(probOrBin, "Make Binary", "");
-        ImagePlus labels = PluginCalls.binaryToLabels(probOrBin);
+        // Do NOT remove border labels (macro doesn’t)
+        // Do NOT fill holes (macro doesn’t)
+
+        ImagePlus labels = PluginCalls.binaryToLabels(bin);
         labels.setCalibration(maxProjection.getCalibration());
-
-        if (labels != probOrBin) probOrBin.close();
-        comp.close();
+        if (labels != bin) bin.close();
         return labels;
     }
 
@@ -140,13 +136,6 @@ public final class GangliaOps {
         return lab;
     }
 
-    private static ImagePlus labelsToBinary(ImagePlus labels) {
-        labels.show();
-        IJ.run(labels, "Duplicate...", "title=tmp_lab");
-        ImagePlus tmp = IJ.getImage();
-        IJ.run(tmp, "Convert to Mask", "");
-        return tmp;
-    }
 
     // ---------- result POJO ----------
     public static final class Result {
@@ -157,4 +146,28 @@ public final class GangliaOps {
             this.countsPerGanglion = c; this.areaUm2 = a; this.maxGanglionId = maxId;
         }
     }
+
+
+    // Keep only ganglia that contain at least `minCount` neurons.
+// Returns an 8-bit binary mask named exactly like the macro: "ganglia_binary".
+    public static ImagePlus keepGangliaWithAtLeast(ImagePlus gangliaLabels, int[] countsPerGanglion, int minCount) {
+        final int w = gangliaLabels.getWidth(), h = gangliaLabels.getHeight();
+        final short[] gl = (short[]) gangliaLabels.getProcessor().convertToShort(false).getPixels();
+
+        ImagePlus bin = ij.IJ.createImage("ganglia_binary", "8-bit black", w, h, 1);
+        byte[] bp = (byte[]) bin.getProcessor().getPixels();
+
+        int idx = 0;
+        for (int y = 0; y < h; y++) {
+            for (int x = 0; x < w; x++, idx++) {
+                int gid = gl[idx] & 0xffff;
+                if (gid > 0 && gid < countsPerGanglion.length && countsPerGanglion[gid] >= minCount) {
+                    bp[idx] = (byte) 255;
+                }
+            }
+        }
+        bin.setCalibration(gangliaLabels.getCalibration());
+        return bin;
+    }
+
 }

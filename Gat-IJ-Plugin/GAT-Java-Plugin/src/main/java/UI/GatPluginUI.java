@@ -4,9 +4,7 @@ import Features.AnalyseWorkflows.NeuronsHuPipeline;
 import Features.Core.Params;
 import UI.panes.SettingPanes.*;
 import UI.panes.Tools.*;
-import UI.panes.WorkflowDashboards.AnalyseNeuronDashboard;
 import ij.IJ;
-import ij.gui.GenericDialog;
 import ij.plugin.PlugIn;
 import mdlaf.MaterialLookAndFeel;
 import mdlaf.themes.MaterialOceanicTheme;
@@ -50,12 +48,16 @@ public class GatPluginUI implements PlugIn {
         p.probThresh = 0.5;
         p.nmsThresh = 0.3;
         p.neuronSegMinMicron = 70.0;
+        p.neuronSegLowerLimitUm = 70.0;
+        p.gangliaMinAreaUm2 = 200.0;
         p.saveFlattenedOverlay = true;
         p.rescaleToTrainingPx = true;
         p.useClij2EDF = false;
         p.cellCountsPerGanglia = true;
         p.gangliaMode = Params.GangliaMode.DEEPIMAGEJ;
         p.huDilationMicron = 12.0;
+        p.gangliaChannel = 2;
+        p.gangliaModelFolder = "2D_Ganglia_RGB_v3.bioimage.io.model";
 
         new NeuronsHuPipeline().run(p);
     }

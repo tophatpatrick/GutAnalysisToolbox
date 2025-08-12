@@ -91,17 +91,27 @@ public class NeuronsHuPipeline {
 
         // --- Ganglia (optional) ---
         if (p.cellCountsPerGanglia) {
-            // A) Segment ganglia labels (method chosen in Params)
-            ImagePlus gangliaLabels = GangliaOps.segment(p, max, labels);
+            // A) Segment ganglia (raw labels from chosen method)
+            ImagePlus gangliaLabelsRaw = GangliaOps.segment(p, max, labels);
+            gangliaLabelsRaw.setCalibration(max.getCalibration());
 
-            // B) Clean borders (safe 2D)
-            gangliaLabels = PluginCalls.removeBorderLabels(gangliaLabels);
+            // B) Count neurons per RAW ganglion (to know which have ≥1 neuron)
+            GangliaOps.Result rAll = GangliaOps.countPerGanglion(labels, gangliaLabelsRaw);
 
-            // C) Save ganglia label image
+            // C) Keep only ganglia that contain at least one neuron -> BINARY mask
+            //    (macro equivalence: label_overlap >= 1 → Convert to Mask → "ganglia_binary")
+            ImagePlus gangliaBinary = GangliaOps.keepGangliaWithAtLeast(gangliaLabelsRaw, rAll.countsPerGanglion, 1);
+            gangliaBinary.setCalibration(max.getCalibration());
+            gangliaBinary.setTitle("ganglia_binary_MAX_" + baseName);
+            OutputIO.saveTiff(gangliaBinary, new File(outDir, gangliaBinary.getTitle() + ".tif"));
+
+            // D) Convert the filtered BINARY back to labels for ROI export / area calc
+            ImagePlus gangliaLabels = PluginCalls.binaryToLabels(gangliaBinary);
+            gangliaLabels.setCalibration(max.getCalibration());
             gangliaLabels.setTitle("Ganglia_label_MAX_" + baseName);
             OutputIO.saveTiff(gangliaLabels, new File(outDir, gangliaLabels.getTitle() + ".tif"));
 
-            // D) Convert to ROIs and save
+            // E) Convert to ROIs and save (matches macro’s ROI export stage)
             RoiManager rmG = RoiManager.getInstance2();
             rmG.reset();
             PluginCalls.labelsToRois(gangliaLabels);
@@ -110,12 +120,14 @@ public class NeuronsHuPipeline {
                 OutputIO.saveFlattenedOverlay(max, rmG, new File(outDir, "MAX_" + baseName + "_ganglia_overlay.tif"));
             }
 
-            // E) Counts per ganglion (centroid-in-label sampling)
+            // F) Re-count using the FILTERED labels (parity with post-threshold macro state)
             GangliaOps.Result r = GangliaOps.countPerGanglion(labels, gangliaLabels);
-            OutputIO.writeGangliaCsv(new File(outDir, "Analysis_Ganglia_" + baseName + "_counts.csv"),
-                    r.countsPerGanglion, r.areaUm2);
+            OutputIO.writeGangliaCsv(
+                    new File(outDir, "Analysis_Ganglia_" + baseName + "_counts.csv"),
+                    r.countsPerGanglion, r.areaUm2
+            );
 
-            IJ.log("Ganglia analysis complete.");
+            IJ.log("Ganglia analysis complete (filtered to ≥1 neuron).");
         }
 
 

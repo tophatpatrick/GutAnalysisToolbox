@@ -44,7 +44,7 @@ public final class PluginCalls {
     public static void labelsToRois(ImagePlus labels) {
         labels.show();
         // MorphoLibJ "Label Map to ROIs"
-        String opts = "Connectivity=C4 Vertex Location=Corners Name Pattern=r%03d";
+        String opts = "Connectivity=C8 Vertex Location=Corners Name Pattern=r%03d";
 
         IJ.run(labels, "Label Map to ROIs", opts);
     }
@@ -130,41 +130,132 @@ public final class PluginCalls {
         return lab2d;
     }
 
-    /** Build RGB composite: G = ganglia marker, M = Hu (as in macro). */
-    public static ImagePlus buildGangliaRGB(ImagePlus max, int gangliaC, int huC) {
-        ImagePlus g = Features.Tools.ImageOps.extractChannel(max, gangliaC);
-        ImagePlus h = Features.Tools.ImageOps.extractChannel(max, huC);
-        g.show(); IJ.run(g, "Green", "");
-        h.show(); IJ.run(h, "Magenta", "");
-        IJ.run("Merge Channels...", "c1=[" + g.getTitle() + "] c2=[" + h.getTitle() + "] create");
+    /** Build 3-channel composite for DIJ: C1=ganglia marker, C2=Hu, C3=blank */
+    public static ImagePlus buildGangliaRGB(ImagePlus maxProj, int gangliaCh1, int huCh1) {
+        IJ.run(maxProj, "Select None", "");
+        IJ.run(maxProj, "Duplicate...", "title=ganglia_ch duplicate channels=" + gangliaCh1);
+        ImagePlus g = IJ.getImage();
+        IJ.resetMinAndMax(g);            // <-- important
+        IJ.run(g, "Green", "");
+
+        IJ.run(maxProj, "Duplicate...", "title=cells_ch duplicate channels=" + huCh1);
+        ImagePlus h = IJ.getImage();
+        IJ.resetMinAndMax(h);            // <-- important
+        IJ.run(h, "Magenta", "");
+
+        IJ.run("Merge Channels...", "c1=[ganglia_ch] c2=[cells_ch] create");
         ImagePlus comp = IJ.getImage();
+
         IJ.run(comp, "RGB Color", "");
-        // cleanup
+        ImagePlus rgb = IJ.getImage();
+        rgb.setTitle("ganglia_rgb");
+        rgb.setCalibration(maxProj.getCalibration());
+
+        IJ.run("Duplicate...", "title=ganglia_rgb_2");
+        comp.changes = false; comp.close();
         g.changes = false; g.close();
         h.changes = false; h.close();
-        return comp;
+        return rgb;
     }
 
-    /** DeepImageJ run that returns the active output (no dialog). */
-    public static ImagePlus runDeepImageJ(ImagePlus input, String modelFolderOrYaml) {
-        input.show(); IJ.selectWindow(input.getID());
-        File yaml = resolveDIJYaml(modelFolderOrYaml);
-        String args = "modelPath=[" + yaml.getAbsolutePath() + "] inputPath=null outputFolder=null displayOutput=all";
-        IJ.run("DeepImageJ Run", args);
+    /** Macro-faithful preprocessing:
+     *  RGB Color -> RGB Stack (3 slices) -> 32-bit -> divide by 255 (each slice)
+     *  -> promote to a 3-channel hyperstack (C=3, Z=1, T=1) so DIJ sees "Channel".
+     */
+    private static ImagePlus preprocessGangliaLikeMacro(ImagePlus rgb) {
+        rgb.show(); IJ.selectWindow(rgb.getID());
+        IJ.run(rgb, "RGB Stack", "");          // 3 slices: R, G, B
+        ImagePlus st = IJ.getImage();
+        IJ.run(st, "32-bit", "");
+
+        int n = st.getStackSize();
+        for (int s = 1; s <= n; s++) {
+            st.setSlice(s);
+            IJ.run(st, "Divide...", "value=255 slice");   // 0..1
+        }
+        // No "Make Composite" here — let DIJ read 3 slices as 3 channels.
+        st.setTitle("ganglia_rgb");                        // keep title stable
+        st.setCalibration(rgb.getCalibration());
+        return st;
+    }
+
+
+    // full macro-faithful path for ganglia (RGB + im_preprocessing + DIJ + post)
+    public static ImagePlus runDeepImageJForGanglia(
+            ImagePlus maxProj, int gangliaCh1, int huCh1,
+            String modelFolderName, double minAreaUm2, Params p) {
+
+        // Build exactly like the macro: C1=ganglia marker, C2=Hu, then RGB Color
+        ImagePlus rgbColor = buildGangliaRGB(maxProj, gangliaCh1, huCh1);
+
+        // Inline preprocessing (macro-equivalent)
+        ImagePlus in3C = preprocessGangliaLikeMacro(rgbColor);
+        IJ.log("[GAT] DIJ input C/Z/T=" + in3C.getNChannels() + "/" + in3C.getNSlices() + "/" + in3C.getNFrames()
+                + " bitDepth=" + in3C.getBitDepth());
+
+        // DIJ model folder
+        File fiji = new File(IJ.getDirectory("imagej"));
+        File modelDir = new File(new File(fiji, "models"), modelFolderName);
+        if (!modelDir.isDirectory())
+            throw new IllegalArgumentException("DeepImageJ model folder not found: " + modelDir);
+
+        // Run DeepImageJ
+        String args = "model_path=[" + modelDir.getAbsolutePath() + "] input_path=null output_folder=null display_output=all";
+        IJ.run(in3C, "DeepImageJ Run", args);
         ImagePlus out = IJ.getImage();
-        out.setCalibration(input.getCalibration());
+        out.setCalibration(maxProj.getCalibration());
+
+        if (p != null && p.gangliaProbThresh01 != null) {
+            out = probToBinary(out, p.gangliaProbThresh01);
+        }
+
+        // Binary Open (same as macro "Options..." with do=Open)
+        int it = (p != null ? Math.max(0, p.gangliaOpenIterations) : 3);
+        IJ.run(out, "Options...", "iterations=" + it + " count=2 black do=Open");
+
+        // Size Opening in µm² -> px using MAX calibration
+        double px = (maxProj.getCalibration() != null && maxProj.getCalibration().pixelWidth > 0)
+                ? maxProj.getCalibration().pixelWidth : 1.0;
+        double areaUm2 = (minAreaUm2 > 0 ? minAreaUm2
+                : (p != null && p.gangliaMinAreaUm2 != null ? p.gangliaMinAreaUm2 : 200.0));
+        int minAreaPx = (int)Math.ceil(areaUm2 / (px * px));
+        IJ.run(out, "Size Opening 2D/3D", "min=" + Math.max(1, minAreaPx));
+
+        // Optional interactive review (matches macro UX)
+        if (p != null && p.gangliaInteractiveReview) {
+            ImagePlus rgb2 = ij.WindowManager.getImage("ganglia_rgb_2");
+            if (rgb2 != null) {
+                IJ.run(out, "Image to Selection...", "image=[" + rgb2.getTitle() + "] opacity=60");
+            }
+            IJ.setTool("brush");
+            new ij.gui.WaitForUserDialog(
+                    "Ganglia overlay",
+                    "Use the Brush tool to add (white) or remove (black) ganglia.\nClick OK when done."
+            ).show();
+            IJ.run(out, "Select None", "");
+        }
+
+        // Second Size Opening pass (macro does this unconditionally)
+        IJ.run(out, "Size Opening 2D/3D", "min=" + Math.max(1, minAreaPx));
+        IJ.run(out, "Size Opening 2D/3D", "min=" + Math.max(1, minAreaPx));
+
+        // Cleanup temps
+        if (rgbColor != in3C) { rgbColor.changes = false; rgbColor.close(); }
+        if (in3C != out)       { in3C.changes = false; in3C.close(); }
+        ImagePlus rgb2 = ij.WindowManager.getImage("ganglia_rgb_2");
+        if (rgb2 != null) { rgb2.changes = false; rgb2.close(); }
+
+        // Return final binary (macro keeps binary here)
         return out;
     }
 
-    private static File resolveDIJYaml(String userPath) {
-        File f = new File(userPath);
-        if (f.isDirectory()) {
-            File y = new File(f, "rdf.yaml");
-            if (!y.isFile()) y = new File(f, "model.yaml");
-            if (!y.isFile()) throw new IllegalArgumentException("No rdf.yaml/model.yaml in: " + f);
-            return y;
-        }
-        return f;
+    public static ImagePlus probToBinary(ImagePlus prob, double thresh01) {
+        prob.show();
+        if (prob.getBitDepth() != 8) IJ.run(prob, "8-bit", ""); // scales 0..255
+        int t = (int)Math.round(Math.max(0, Math.min(255, thresh01 * 255.0)));
+        IJ.setThreshold(prob, t, 255);
+        IJ.run(prob, "Convert to Mask", "");
+        return prob; // now an 8-bit mask
     }
 
 
