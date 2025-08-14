@@ -63,7 +63,8 @@ public class NeuronsHuPipeline {
                 (int)Math.round(hu.getHeight() * scaleFactor));
 
         // ==== 6) StarDist 2D -> Label Image (ZIP) ====
-        ImagePlus labels = PluginCalls.runStarDist2DLabel(segInput, p.stardistModelZip, p.probThresh, p.nmsThresh);
+        ImagePlus labels = PluginCalls.runStarDist2DLabel(
+                segInput, p.stardistModelZip, p.probThresh, p.nmsThresh);
 
         // ==== 7) Remove border labels + size filtering ====
         // IMPORTANT: the macro passes a pixel COUNT threshold: neuron_seg_lower_limit_um / pixelWidth
@@ -86,8 +87,80 @@ public class NeuronsHuPipeline {
         RoiManager rm = RoiManager.getInstance2();
         if (rm == null) rm = new RoiManager();
         rm.reset();
+
+// push labels into RM (silent)
         PluginCalls.labelsToRois(labels);
+
+// show Hu (at MAX size) + colored LUT so cells are clear
+        ImagePlus huReview = hu.duplicate();         // 'hu' is at MAX_* size already
+        huReview.setTitle("Hu (review) - " + baseName);
+        IJ.run(huReview, "Magenta", "");             // make Hu clearly visible
+        IJ.resetMinAndMax(huReview);
+
+// show RM overlay on top of Hu
+        huReview.show();
+        rm.setVisible(true);
+        rm.runCommand(huReview, "Show All with labels");
+
+// let user edit: draw new ROIs (Polygon/Freehand) + press 'T' to add; select + Delete to remove
+        IJ.setTool("polygon");
+        new ij.gui.WaitForUserDialog(
+                "Neuron ROIs review",
+                "Review Hu + ROIs.\n" +
+                        "• Draw a new ROI and press 'T' to add\n" +
+                        "• Select a ROI and press Delete to remove\n" +
+                        "• Drag vertices to tweak shapes\n" +
+                        "Click OK when done."
+        ).show();
+
+// remove overlay and rebuild labels from whatever is in RM now
+        rm.runCommand(huReview, "Show All without labels");
+
+
+// paint ROIs → binary → labels, at MAX size
+        ImagePlus correctedBinary = PluginCalls.roisToBinary(huReview, rm);
+        ImagePlus labelsEdited    = PluginCalls.binaryToLabels(correctedBinary);
+        labelsEdited.setCalibration(max.getCalibration());
+
+// cleanup temps and replace 'labels' going forward
+        if (correctedBinary != labelsEdited) { correctedBinary.changes = false; correctedBinary.close(); }
+        if (labels != labelsEdited)          { labels.changes = false; labels.close(); }
+        huReview.changes = false; huReview.close();
+        labels = labelsEdited;
+
+// (optional) keep RM contents for later saving; otherwise rm.reset();
         int nHu = rm.getCount();
+
+        //save our stuff here
+
+        //Save outputs (faithful names/locations) ====
+        OutputIO.saveRois(rm, new File(outDir, p.cellTypeName + "_unmodified_ROIs_" + baseName + ".zip"));
+        OutputIO.saveRois(rm, new File(outDir, p.cellTypeName + "_ROIs_" + baseName + ".zip"));
+
+        if (p.saveFlattenedOverlay && nHu > 0) {
+            OutputIO.saveFlattenedOverlay(max, rm, new File(outDir, "MAX_" + baseName + "_overlay.tif"));
+        }
+
+        rm.reset();
+        rm.close();
+
+        labels.setTitle("Neuron_label_MAX_" + baseName);
+        OutputIO.saveTiff(labels, new File(outDir, labels.getTitle() + ".tif"));
+        OutputIO.saveTiff(max,    new File(outDir, "MAX_" + baseName + ".tif"));
+
+        // Minimal CSV with counts (same idea as macro’s table export)
+        OutputIO.writeCountsCsv(
+                new File(outDir, "Analysis_" + p.cellTypeName + "_" + baseName + "_cell_counts.csv"),
+                baseName, p.cellTypeName, nHu
+        );
+
+
+
+
+        //hide images
+        ImagePlus cur = ij.WindowManager.getCurrentImage();
+        if (cur!=null) cur.hide();
+
 
         // --- Ganglia (optional) ---
         if (p.cellCountsPerGanglia) {
@@ -131,25 +204,9 @@ public class NeuronsHuPipeline {
         }
 
 
-        // ==== 10) Save outputs (faithful names/locations) ====
-        OutputIO.saveRois(rm, new File(outDir, p.cellTypeName + "_unmodified_ROIs_" + baseName + ".zip"));
-        OutputIO.saveRois(rm, new File(outDir, p.cellTypeName + "_ROIs_" + baseName + ".zip"));
 
-        labels.setTitle("Neuron_label_MAX_" + baseName);
-        OutputIO.saveTiff(labels, new File(outDir, labels.getTitle() + ".tif"));
-        OutputIO.saveTiff(max, new File(outDir, "MAX_" + baseName + ".tif"));
 
-        if (p.saveFlattenedOverlay && nHu > 0) {
-            OutputIO.saveFlattenedOverlay(max, rm, new File(outDir, "MAX_" + baseName + "_overlay.tif"));
-        }
 
-        // Minimal CSV with counts (same idea as macro’s table export)
-        OutputIO.writeCountsCsv(
-                new File(outDir, "Analysis_" + p.cellTypeName + "_" + baseName + "_cell_counts.csv"),
-                baseName, p.cellTypeName, nHu
-        );
-
-        IJ.log("Analyse Neurons (Hu) complete: " + outDir.getAbsolutePath());
     }
 
     private static String stripExt(String name) {

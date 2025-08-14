@@ -3,6 +3,7 @@ package Features.Tools;
 import ij.IJ;
 import ij.ImagePlus;
 import ij.gui.Overlay;
+import ij.io.FileSaver;
 import ij.plugin.frame.RoiManager;
 import ij.io.FileInfo;
 
@@ -55,11 +56,12 @@ public final class OutputIO {
     }
 
     public static void saveTiff(ImagePlus imp, File out) {
-        IJ.saveAsTiff(imp.duplicate(), out.getAbsolutePath());
+        new FileSaver(imp).saveAsTiff(out.getAbsolutePath());
     }
 
     public static void saveFlattenedOverlay(ImagePlus base, RoiManager rm, File out) {
         ImagePlus dup = base.duplicate();
+        dup.hide();
         rm.runCommand(dup, "Show All with labels");
         Overlay ov = dup.getOverlay();
         if (ov != null) dup.setOverlay(ov);

@@ -35,7 +35,6 @@ public class NeuronWorkflowPane extends JPanel {
     private JSpinner   spTrainingPixelSizeUm;   // double
     private JSpinner   spProbThresh;            // 0..1
     private JSpinner   spNmsThresh;             // 0..1
-    private JCheckBox  cbUseClij2EDF;
     private JCheckBox  cbSaveFlattenedOverlay;
     private JTextField tfOutputDir;
     private JButton    btnBrowseOutput;
@@ -122,12 +121,10 @@ public class NeuronWorkflowPane extends JPanel {
         )));
 
         // EDF / overlay / ganglia toggle
-        cbUseClij2EDF = new JCheckBox("Use CLIJ2 EDF (if Z>1)");
         cbSaveFlattenedOverlay = new JCheckBox("Save flattened overlay");
         cbGangliaAnalysis = new JCheckBox("Run ganglia analysis");
         cbGangliaMode = new JComboBox<>(Params.GangliaMode.values());
         p.add(boxWith("Options", column(
-                cbUseClij2EDF,
                 cbSaveFlattenedOverlay,
                 row(new JLabel("Ganglia mode:"), cbGangliaMode),
                 cbGangliaAnalysis
@@ -223,7 +220,6 @@ public class NeuronWorkflowPane extends JPanel {
         p.probThresh = ((Number) spProbThresh.getValue()).doubleValue();
         p.nmsThresh  = ((Number) spNmsThresh.getValue()).doubleValue();
 
-        p.useClij2EDF = cbUseClij2EDF.isSelected();
         p.saveFlattenedOverlay = cbSaveFlattenedOverlay.isSelected();
 
         p.requireMicronUnits = cbRequireMicronUnits.isSelected();
@@ -256,7 +252,6 @@ public class NeuronWorkflowPane extends JPanel {
         spProbThresh.setValue(0.5);
         spNmsThresh.setValue(0.3);
 
-        cbUseClij2EDF.setSelected(false);
         cbSaveFlattenedOverlay.setSelected(true);
 
         cbRequireMicronUnits.setSelected(true);
