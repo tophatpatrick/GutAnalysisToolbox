@@ -39,27 +39,6 @@ public class GatPluginUI implements PlugIn {
     public void run(String arg){
         SwingUtilities.invokeLater(this::buildAndShow);
 
-
-        Params p = new Params();
-        p.imagePath = "/Users/miles/Desktop/UNI/Year5/SEM2/FIT4002/Testing/ms_28_wk_colon_DAPI_nNOS_Hu_10X.tif";
-        p.huChannel = 3;
-        p.stardistModelZip = new File(new File(IJ.getDirectory("imagej"), "models"), "2D_enteric_neuron_v4_1.zip").getAbsolutePath();
-        p.trainingPixelSizeUm = 0.568;
-        p.probThresh = 0.5;
-        p.nmsThresh = 0.3;
-        p.neuronSegMinMicron = 70.0;
-        p.neuronSegLowerLimitUm = 70.0;
-        p.gangliaMinAreaUm2 = 200.0;
-        p.saveFlattenedOverlay = true;
-        p.rescaleToTrainingPx = true;
-        p.useClij2EDF = false;
-        p.cellCountsPerGanglia = true;
-        p.gangliaMode = Params.GangliaMode.DEEPIMAGEJ;
-        p.huDilationMicron = 12.0;
-        p.gangliaChannel = 2;
-        p.gangliaModelFolder = "2D_Ganglia_RGB_v3.bioimage.io.model";
-
-        new NeuronsHuPipeline().run(p);
     }
 
     private void buildAndShow(){
