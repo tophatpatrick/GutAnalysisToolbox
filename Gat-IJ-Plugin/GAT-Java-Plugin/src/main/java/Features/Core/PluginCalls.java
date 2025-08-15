@@ -3,9 +3,7 @@ package Features.Core;
 import Features.Tools.SilentRun;
 import ij.IJ;
 import ij.ImagePlus;
-import ij.plugin.Duplicator;
 import ij.plugin.frame.RoiManager;
-
 import java.io.File;
 import java.text.DecimalFormat;
 
@@ -190,29 +188,30 @@ public final class PluginCalls {
 
     /** Build 3-channel composite for DIJ: C1=ganglia marker, C2=Hu, C3=blank */
     public static ImagePlus buildGangliaRGB(ImagePlus maxProj, int gangliaCh1, int huCh1) {
-        ImagePlus g = new Duplicator().run(maxProj, gangliaCh1, gangliaCh1, 1, maxProj.getNSlices(), 1, maxProj.getNFrames());
-        IJ.resetMinAndMax(g);
+        IJ.run(maxProj, "Select None", "");
+        IJ.run(maxProj, "Duplicate...", "title=ganglia_ch duplicate channels=" + gangliaCh1);
+        ImagePlus g = IJ.getImage();
+        IJ.resetMinAndMax(g);            // <-- important
         IJ.run(g, "Green", "");
 
-        ImagePlus h = new Duplicator().run(maxProj, huCh1, huCh1, 1, maxProj.getNSlices(), 1, maxProj.getNFrames());
-        IJ.resetMinAndMax(h);
+        IJ.run(maxProj, "Duplicate...", "title=cells_ch duplicate channels=" + huCh1);
+        ImagePlus h = IJ.getImage();
+        IJ.resetMinAndMax(h);            // <-- important
         IJ.run(h, "Magenta", "");
 
-        // Merge without showing: diff-new window
-        int[] before = ij.WindowManager.getIDList();
-        SilentRun.on(null, "Merge Channels...", "c1=[" + g.getTitle() + "] c2=[" + h.getTitle() + "] create");
-        ImagePlus comp = findNewImageSince(before); if (comp == null) comp = IJ.getImage();
+        IJ.run("Merge Channels...", "c1=[ganglia_ch] c2=[cells_ch] create");
+        ImagePlus comp = IJ.getImage();
 
-        SilentRun.on(comp, "RGB Color", "");
-        ImagePlus rgb = findNewImageSince(before); if (rgb == null) rgb = IJ.getImage();
+        IJ.run(comp, "RGB Color", "");
+        ImagePlus rgb = IJ.getImage();
         rgb.setTitle("ganglia_rgb");
         rgb.setCalibration(maxProj.getCalibration());
 
-        // temp copy like macro does
-        SilentRun.on(rgb, "Duplicate...", "title=ganglia_rgb_2");
-        if (comp!=null) { comp.changes=false; comp.close(); }
-        if (g!=null)    { g.changes=false; g.close(); }
-        if (h!=null)    { h.changes=false; h.close(); }
+        IJ.run("Duplicate...", "title=ganglia_rgb_2");
+        ImagePlus rgb2 = IJ.getImage();
+        comp.changes = false; comp.close();
+        g.changes = false; g.close();
+        h.changes = false; h.close();
         return rgb;
     }
 
@@ -221,18 +220,18 @@ public final class PluginCalls {
      *  -> promote to a 3-channel hyperstack (C=3, Z=1, T=1) so DIJ sees "Channel".
      */
     private static ImagePlus preprocessGangliaLikeMacro(ImagePlus rgb) {
-        int[] before = ij.WindowManager.getIDList();
-        SilentRun.on(rgb, "RGB Stack", "");
-        ImagePlus st = findNewImageSince(before); if (st == null) st = IJ.getImage();
-
-        SilentRun.on(st, "32-bit", "");
+        rgb.show(); IJ.selectWindow(rgb.getID());
+        IJ.run(rgb, "RGB Stack", "");          // 3 slices: R, G, B
+        ImagePlus st = IJ.getImage();
+        IJ.run(st, "32-bit", "");
 
         int n = st.getStackSize();
         for (int s = 1; s <= n; s++) {
             st.setSlice(s);
-            SilentRun.on(st, "Divide...", "value=255 slice");
+            IJ.run(st, "Divide...", "value=255 slice");   // 0..1
         }
-        st.setTitle("ganglia_rgb");
+        // No "Make Composite" here — let DIJ read 3 slices as 3 channels.
+        st.setTitle("ganglia_rgb");                        // keep title stable
         st.setCalibration(rgb.getCalibration());
         return st;
     }
@@ -281,16 +280,35 @@ public final class PluginCalls {
 
         // Optional interactive review
         if (p != null && p.gangliaInteractiveReview) {
+            out.setTitle("ganglia_mask");                  // clear title
             ImagePlus rgb2 = ij.WindowManager.getImage("ganglia_rgb_2");
+
+            // Put the color image on top of the mask as a translucent overlay
             if (rgb2 != null) {
-                IJ.run(out, "Image to Selection...", "image=[" + rgb2.getTitle() + "] opacity=60");
+                ij.gui.ImageRoi ir = new ij.gui.ImageRoi(0, 0, rgb2.getProcessor().duplicate());
+                ir.setOpacity(0.60);                       // 0..1
+                ij.gui.Overlay ov = new ij.gui.Overlay(ir);
+                out.setOverlay(ov);
             }
+
+            // Make sure we're painting the MASK
+            out.show();
+            if (out.getWindow() != null) out.getWindow().toFront();
+
+            // Brush semantics: white = add, black = remove (X toggles fg/bg in ImageJ)
             IJ.setTool("brush");
+            IJ.setForegroundColor(255, 255, 255);
+            IJ.setBackgroundColor(0,   0,   0);
+
             new ij.gui.WaitForUserDialog(
                     "Ganglia overlay",
-                    "Use the Brush tool to add (white) or remove (black) ganglia.\nClick OK when done."
+                    "Paint on the window titled 'ganglia_mask'.\n" +
+                            "WHITE adds ganglia, BLACK removes (press 'X' to toggle).\n" +
+                            "Click OK when done."
             ).show();
+
             IJ.run(out, "Select None", "");
+            out.setOverlay(null);                          // don't keep overlay in saved TIFFs
         }
 
         // Second Size Opening pass (macro does this unconditionally)
@@ -306,12 +324,20 @@ public final class PluginCalls {
         // Return final binary (macro keeps binary here)
         return out;
     }
+    public static void clearThreshold(ImagePlus imp) {
+        if (imp != null && imp.getProcessor() != null) {
+            imp.getProcessor().resetThreshold();  // clears the red overlay
+            imp.updateAndDraw();
+        }
+    }
+
 
     public static ImagePlus probToBinary(ImagePlus prob, double thresh01) {
         if (prob.getBitDepth() != 8) IJ.run(prob, "8-bit", ""); // scales 0..255
         int t = (int)Math.round(Math.max(0, Math.min(255, thresh01 * 255.0)));
         IJ.setThreshold(prob, t, 255);
         SilentRun.on(prob, "Convert to Mask", "");
+        clearThreshold(prob);
         prob.hide();
         return prob; // now an 8-bit mask
     }
@@ -328,6 +354,7 @@ public final class PluginCalls {
         if (labels == null) throw new IllegalStateException("Connected Components produced no output.");
 
         labels.setCalibration(binary.getCalibration());
+        clearThreshold(labels);
         return labels;
     }
 

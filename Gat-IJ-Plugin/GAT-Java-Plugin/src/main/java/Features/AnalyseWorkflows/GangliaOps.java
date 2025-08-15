@@ -6,6 +6,8 @@ import ij.IJ;
 import ij.ImagePlus;
 import ij.plugin.frame.RoiManager;
 
+import static Features.Core.PluginCalls.clearThreshold;
+
 
 public final class GangliaOps {
     private GangliaOps(){}
@@ -94,6 +96,7 @@ public final class GangliaOps {
         IJ.run(bin, "Select None", "");
         IJ.setThreshold(bin, 1, 65535);
         IJ.run(bin, "Convert to Mask", "");
+        clearThreshold(bin);
 
         double pxUm = (ref.getCalibration() != null) ? ref.getCalibration().pixelWidth : 0.0;
         if (pxUm <= 0) throw new IllegalStateException("Image must be calibrated in microns.");

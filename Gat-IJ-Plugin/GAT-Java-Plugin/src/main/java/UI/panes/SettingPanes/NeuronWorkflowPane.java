@@ -235,6 +235,7 @@ public class NeuronWorkflowPane extends JPanel {
         p.gangliaMinAreaUm2   = ((Number) spGangliaMinAreaUm2.getValue()).doubleValue();
         p.gangliaOpenIterations = ((Number) spGangliaOpenIterations.getValue()).intValue();
         p.gangliaInteractiveReview = cbGangliaInteractiveReview.isSelected();
+        p.uiAnchor = SwingUtilities.getWindowAncestor(this);
 
         return p;
     }

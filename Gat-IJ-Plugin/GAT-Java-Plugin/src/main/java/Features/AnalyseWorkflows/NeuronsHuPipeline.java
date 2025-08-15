@@ -179,6 +179,7 @@ public class NeuronsHuPipeline {
             OutputIO.saveTiff(gangliaBinary, new File(outDir, gangliaBinary.getTitle() + ".tif"));
 
             // D) Convert the filtered BINARY back to labels for ROI export / area calc
+            ij.IJ.run(gangliaBinary, "Fill Holes", "");
             ImagePlus gangliaLabels = PluginCalls.binaryToLabels(gangliaBinary);
             gangliaLabels.setCalibration(max.getCalibration());
             gangliaLabels.setTitle("Ganglia_label_MAX_" + baseName);
@@ -186,9 +187,24 @@ public class NeuronsHuPipeline {
 
             // E) Convert to ROIs and save (matches macro’s ROI export stage)
             RoiManager rmG = RoiManager.getInstance2();
+            if (rmG == null) {
+                // create it without popping UI
+                rmG = new RoiManager(false);
+            }
             rmG.reset();
             PluginCalls.labelsToRois(gangliaLabels);
-            OutputIO.saveRois(rmG, new File(outDir, "Ganglia_ROIs_" + baseName + ".zip"));
+            rmG = RoiManager.getInstance2();
+            int nG = rmG.getCount();
+            IJ.log("Ganglia ROIs after Label Map to ROIs: " + nG);
+
+            if (nG == 0) {
+                IJ.log("WARN: 0 ganglia ROIs created. Check that 'gangliaLabels' is a 16-bit label map with >0 labels.");
+            } else {
+                OutputIO.saveRois(rmG, new File(outDir, "Ganglia_ROIs_" + baseName + ".zip"));
+                if (p.saveFlattenedOverlay) {
+                    OutputIO.saveFlattenedOverlay(max, rmG, new File(outDir, "MAX_" + baseName + "_ganglia_overlay.tif"));
+                }
+            }
             if (p.saveFlattenedOverlay && rmG.getCount() > 0) {
                 OutputIO.saveFlattenedOverlay(max, rmG, new File(outDir, "MAX_" + baseName + "_ganglia_overlay.tif"));
             }

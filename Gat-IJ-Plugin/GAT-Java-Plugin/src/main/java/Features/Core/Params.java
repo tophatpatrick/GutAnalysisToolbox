@@ -1,6 +1,8 @@
 package Features.Core;
 
 
+import java.awt.*;
+
 public class Params {
     /** If null, uses current image in Fiji. */
     // Input/output
@@ -68,6 +70,8 @@ public class Params {
     public Boolean gangliaUsePreprocessing = true; // toggle pre script
     public int     gangliaOpenIterations   = 3;
     public boolean gangliaInteractiveReview = true;
+
+   public Window uiAnchor;
 }
 
 
