@@ -204,3 +204,35 @@ public class _Align_stack_batch implements PlugIn {
             IJ.log("Error processing LIF " + filePath + ": " + e.getMessage());
         }
     }
+    
+    /**
+     * Process a single file (non-LIF)
+     */
+    private void processSingleFile(String filePath) {
+        try {
+            // Use Bio-Formats to open the file
+            ImporterOptions options = new ImporterOptions();
+            options.setId(filePath);
+            options.setAutoscale(true);
+            options.setColorMode(ImporterOptions.COLOR_MODE_DEFAULT);
+            options.setStackOrder(ImporterOptions.ORDER_XYCZT);
+            
+            ImagePlus[] imps = BF.openImagePlus(options);
+            if (imps.length > 0) {
+                ImagePlus imp = imps[0];
+                String imgName = new File(filePath).getName();
+                int dotIndex = imgName.lastIndexOf('.');
+                if (dotIndex > 0) {
+                    imgName = imgName.substring(0, dotIndex);
+                }
+                imp.setTitle(imgName);
+                
+                ImageReader reader = new ImageReader();
+                reader.setId(filePath);
+                processFileAlignment(imp, imgName, reader);
+                reader.close();
+            }
+        } catch (Exception e) {
+            IJ.log("Error processing file " + filePath + ": " + e.getMessage());
+        }
+    }
