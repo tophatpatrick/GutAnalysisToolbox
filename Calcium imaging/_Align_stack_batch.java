@@ -236,3 +236,61 @@ public class _Align_stack_batch implements PlugIn {
             IJ.log("Error processing file " + filePath + ": " + e.getMessage());
         }
     }
+    
+    /**
+     * Process alignment for a single file/series
+     */
+    private void processFileAlignment(ImagePlus imp, String name, ImageReader reader) {
+        try {
+            imp.setT(referenceFrame);
+            
+            // Get image dimensions using Bio-Formats
+            int sizeT = reader.getSizeT();
+            int sizeZ = reader.getSizeZ();
+            int sizeC = reader.getSizeC();
+            int sizeX = reader.getSizeX();
+            int sizeY = reader.getSizeY();
+            
+            // If slices > frames, swap them
+            if (sizeZ > sizeT) {
+                sizeT = sizeZ;
+                IJ.log("Swapping slices with frames");
+            }
+            
+            IJ.log("No of frames: " + sizeT);
+            
+            if (sizeT > 10) { // Only process if more than 10 frames
+                IJ.log("Processing: " + name);
+                
+                if (sizeC > 1) {
+                    // Multi-channel image - only align channel 1
+                    IJ.log("Multichannel image, only aligning channel 1");
+                    IJ.run(imp, "Split Channels", "");
+                    IJ.wait(500);
+                    
+                    // Close other channels and keep C1
+                    closeOtherChannels(name, sizeC);
+                    ImagePlus c1Imp = WindowManager.getImage("C1-" + name);
+                    if (c1Imp != null) {
+                        c1Imp.setT(referenceFrame);
+                        String aligned = alignImages("C1-" + name, sizeX, sizeY, sizeT);
+                        saveAlignedImage(aligned, name);
+                    }
+                } else {
+                    // Single channel
+                    String aligned = alignImages(name, sizeX, sizeY, sizeT);
+                    saveAlignedImage(aligned, name);
+                }
+            } else {
+                IJ.log("Not a time series");
+                imp.close();
+            }
+            
+        } catch (Exception e) {
+            IJ.log("Error in file alignment: " + e.getMessage());
+        }
+        
+        // Garbage collection
+        System.gc();
+    }
+
