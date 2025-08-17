@@ -21,6 +21,9 @@ public class GatPluginUI implements PlugIn {
     private JPanel cardPanel = new JPanel(cards);
     Navigator navigator = name -> cards.show(cardPanel,name);
 
+    public static void main(String[] args) {
+        new GatPluginUI().run("");
+    }
 
     static {
         // Install Material UI L&F on the EDT
@@ -68,7 +71,7 @@ public class GatPluginUI implements PlugIn {
         cardPanel.add(new MultichannelPane(navigator),MultichannelPane.Name);
 
         // register your dashboard pane
-        cardPanel.add(new AnalyseNeuronDashboard(navigator),AnalyseNeuronDashboard.Name);
+//        cardPanel.add(new AnalyseNeuronDashboard(navigator),AnalyseNeuronDashboard.Name);
 
 
 
@@ -80,7 +83,8 @@ public class GatPluginUI implements PlugIn {
         panes.put(CalciumImagingPane.Name,  new CalciumImagingPane(navigator));
         panes.put(MultiplexPane.Name,       new MultiplexPane(navigator));
         panes.put(ToolsPane.Name,           new ToolsPane(navigator));
-        panes.put(SpatialAnalysisPane.Name, new SpatialAnalysisPane(navigator));
+        panes.put(SpatialAnalysisPane.Name, new SpatialAnalysisPane(navigator, dialog));
+//        panes.put(SpatialAnalysisPane.Name, new SpatialAnalysisPane(navigator));
 
         //Register the panes in the card panel and create the button
         for (Map.Entry<String, JPanel> e: panes.entrySet()){

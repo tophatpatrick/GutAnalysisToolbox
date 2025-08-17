@@ -15,15 +15,33 @@
     </properties>
 
     <repositories>
+        <!-- Use HTTPS version of SciJava repository -->
         <repository>
             <id>scijava.public</id>
             <name>SciJava Public Repository</name>
             <url>https://maven.scijava.org/content/groups/public</url>
         </repository>
+
+        <!-- ImageJ repository with HTTPS -->
+        <repository>
+            <id>imagej.releases</id>
+            <name>ImageJ Releases</name>
+            <url>https://maven.scijava.org/content/repositories/releases</url>
+        </repository>
+
+        <!-- ImageJ snapshots with HTTPS -->
+        <repository>
+            <id>imagej.snapshots</id>
+            <name>ImageJ Snapshots</name>
+            <url>https://maven.scijava.org/content/repositories/snapshots</url>
+            <snapshots>
+                <enabled>true</enabled>
+            </snapshots>
+        </repository>
     </repositories>
 
     <dependencies>
-        <!-- ImageJ -->
+        <!-- Core ImageJ -->
         <dependency>
             <groupId>net.imagej</groupId>
             <artifactId>ij</artifactId>
@@ -36,8 +54,57 @@
             <artifactId>material-ui-swing</artifactId>
             <version>1.1.2</version>
         </dependency>
-    </dependencies>
 
+        <!-- ImageJ2 Core -->
+        <dependency>
+            <groupId>net.imagej</groupId>
+            <artifactId>imagej</artifactId>
+            <version>2.9.0</version>
+        </dependency>
+
+        <!-- ImageJ Ops for image processing operations -->
+        <dependency>
+            <groupId>net.imagej</groupId>
+            <artifactId>imagej-ops</artifactId>
+            <version>0.45.8</version>
+        </dependency>
+
+        <!-- CLIJ2 for GPU-accelerated image processing -->
+        <dependency>
+            <groupId>net.haesleinhuepf</groupId>
+            <artifactId>clij2_</artifactId>
+            <version>2.5.0.1</version>
+        </dependency>
+
+        <!-- CLIJ (original) -->
+        <dependency>
+            <groupId>net.haesleinhuepf</groupId>
+            <artifactId>clij_</artifactId>
+            <version>1.9.0.1</version>
+        </dependency>
+
+        <!-- ImageJ Legacy for compatibility -->
+<!--        <dependency>-->
+<!--            <groupId>net.imagej</groupId>-->
+<!--            <artifactId>imagej-legacy</artifactId>-->
+<!--            <version>0.37.5</version>-->
+<!--        </dependency>-->
+
+        <!-- Bio-Formats for reading various image formats -->
+        <dependency>
+            <groupId>ome</groupId>
+            <artifactId>formats-gpl</artifactId>
+            <version>6.8.1</version>
+        </dependency>
+
+        <!-- Try to add some Fiji components individually instead of the full fiji pom -->
+        <dependency>
+            <groupId>sc.fiji</groupId>
+            <artifactId>fiji-lib</artifactId>
+            <version>2.1.1</version>
+        </dependency>
+
+    </dependencies>
 
     <build>
         <plugins>
@@ -46,12 +113,12 @@
                 <artifactId>maven-compiler-plugin</artifactId>
                 <version>3.8.1</version>
                 <configuration>
-                    <source>${java.version}</source>
-                    <target>${java.version}</target>
+                    <source>${maven.compiler.source}</source>
+                    <target>${maven.compiler.target}</target>
                 </configuration>
             </plugin>
 
-            <!-- Produce a “fat” JAR including all dependencies -->
+            <!-- Produce a "fat" JAR including all dependencies -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>
@@ -63,7 +130,6 @@
                             <goal>shade</goal>
                         </goals>
                         <configuration>
-                            <!-- relocate packages if you need to avoid conflicts -->
                             <createDependencyReducedPom>false</createDependencyReducedPom>
                         </configuration>
                     </execution>

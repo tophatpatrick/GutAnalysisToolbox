@@ -30,6 +30,9 @@ public class AnalyseNeuronDashboard extends JPanel {
 
         // ── 1) Load & show the image ────────────────────────────
         this.imp = IJ.openImage("Path to the tif image");
+        if (imp == null) {
+            throw new RuntimeException("Could not open image! Check the image path.");
+        }
         imp.show();                         // registers it with WindowManager
         // now grab its real window and hide it
         Frame imgWin = imp.getWindow();
