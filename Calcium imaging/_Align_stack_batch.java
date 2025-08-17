@@ -293,4 +293,71 @@ public class _Align_stack_batch implements PlugIn {
         // Garbage collection
         System.gc();
     }
-
+    
+    /**
+     * Close other channels except C1
+     */
+    private void closeOtherChannels(String baseName, int totalChannels) {
+        for (int i = 2; i <= totalChannels; i++) {
+            ImagePlus toClose = WindowManager.getImage("C" + i + "-" + baseName);
+            if (toClose != null) {
+                toClose.close();
+            }
+        }
+    }
+    
+    /**
+     * Run alignment on the specified image
+     */
+    private String alignImages(String imageName, int sizeX, int sizeY, int sizeT) {
+        ImagePlus imp = WindowManager.getImage(imageName);
+        if (imp == null) {
+            IJ.error("Could not find image: " + imageName);
+            return null;
+        }
+        
+        imp.setT(referenceFrame);
+        ImageProcessor.setUseBicubic(true);
+        
+        // Set batch mode for faster processing
+        boolean wasBatchMode = Interpreter.isBatchMode();
+        if (!wasBatchMode) {
+            Interpreter.batchMode = true;
+        }
+        
+        try {
+            // Run SIFT alignment if selected
+            if (useSift) {
+                IJ.log("Running SIFT");
+                imp.setT(referenceFrame);
+                alignWithSift(imp, sizeX, sizeY);
+                IJ.wait(100);
+                imp.close();
+                imp = WindowManager.getImage("Aligned " + sizeT + " of " + sizeT);
+                if (imp == null) {
+                    IJ.error("SIFT alignment failed");
+                    return null;
+                }
+            }
+            
+            // Run secondary alignment based on choice
+            if (alignmentChoice.equals("Template Matching")) {
+                imp.setT(referenceFrame);
+                alignWithTemplateMatching(imp, sizeX, sizeY);
+                IJ.wait(10);
+            } else if (alignmentChoice.equals("StackReg")) {
+                imp.setT(referenceFrame);
+                IJ.run(imp, "StackReg", "transformation=[Rigid Body]");
+            }
+            
+            return imp.getTitle();
+            
+        } finally {
+            // Restore batch mode state
+            if (!wasBatchMode) {
+                Interpreter.batchMode = false;
+            }
+        }
+    }
+    
+    
