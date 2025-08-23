@@ -25,3 +25,8 @@ Models/*
 Thumbs.db
 Gat-IJ-Plugin/out/artifacts/GAT_Java_Plugin_jar/GAT-Java-Plugin.jar
 Gat-IJ-Plugin/GAT-Java-Plugin/src/main/java/UI/panes/WorkflowDashboards/AnalyseNeuronDashboard.java
+
+in_progress/*
+QuPath_workflow/qupath_project/*
+Sample Images/2D_enteric_neuron_IF/Analysis/*
+

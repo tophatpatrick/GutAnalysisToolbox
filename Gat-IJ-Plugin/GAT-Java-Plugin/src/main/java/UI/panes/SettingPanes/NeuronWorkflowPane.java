@@ -1,277 +1,358 @@
 package UI.panes.SettingPanes;
 
+import Features.AnalyseWorkflows.NeuronsHuPipeline;
+import Features.Core.Params;
 import UI.Handlers.Navigator;
-import UI.panes.WorkflowDashboards.*;
+import ij.IJ;
 
-import javax.imageio.ImageIO;
 import javax.swing.*;
+import javax.swing.border.TitledBorder;
 import java.awt.*;
-import java.awt.image.BufferedImage;
 import java.io.File;
-import java.io.IOException;
 
+/**
+ * Neuron Workflow pane with Basic & Advanced tabs.
+ * - No modal progress window
+ * - Builds Params directly from the UI
+ * - Runs NeuronsHuPipeline on a SwingWorker
+ */
 public class NeuronWorkflowPane extends JPanel {
-
     public static final String Name = "Neuron Workflow";
 
+    private final Navigator navigator;
+    private final Window owner;
+
+    // Basic tab fields
+    private JTextField tfImagePath;
+    private JButton    btnBrowseImage;
+
+    private JSpinner   spHuChannel;
+
+    private JTextField tfModelZip;
+    private JButton    btnBrowseModel;
+
+    private JCheckBox  cbRescaleToTrainingPx;
+    private JSpinner   spTrainingPixelSizeUm;   // double
+    private JSpinner   spProbThresh;            // 0..1
+    private JSpinner   spNmsThresh;             // 0..1
+    private JCheckBox  cbSaveFlattenedOverlay;
+    private JTextField tfOutputDir;
+    private JButton    btnBrowseOutput;
+
+    private JCheckBox  cbGangliaAnalysis;       // enable/disable ganglia block
+    private JComboBox<Params.GangliaMode> cbGangliaMode;
+
+    // Advanced tab fields
+    private JCheckBox  cbRequireMicronUnits;
+    private JSpinner   spNeuronSegLowerLimitUm; // double
+    private JSpinner   spNeuronSegMinMicron;    // double (kept for parity)
+
+    private JSpinner   spTrainingRescaleFactor; // double
+
+    private JSpinner   spGangliaChannel;        // int (1-based)
+    private JTextField tfGangliaModelFolder;    // model folder name (under <Fiji>/models)
+    private JButton    btnBrowseGangliaModelFolder;
+
+    private JSpinner   spHuDilationMicron;      // double
+    private JSpinner   spGangliaProbThresh01;   // double 0..1
+    private JSpinner   spGangliaMinAreaUm2;     // double
+    private JSpinner   spGangliaOpenIterations; // int
+    private JCheckBox  cbGangliaInteractiveReview;
+
     public NeuronWorkflowPane(Navigator navigator, Window owner) {
-        super(new BorderLayout(10, 10));
-        setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
+        super(new BorderLayout(10,10));
+        this.navigator = navigator;
+        this.owner     = owner;
+        setBorder(BorderFactory.createEmptyBorder(16,16,16,16));
 
-        // Create tabbed pane
-        JTabbedPane tabbedPane = new JTabbedPane();
+        JTabbedPane tabs = new JTabbedPane();
+        tabs.addTab("Basic", buildBasicTab());
+        tabs.addTab("Advanced", buildAdvancedTab());
+        add(tabs, BorderLayout.CENTER);
 
-        // Add Basic and Advanced panels
-        tabbedPane.addTab("Basic", createBasicTab());
-        tabbedPane.addTab("Advanced", createAdvancedTab());
+        JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        JButton runBtn = new JButton("Run Analysis");
+        runBtn.addActionListener(e -> onRun(runBtn));
+        actions.add(runBtn);
+        add(actions, BorderLayout.SOUTH);
 
-        add(tabbedPane, BorderLayout.CENTER);
-
-        // Run button
-        JButton run = new JButton("Run");
-        run.addActionListener(e -> {
-            JDialog progress = new JDialog(owner, "Processing…", Dialog.ModalityType.APPLICATION_MODAL);
-            JProgressBar bar = new JProgressBar();
-            bar.setIndeterminate(true);
-            progress.add(bar, BorderLayout.CENTER);
-            progress.setSize(300, 80);
-            progress.setLocationRelativeTo(owner);
-
-            SwingWorker<Void, Void> worker = new SwingWorker<Void, Void>() {
-                @Override
-                protected Void doInBackground() throws Exception {
-                    Thread.sleep(2000);
-                    return null;
-                }
-
-                @Override
-                protected void done() {
-                    progress.dispose();
-                    navigator.show(AnalyseNeuronDashboard.Name);
-                }
-            };
-
-            worker.execute();
-            progress.setVisible(true);
-        });
-
-        JPanel btnPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
-        btnPanel.add(run);
-        add(btnPanel, BorderLayout.SOUTH);
+        loadDefaults();
     }
 
-    private JPanel createBasicTab() {
-        JPanel panel = new JPanel();
-        panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
-//        panel.add(Box.createVerticalStrut(1));
+    // ---------------- UI builders ----------------
 
-//        JLabel imageLabel = new JLabel("Image Selection");
-//        imageLabel.setFont(new Font("SansSerif", Font.BOLD, 16));  // Bold, size 16
-//        imageLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
-//        panel.add(imageLabel);
-        JPanel labelWrapper = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
-        JLabel imageLabel = new JLabel("Image Selection");
-        imageLabel.setFont(new Font("SansSerif", Font.BOLD, 16));
-        labelWrapper.add(imageLabel);
-        panel.add(labelWrapper);
-//        panel.add(Box.createVerticalStrut(1));
+    private JPanel buildBasicTab() {
+        JPanel p = new JPanel();
+        p.setLayout(new BoxLayout(p, BoxLayout.Y_AXIS));
 
-        // Image path row with inline Browse and Preview buttons
-        JPanel imageRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
-        imageRow.add(new JLabel("Choose the image to segment:"));
+        // Image
+        tfImagePath = new JTextField(36);
+        btnBrowseImage = new JButton("Browse…");
+        btnBrowseImage.addActionListener(e -> chooseFile(tfImagePath, JFileChooser.FILES_ONLY));
+        p.add(boxWith("Input image (.tif, .lif, etc.)", row(tfImagePath, btnBrowseImage)));
 
-        JTextField imagePath = new JTextField(25);
-        imageRow.add(imagePath);
+        // Hu channel
+        spHuChannel = new JSpinner(new SpinnerNumberModel(3, 1, 16, 1));
+        p.add(boxWith("Hu channel (1-based)", row(spHuChannel)));
 
-        JButton browse = new JButton("Browse");
-        JButton preview = new JButton("Show Preview");
-        preview.setEnabled(false); // Disabled until image is selected
-        JCheckBox imageOpen = new JCheckBox("Image already open");
+        // StarDist model (.zip)
+        tfModelZip = new JTextField(36);
+        btnBrowseModel = new JButton("Browse…");
+        btnBrowseModel.addActionListener(e -> chooseFile(tfModelZip, JFileChooser.FILES_ONLY));
+        p.add(boxWith("StarDist model (.zip)", row(tfModelZip, btnBrowseModel)));
 
-        imageRow.add(browse);
-        imageRow.add(preview);
-        imageRow.add(imageOpen);
+        // Output dir
+        tfOutputDir = new JTextField(36);
+        btnBrowseOutput = new JButton("Browse…");
+        btnBrowseOutput.addActionListener(e -> chooseFile(tfOutputDir, JFileChooser.DIRECTORIES_ONLY));
+        p.add(boxWith("Output directory (optional; default: Analysis/<basename>)", row(tfOutputDir, btnBrowseOutput)));
 
-        panel.add(imageRow);
+        // Rescale + training px size
+        cbRescaleToTrainingPx = new JCheckBox("Rescale to training pixel size");
+        spTrainingPixelSizeUm = new JSpinner(new SpinnerNumberModel(0.568, 0.01, 100.0, 0.001));
+        p.add(boxWith("Rescaling", column(cbRescaleToTrainingPx, row(new JLabel("Training pixel size (µm):"), spTrainingPixelSizeUm))));
 
-        // Handle Browse click
-        browse.addActionListener(e -> {
-            JFileChooser fileChooser = new JFileChooser();
-            int result = fileChooser.showOpenDialog(panel);
-            if (result == JFileChooser.APPROVE_OPTION) {
-                String selectedPath = fileChooser.getSelectedFile().getAbsolutePath();
-                imagePath.setText(selectedPath);
-                preview.setEnabled(true);
-            }
-        });
+        // StarDist thresholds
+        spProbThresh = new JSpinner(new SpinnerNumberModel(0.5, 0.0, 1.0, 0.05));
+        spNmsThresh  = new JSpinner(new SpinnerNumberModel(0.3, 0.0, 1.0, 0.05));
+        p.add(boxWith("StarDist thresholds", grid2(
+                new JLabel("Probability:"), spProbThresh,
+                new JLabel("NMS:"),         spNmsThresh
+        )));
 
-        // Handle Show Preview click
-        preview.addActionListener(e -> {
-            String path = imagePath.getText();
-            if (!path.isEmpty()) {
-                JFrame previewFrame = new JFrame("Image Preview");
-                previewFrame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
-                previewFrame.setSize(600, 600);
+        // EDF / overlay / ganglia toggle
+        cbSaveFlattenedOverlay = new JCheckBox("Save flattened overlay");
+        cbGangliaAnalysis = new JCheckBox("Run ganglia analysis");
+        cbGangliaMode = new JComboBox<>(Params.GangliaMode.values());
+        p.add(boxWith("Options", column(
+                cbSaveFlattenedOverlay,
+                row(new JLabel("Ganglia mode:"), cbGangliaMode),
+                cbGangliaAnalysis
+        )));
 
+        p.add(Box.createVerticalGlue());
+        return p;
+    }
+
+    private JPanel buildAdvancedTab() {
+        JPanel p = new JPanel();
+        p.setLayout(new BoxLayout(p, BoxLayout.Y_AXIS));
+
+        cbRequireMicronUnits     = new JCheckBox("Require microns calibration");
+        spNeuronSegLowerLimitUm  = new JSpinner(new SpinnerNumberModel(70.0, 0.0, 10000.0, 1.0));
+        spNeuronSegMinMicron     = new JSpinner(new SpinnerNumberModel(70.0, 0.0, 10000.0, 1.0));
+        spTrainingRescaleFactor  = new JSpinner(new SpinnerNumberModel(1.0, 0.01, 100.0, 0.01));
+
+        p.add(boxWith("Calibration & size filtering", column(
+                cbRequireMicronUnits,
+                grid2(new JLabel("Neuron seg lower limit (µm):"), spNeuronSegLowerLimitUm,
+                        new JLabel("Neuron seg min (µm)       :"),   spNeuronSegMinMicron),
+                row(new JLabel("Training rescale factor:"), spTrainingRescaleFactor)
+        )));
+
+        spGangliaChannel     = new JSpinner(new SpinnerNumberModel(2, 1, 16, 1));
+        tfGangliaModelFolder = new JTextField(28);
+        btnBrowseGangliaModelFolder = new JButton("Browse…");
+        btnBrowseGangliaModelFolder.addActionListener(e -> chooseFolderName(tfGangliaModelFolder));
+
+        p.add(boxWith("Ganglia model", column(
+                row(new JLabel("Ganglia channel (1-based):"), spGangliaChannel),
+                row(new JLabel(""), tfGangliaModelFolder, btnBrowseGangliaModelFolder)
+        )));
+
+        spHuDilationMicron       = new JSpinner(new SpinnerNumberModel(12.0, 0.0, 1000.0, 0.5));
+        spGangliaProbThresh01    = new JSpinner(new SpinnerNumberModel(0.35, 0.0, 1.0, 0.01));
+        spGangliaMinAreaUm2      = new JSpinner(new SpinnerNumberModel(200.0, 0.0, 100000.0, 5.0));
+        spGangliaOpenIterations  = new JSpinner(new SpinnerNumberModel(3, 0, 50, 1));
+        cbGangliaInteractiveReview = new JCheckBox("Interactive review overlay");
+
+        p.add(boxWith("Ganglia post-processing", grid2(
+                new JLabel("Hu dilation (µm):"),      spHuDilationMicron,
+                new JLabel("Prob threshold (0–1):"),  spGangliaProbThresh01,
+                new JLabel("Min area (µm²):"),        spGangliaMinAreaUm2,
+                new JLabel("Open iterations:"),       spGangliaOpenIterations
+        )));
+        p.add(boxWith("Review", cbGangliaInteractiveReview));
+
+        p.add(Box.createVerticalGlue());
+        return p;
+    }
+
+    // ---------------- Actions ----------------
+
+    private void onRun(JButton runBtn) {
+        runBtn.setEnabled(false);
+
+        SwingWorker<Void,Void> worker = new SwingWorker() {
+            @Override protected Void doInBackground() {
                 try {
-                    BufferedImage original = ImageIO.read(new File(path));
-                    int maxW = 550;
-                    int maxH = 500;
-
-                    // Calculate scaled dimensions
-                    double widthRatio = (double) maxW / original.getWidth();
-                    double heightRatio = (double) maxH / original.getHeight();
-                    double scale = Math.min(widthRatio, heightRatio);
-
-                    int newW = (int) (original.getWidth() * scale);
-                    int newH = (int) (original.getHeight() * scale);
-
-                    Image scaledImage = original.getScaledInstance(newW, newH, Image.SCALE_SMOOTH);
-                    ImageIcon icon = new ImageIcon(scaledImage);
-
-                    JLabel imgLabel = new JLabel(icon);
-                    JScrollPane scrollPane = new JScrollPane(imgLabel);
-                    previewFrame.add(scrollPane);
-
-                    previewFrame.setLocationRelativeTo(null);
-                    previewFrame.setVisible(true);
-                } catch (IOException ex) {
-                    JOptionPane.showMessageDialog(panel, "Failed to load image.", "Error", JOptionPane.ERROR_MESSAGE);
+                    Params p = buildParamsFromUI();
+                    new NeuronsHuPipeline().run(p);
+                } catch (Throwable ex) {
+                    SwingUtilities.invokeLater(() -> JOptionPane.showMessageDialog(
+                            owner,
+                            "Analysis failed:\n" + ex.getClass().getSimpleName() + ": " + ex.getMessage(),
+                            "Error",
+                            JOptionPane.ERROR_MESSAGE
+                    ));
                 }
+                return null;
             }
-        });
-
-//        panel.add(Box.createVerticalStrut(1));
-
-        // Channel hue selection
-        JPanel hueRow = new JPanel(new FlowLayout(FlowLayout.LEFT));
-        hueRow.add(new JLabel("Select Channel Hue"));
-        JTextField hueField = new JTextField("3", 3);
-        hueRow.add(hueField);
-        panel.add(hueRow);
-
-        return panel;
+            @Override protected void done() { runBtn.setEnabled(true); }
+        };
+        worker.execute();
     }
 
-    private JPanel createAdvancedTab() {
-        JPanel panel = new JPanel();
-        panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
+    private Params buildParamsFromUI() {
+        Params p = new Params();
 
-        panel.add(Box.createVerticalStrut(10));
+        p.imagePath = emptyToNull(tfImagePath.getText());
+        p.outputDir = emptyToNull(tfOutputDir.getText());
 
-        JLabel titleLabel = new JLabel("Determine Ganglia Outline");
-        titleLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
-        panel.add(titleLabel);
+        p.huChannel = (int) spHuChannel.getValue();
 
-        JCheckBox cellCounts = new JCheckBox("Cell counts per ganglia");
-        cellCounts.setAlignmentX(Component.LEFT_ALIGNMENT);
-        panel.add(cellCounts);
+        p.stardistModelZip = tfModelZip.getText();
 
-        JLabel detectionLabel = new JLabel("Ganglia detection");
-        detectionLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
-        panel.add(detectionLabel);
+        p.rescaleToTrainingPx  = cbRescaleToTrainingPx.isSelected();
+        p.trainingPixelSizeUm  = ((Number) spTrainingPixelSizeUm.getValue()).doubleValue();
+        p.trainingRescaleFactor= ((Number) spTrainingRescaleFactor.getValue()).doubleValue();
 
-        // Radio buttons in a single row
-        ButtonGroup detectionGroup = new ButtonGroup();
-        JRadioButton deepImageJ = new JRadioButton("DeepImageJ");
-        JRadioButton defineHu = new JRadioButton("Define ganglia using Hu");
-        JRadioButton manual = new JRadioButton("Manually Draw ganglia");
+        p.probThresh = ((Number) spProbThresh.getValue()).doubleValue();
+        p.nmsThresh  = ((Number) spNmsThresh.getValue()).doubleValue();
 
-        detectionGroup.add(deepImageJ);
-        detectionGroup.add(defineHu);
-        detectionGroup.add(manual);
+        p.saveFlattenedOverlay = cbSaveFlattenedOverlay.isSelected();
 
-        JPanel radioRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
-        radioRow.setAlignmentX(Component.LEFT_ALIGNMENT);
-        radioRow.setBorder(BorderFactory.createEmptyBorder(0, 0, 0, 0));
-        radioRow.add(deepImageJ);
-        radioRow.add(defineHu);
-        radioRow.add(manual);
-        panel.add(radioRow);
+        p.requireMicronUnits = cbRequireMicronUnits.isSelected();
+        p.neuronSegLowerLimitUm = ((Number) spNeuronSegLowerLimitUm.getValue()).doubleValue();
+        p.neuronSegMinMicron    = ((Number) spNeuronSegMinMicron.getValue()).doubleValue();
 
-        // Channel input row
-        JPanel channelRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
-        channelRow.setAlignmentX(Component.LEFT_ALIGNMENT);
-        channelRow.setBorder(BorderFactory.createEmptyBorder(0, 0, 0, 0));
-        channelRow.add(new JLabel("Enter channel number for segmenting ganglia:"));
-        JTextField channelInput = new JTextField("2", 3);
-        channelRow.add(channelInput);
-        panel.add(channelRow);
+        p.cellCountsPerGanglia = cbGangliaAnalysis.isSelected();
+        p.gangliaMode = (Params.GangliaMode) cbGangliaMode.getSelectedItem();
+        p.gangliaChannel = ((Number) spGangliaChannel.getValue()).intValue();
+        p.gangliaModelFolder = tfGangliaModelFolder.getText();
+        p.huDilationMicron = ((Number) spHuDilationMicron.getValue()).doubleValue();
+        p.gangliaProbThresh01 = ((Number) spGangliaProbThresh01.getValue()).doubleValue();
+        p.gangliaMinAreaUm2   = ((Number) spGangliaMinAreaUm2.getValue()).doubleValue();
+        p.gangliaOpenIterations = ((Number) spGangliaOpenIterations.getValue()).intValue();
+        p.gangliaInteractiveReview = cbGangliaInteractiveReview.isSelected();
+        p.uiAnchor = SwingUtilities.getWindowAncestor(this);
 
-        // Checkboxes
-        JCheckBox spatialAnalysis = new JCheckBox("Perform Spatial Analysis");
-        JCheckBox fineTune = new JCheckBox("Finetune Detection Parameters");
-        JCheckBox contribute = new JCheckBox("Contribute to GAT");
+        return p;
+    }
 
-        spatialAnalysis.setAlignmentX(Component.LEFT_ALIGNMENT);
-        fineTune.setAlignmentX(Component.LEFT_ALIGNMENT);
-        contribute.setAlignmentX(Component.LEFT_ALIGNMENT);
+    private void loadDefaults() {
+        // Fill with your known-good defaults (same as your working run)
+        tfImagePath.setText("/Users/miles/Desktop/ms_28_wk_colon_DAPI_nNOS_Hu_10X.tif");
+        spHuChannel.setValue(3);
 
-        panel.add(spatialAnalysis);
-        panel.add(fineTune);
-        panel.add(contribute);
+        String modelZip = new File(new File(IJ.getDirectory("imagej"), "models"), "2D_enteric_neuron_v4_1.zip").getAbsolutePath();
+        tfModelZip.setText(modelZip);
 
-        return panel;
+        cbRescaleToTrainingPx.setSelected(true);
+        spTrainingPixelSizeUm.setValue(0.568);
+        spProbThresh.setValue(0.5);
+        spNmsThresh.setValue(0.3);
+
+        cbSaveFlattenedOverlay.setSelected(true);
+
+        cbRequireMicronUnits.setSelected(true);
+        spNeuronSegLowerLimitUm.setValue(70.0);
+        spNeuronSegMinMicron.setValue(70.0);
+        spTrainingRescaleFactor.setValue(1.0);
+
+        cbGangliaAnalysis.setSelected(true);
+        cbGangliaMode.setSelectedItem(Params.GangliaMode.DEEPIMAGEJ);
+        spGangliaChannel.setValue(2);
+        tfGangliaModelFolder.setText("2D_Ganglia_RGB_v3.bioimage.io.model");
+
+        spHuDilationMicron.setValue(12.0);
+        spGangliaProbThresh01.setValue(0.35);
+        spGangliaMinAreaUm2.setValue(200.0);
+        spGangliaOpenIterations.setValue(3);
+        cbGangliaInteractiveReview.setSelected(true);
+    }
+
+    // ---------------- Small helpers ----------------
+
+    private static String emptyToNull(String s) {
+        if (s == null) return null;
+        s = s.trim();
+        return s.isEmpty() ? null : s;
+    }
+
+    private static JPanel boxWith(String title, Component content) {
+        JPanel box = new JPanel(new BorderLayout());
+        box.setBorder(BorderFactory.createTitledBorder(
+                BorderFactory.createEtchedBorder(),
+                title,
+                TitledBorder.LEFT,
+                TitledBorder.TOP
+        ));
+        box.add(content, BorderLayout.CENTER);
+        box.setAlignmentX(Component.LEFT_ALIGNMENT);
+        return box;
+    }
+
+    private static JPanel column(JComponent... comps) {
+        JPanel col = new JPanel();
+        col.setLayout(new BoxLayout(col, BoxLayout.Y_AXIS));
+        for (JComponent c : comps) {
+            c.setAlignmentX(Component.LEFT_ALIGNMENT);
+            col.add(c);
+            col.add(Box.createVerticalStrut(6));
+        }
+        return col;
+    }
+
+    private static JPanel row(JComponent... comps) {
+        JPanel r = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 4));
+        for (JComponent c : comps) r.add(c);
+        r.setAlignmentX(Component.LEFT_ALIGNMENT);
+        return r;
+    }
+
+    private static JPanel grid2(Component... kvPairs) {
+        JPanel g = new JPanel(new GridBagLayout());
+        GridBagConstraints lc = new GridBagConstraints();
+        GridBagConstraints rc = new GridBagConstraints();
+        lc.gridx = 0; lc.gridy = 0; lc.anchor = GridBagConstraints.WEST; lc.insets = new Insets(3,3,3,3);
+        rc.gridx = 1; rc.gridy = 0; rc.weightx = 1; rc.fill = GridBagConstraints.HORIZONTAL; rc.insets = new Insets(3,3,3,3);
+        for (int i = 0; i < kvPairs.length; i += 2) {
+            g.add(kvPairs[i], lc);
+            g.add(kvPairs[i+1], rc);
+            lc.gridy++; rc.gridy++;
+        }
+        g.setAlignmentX(Component.LEFT_ALIGNMENT);
+        return g;
+    }
+
+    private void chooseFile(JTextField target, int mode) {
+        JFileChooser ch = new JFileChooser();
+        ch.setFileSelectionMode(mode);
+        if (target.getText() != null && !target.getText().isEmpty()) {
+            File start = new File(target.getText());
+            ch.setCurrentDirectory(start.isDirectory() ? start : start.getParentFile());
+        }
+        int rv = ch.showOpenDialog(this);
+        if (rv == JFileChooser.APPROVE_OPTION) {
+            target.setText(ch.getSelectedFile().getAbsolutePath());
+        }
+    }
+
+    /**
+     * Lets you pick a folder name under <Fiji>/models (for DIJ model folder).
+     * This writes only the folder name into the field, matching your Params usage.
+     */
+    private void chooseFolderName(JTextField target) {
+        File models = new File(IJ.getDirectory("imagej"), "models");
+        JFileChooser ch = new JFileChooser(models);
+        ch.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
+        int rv = ch.showOpenDialog(this);
+        if (rv == JFileChooser.APPROVE_OPTION) {
+            File sel = ch.getSelectedFile();
+            // store only folder name relative to models dir (parity with your current Params)
+            String name = sel.getName();
+            target.setText(name);
+        }
     }
 }
-
-//package UI.panes.SettingPanes;
-//
-//import UI.Handlers.Navigator;
-//
-//import javax.swing.*;
-//import java.awt.*;
-//import UI.panes.WorkflowDashboards.*;
-//
-//public class NeuronWorkflowPane extends JPanel{
-//
-//    public static final String Name = "Neuron Workflow";
-//
-//    public NeuronWorkflowPane(Navigator navigator, Window owner){
-//        super(new BorderLayout(10,10));
-//        setBorder(BorderFactory.createEmptyBorder(20,20,20,20));
-//
-//
-//        JLabel lbl = new JLabel(
-//                "<html><h2>Neuron Analysis</h2>"
-//                        + "<p>Configure parameters here…</p></html>",
-//                SwingConstants.CENTER
-//        );
-//        add(lbl, BorderLayout.CENTER);
-//
-//        JButton run = new JButton("Run Analysis");
-//
-//        run.addActionListener(e -> {
-//            // 1) build modal progress dialog
-//            JDialog progress = new JDialog(owner, "Processing…", Dialog.ModalityType.APPLICATION_MODAL);
-//            JProgressBar bar = new JProgressBar();
-//            bar.setIndeterminate(true);
-//            progress.add(bar, BorderLayout.CENTER);
-//            progress.setSize(300,80);
-//            progress.setLocationRelativeTo(owner);
-//
-//            // 2) SwingWorker to simulate the analysis
-//            SwingWorker<Void,Void> worker = new SwingWorker<Void,Void>() {
-//                @Override
-//                protected Void doInBackground() throws Exception {
-//                    Thread.sleep(2000);  // simulate 2 s work
-//                    return null;
-//                }
-//                @Override
-//                protected void done() {
-//                    progress.dispose();
-//                    // switch to your dashboard pane
-//                    navigator.show(AnalyseNeuronDashboard.Name);
-//                }
-//            };
-//            worker.execute();
-//            progress.setVisible(true);
-//        });
-//
-//        JPanel btnPanel = new JPanel();
-//        btnPanel.add(run);
-//        add(btnPanel, BorderLayout.SOUTH);
-//
-//
-//    }
-//}
