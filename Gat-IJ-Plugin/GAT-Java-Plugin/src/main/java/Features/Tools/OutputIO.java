@@ -8,6 +8,7 @@ import ij.plugin.frame.RoiManager;
 import ij.io.FileInfo;
 
 import java.io.*;
+import java.util.LinkedHashMap;
 
 public final class OutputIO {
     private OutputIO(){}
@@ -99,124 +100,66 @@ public final class OutputIO {
     public static void writeMultiCsv(
             File csv,
             String baseName,
-            String cellType,
             int totalHu,
-            Integer noOfGanglia,                       // null if ganglia not computed
-            int[] huCountsPerGanglion,                 // may be null; 1-based (idx 1..G) like macro
-            double[] gangliaAreaUm2,                   // may be null; 1-based
-            java.util.LinkedHashMap<String,Integer> markerTotals,             // keep insertion order
-            java.util.LinkedHashMap<String,int[]> markerCountsPerGanglion     // may be empty; 1-based arrays
+            Integer nGangliaOrNull,                       // may be null
+            LinkedHashMap<String,Integer> totals,         // marker & combo totals
+            LinkedHashMap<String,int[]> perGanglia,       // marker & combo per ganglion counts (optional)
+            double[] gangliaAreaUm2                       // optional (length = #ganglia)
     ) {
-        // determine number of rows we need (max ganglion index present)
-        int G = 0;
-        G = Math.max(G, lastNonZeroIndex(huCountsPerGanglion));
-        G = Math.max(G, lastNonZeroIndex(gangliaAreaUm2));
-        if (markerCountsPerGanglion != null) {
-            for (int[] arr : markerCountsPerGanglion.values()) {
-                G = Math.max(G, lastNonZeroIndex(arr));
-            }
-        }
-        if (G == 0) G = 1; // no ganglia → still emit a single summary row
+        try (java.io.PrintWriter pw = new java.io.PrintWriter(new java.io.FileWriter(csv))) {
+            // ----- Header -----
+            java.util.List<String> headers = new java.util.ArrayList<>();
+            headers.add("File name");
+            headers.add("Total Hu");
+            if (nGangliaOrNull != null) headers.add("No of ganglia");
 
-        try (PrintWriter pw = new PrintWriter(new FileWriter(csv))) {
-            // Header
-            StringBuilder hdr = new StringBuilder();
-            appendCsv(hdr, "File name");
-            appendCsv(hdr, "Total " + cellType);
-            if (noOfGanglia != null) {
-                appendCsv(hdr, "No of ganglia");
-                appendCsv(hdr, "Neuron counts per ganglia");
-                appendCsv(hdr, "Area_per_ganglia_um2");
-            }
-            if (markerTotals != null) {
-                for (String m : markerTotals.keySet()) {
-                    appendCsv(hdr, m);
+            // totals per marker/combo
+            headers.addAll(totals.keySet());
+
+            // per-ganglia blocks
+            if (nGangliaOrNull != null) {
+                for (String name : perGanglia.keySet()) {
+                    headers.add(name + " counts per ganglia");
                 }
+                headers.add("Area_per_ganglia_um2");
             }
-            if (noOfGanglia != null && markerCountsPerGanglion != null) {
-                for (String m : markerCountsPerGanglion.keySet()) {
-                    appendCsv(hdr, m + " counts per ganglia");
-                }
-            }
-            pw.println(hdr.toString());
+            pw.println(String.join(",", headers));
 
-            // Rows (one per ganglion index; row 1 also carries totals & filename)
-            java.util.Locale loc = java.util.Locale.US;
-            for (int gi = 1; gi <= G; gi++) {
-                StringBuilder row = new StringBuilder();
+            // ----- Rows -----
+            int nRows = (nGangliaOrNull == null) ? 1 : Math.max(1, nGangliaOrNull);
 
-                // Summary only on first row
-                appendCsv(row, gi == 1 ? baseName : "");
-                appendCsv(row, gi == 1 ? Integer.toString(totalHu) : "");
-                if (noOfGanglia != null) {
-                    appendCsv(row, gi == 1 ? Integer.toString(noOfGanglia) : "");
-                    appendCsv(row, valAt(huCountsPerGanglion, gi));
-                    appendCsv(row, dblAt(loc, gangliaAreaUm2, gi));
+            for (int r = 0; r < nRows; r++) {
+                java.util.List<String> cells = new java.util.ArrayList<>();
+                if (r == 0) {
+                    cells.add(baseName);
+                    cells.add(Integer.toString(totalHu));
+                    if (nGangliaOrNull != null) cells.add(Integer.toString(nGangliaOrNull));
+                    for (String name : totals.keySet()) cells.add(Integer.toString(totals.get(name)));
+                } else {
+                    // blank for totals on subsequent lines
+                    cells.add(""); // File name
+                    cells.add(""); // Total Hu
+                    if (nGangliaOrNull != null) cells.add("");
+                    for (int i = 0; i < totals.size(); i++) cells.add("");
                 }
 
-                // Marker totals only on first row
-                if (markerTotals != null) {
-                    for (Integer tot : markerTotals.values()) {
-                        appendCsv(row, gi == 1 ? String.valueOf(tot) : "");
+                if (nGangliaOrNull != null) {
+                    // per-ganglia columns
+                    for (String name : perGanglia.keySet()) {
+                        int[] vec = perGanglia.get(name);
+                        int v = (vec != null && r < vec.length) ? vec[r] : 0;
+                        cells.add(Integer.toString(v));
                     }
+                    // area column
+                    double a = (gangliaAreaUm2 != null && r < gangliaAreaUm2.length) ? gangliaAreaUm2[r] : 0.0;
+                    cells.add(String.format(java.util.Locale.US, "%.6f", a));
                 }
 
-                // Per-ganglion counts for each marker/combination
-                if (noOfGanglia != null && markerCountsPerGanglion != null) {
-                    for (int[] arr : markerCountsPerGanglion.values()) {
-                        appendCsv(row, valAt(arr, gi));
-                    }
-                }
-
-                pw.println(row.toString());
+                pw.println(String.join(",", cells));
             }
-        } catch (IOException e) {
-            IJ.log("Failed writing multi CSV: " + e.getMessage());
+        } catch (Exception e) {
+            ij.IJ.handleException(e);
         }
-    }
-
-    private static int lastNonZeroIndex(int[] a) {
-        if (a == null) return 0;
-        for (int i = a.length - 1; i >= 1; i--) {
-            if (a[i] != 0) return i;
-        }
-        // if array exists but could be all zeros; still return (length-1) if length>1
-        return Math.max(0, a.length - 1);
-    }
-
-    private static int lastNonZeroIndex(double[] a) {
-        if (a == null) return 0;
-        for (int i = a.length - 1; i >= 1; i--) {
-            if (a[i] != 0.0) return i;
-        }
-        return Math.max(0, a.length - 1);
-    }
-
-    private static String valAt(int[] a, int idx) {
-        if (a == null || idx >= a.length) return "";
-        int v = a[idx];
-        return (v == 0) ? "" : Integer.toString(v);
-    }
-
-    private static String dblAt(java.util.Locale loc, double[] a, int idx) {
-        if (a == null || idx >= a.length) return "";
-        double v = a[idx];
-        if (v == 0.0) return "";
-        return String.format(loc, "%.6f", v);
-    }
-
-    private static void appendCsv(StringBuilder sb, String cell) {
-        if (sb.length() > 0) sb.append(',');
-        sb.append(csvEscape(cell));
-    }
-
-    private static String csvEscape(String s) {
-        if (s == null) return "";
-        boolean needQuote = s.contains(",") || s.contains("\"") || s.contains("\n") || s.contains("\r");
-        if (!needQuote) return s;
-        // escape quotes by doubling them
-        String esc = s.replace("\"", "\"\"");
-        return "\"" + esc + "\"";
     }
 
 }

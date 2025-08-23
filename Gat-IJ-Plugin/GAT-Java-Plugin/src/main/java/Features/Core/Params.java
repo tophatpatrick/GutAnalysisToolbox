@@ -63,7 +63,6 @@ public class Params {
 
     // Custom ROI
     public String customGangliaRoiZip = null;
-    public String gangliaModelPath = null;
 
     public Double gangliaProbThresh01 = 0.35;   // 0..1 threshold for DIJ prob map
     public Double gangliaMinAreaUm2   = 120.0; // try 800–2000 µm²

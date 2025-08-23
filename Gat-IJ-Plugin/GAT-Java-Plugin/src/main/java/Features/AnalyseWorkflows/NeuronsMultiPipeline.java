@@ -1,0 +1,187 @@
+package Features.AnalyseWorkflows;
+
+import Features.Core.Params;
+import Features.Tools.ImageOps;
+import Features.Tools.OutputIO;
+import Features.Tools.LabelOps;
+import ij.IJ;
+import ij.ImagePlus;
+import ij.plugin.frame.RoiManager;
+
+import java.io.File;
+import java.util.*;
+
+public class NeuronsMultiPipeline {
+
+    // ----- Input spec ---------------------------------------------------------
+    public static final class MarkerSpec {
+        public final String name;
+        public final int channel;     // 1-based channel index in the MAX composite
+        public Double prob;           // optional StarDist prob override
+        public Double nms;            // optional StarDist nms override
+
+        public MarkerSpec(String name, int channel) {
+            this.name = name;
+            this.channel = channel;
+        }
+        public MarkerSpec withThresh(Double prob, Double nms) {
+            this.prob = prob; this.nms = nms; return this;
+        }
+    }
+
+    public static final class MultiParams {
+        public Params base;                          // your existing Params (Hu + ganglia config)
+        public String subtypeModelZip;               // StarDist model zip for subtype channels
+        public double multiProb   = 0.50;            // default StarDist thresholds for subtype
+        public double multiNms    = 0.30;
+        public double overlapFrac = 0.40;            // Hu label must be >= this fraction covered by marker
+
+        public final List<MarkerSpec> markers = new ArrayList<>();
+    }
+
+    // ----- Run ----------------------------------------------------------------
+    public void run(MultiParams mp) {
+        if (mp == null || mp.base == null) throw new IllegalArgumentException("MultiParams/base cannot be null");
+        if (mp.subtypeModelZip == null || !new File(mp.subtypeModelZip).isFile())
+            throw new IllegalArgumentException("Subtype StarDist model not found: " + mp.subtypeModelZip);
+        if (mp.markers.isEmpty()) throw new IllegalArgumentException("No markers provided.");
+
+        // 1) Run Hu once (returns MAX, Hu labels, ganglia info)
+        NeuronsHuPipeline.HuResult hu = new NeuronsHuPipeline().run(mp.base, /*huReturn=*/true);
+        ImagePlus max    = hu.max;
+        ImagePlus huLab  = hu.neuronLabels;
+        int       totalHu = hu.totalNeuronCount;
+
+        // 2) Common bits for rescale math
+        double pxUm = max.getCalibration().pixelWidth;
+        double scale = (mp.base.trainingRescaleFactor > 0) ? mp.base.trainingRescaleFactor : 1.0;
+        double targetPxUm = mp.base.trainingPixelSizeUm / scale;
+        double scaleFactor = (mp.base.rescaleToTrainingPx && pxUm > 0) ? (pxUm / targetPxUm) : 1.0;
+        if (Math.abs(scaleFactor - 1.0) < 1e-3) scaleFactor = 1.0;
+
+        // min size for subtype sanity (macro neuron_lower_limit in microns → pixels in segInput scale)
+        int subtypeMinPx = 0;
+        if (mp.base.neuronSegMinMicron != null && pxUm > 0) {
+            double eff = (scaleFactor == 1.0) ? pxUm : (targetPxUm); // segInput calibration after rescale
+            subtypeMinPx = (int)Math.max(1, Math.round(mp.base.neuronSegMinMicron / eff));
+        }
+
+        // 3) Collect results
+        File outDir = hu.outDir; String baseName = hu.baseName;
+        LinkedHashMap<String,Integer> totals = new LinkedHashMap<>();
+        LinkedHashMap<String,int[]>   perGanglia = new LinkedHashMap<>();
+        double[] gangliaArea = hu.gangliaAreaUm2;       // may be null
+        Integer  nGanglia    = hu.nGanglia;             // may be null
+
+        // For combos later
+        Map<String, boolean[]> keepMaskByMarker = new LinkedHashMap<>();
+
+        // 4) Loop each marker
+        for (MarkerSpec m : mp.markers) {
+            IJ.log("[Multi] Segmenting marker: " + m.name + " (ch " + m.channel + ")");
+            ImagePlus ch = ImageOps.extractChannel(max, m.channel);
+            ImagePlus segInput = (scaleFactor == 1.0)
+                    ? ch
+                    : ImageOps.resizeToIntensity(ch,
+                    (int)Math.round(ch.getWidth() * scaleFactor),
+                    (int)Math.round(ch.getHeight() * scaleFactor));
+
+            double prob = (m.prob != null) ? m.prob : mp.multiProb;
+            double nms  = (m.nms  != null) ? m.nms  : mp.multiNms;
+
+            ImagePlus markerLabels = Features.Core.PluginCalls.runStarDist2DLabel(segInput, mp.subtypeModelZip, prob, nms);
+            markerLabels = Features.Core.PluginCalls.removeBorderLabels(markerLabels);
+            if (subtypeMinPx > 0) markerLabels = Features.Core.PluginCalls.labelMinSizeFilterPx(markerLabels, subtypeMinPx);
+
+            if (markerLabels.getWidth() != max.getWidth() || markerLabels.getHeight() != max.getHeight()) {
+                markerLabels = ImageOps.resizeTo(markerLabels, max.getWidth(), max.getHeight());
+            }
+
+            // Determine which Hu labels are positive for this marker (fractional overlap >= overlapFrac)
+            boolean[] keep = Features.Tools.LabelOps.neuronsPositiveByOverlap(huLab, markerLabels, mp.overlapFrac);
+            keepMaskByMarker.put(m.name, keep);
+
+            // Build filtered Hu label map for this marker (for ROI export / ganglia counts)
+            ImagePlus filteredLabels = Features.Tools.LabelOps.keepHuLabels(huLab, keep);
+
+            // Count + save ROIs
+            int markerTotal = countLabels(filteredLabels);
+            totals.put(m.name, markerTotal);
+
+            RoiManager rm = RoiManager.getInstance2();
+            if (rm == null) rm = new RoiManager(false);
+            rm.reset();
+            Features.Core.PluginCalls.labelsToRois(filteredLabels);
+            if (rm.getCount() > 0) {
+                OutputIO.saveRois(rm, new File(outDir, m.name + "_ROIs_" + baseName + ".zip"));
+                if (mp.base.saveFlattenedOverlay)
+                    OutputIO.saveFlattenedOverlay(max, rm, new File(outDir, "MAX_" + baseName + "_" + m.name + "_overlay.tif"));
+            }
+            rm.reset(); rm.close();
+
+            // Per-ganglion counts if available
+            if (hu.gangliaLabels != null) {
+                GangliaOps.Result rM = GangliaOps.countPerGanglion(filteredLabels, hu.gangliaLabels);
+                perGanglia.put(m.name, rM.countsPerGanglion);
+            }
+
+            // cleanup
+            ch.close(); segInput.close(); markerLabels.close(); filteredLabels.close();
+        }
+
+        // 5) Build combos (AND of keep arrays)
+        List<String> names = new ArrayList<>(keepMaskByMarker.keySet());
+        for (int i = 0; i < names.size(); i++) {
+            for (int j = i+1; j < names.size(); j++) {
+                String comboName = names.get(i) + "+" + names.get(j);
+                boolean[] a = keepMaskByMarker.get(names.get(i));
+                boolean[] b = keepMaskByMarker.get(names.get(j));
+                boolean[] and = andMasks(a, b);
+                ImagePlus lab = LabelOps.keepHuLabels(huLab, and);
+                int n = countLabels(lab);
+                totals.put(comboName, n);
+
+                if (hu.gangliaLabels != null) {
+                    GangliaOps.Result rc = GangliaOps.countPerGanglion(lab, hu.gangliaLabels);
+                    perGanglia.put(comboName, rc.countsPerGanglion);
+                }
+                lab.close();
+            }
+        }
+
+        // 6) Write the macro-style multi CSV
+        OutputIO.writeMultiCsv(
+                new File(outDir, "Analysis_Hu_" + baseName + "_cell_counts_multi.csv"),
+                baseName,
+                totalHu,
+                nGanglia,
+                totals,
+                perGanglia,
+                gangliaArea
+        );
+
+        IJ.log("[Multi] Complete: " + outDir.getAbsolutePath());
+    }
+
+    private static boolean[] andMasks(boolean[] a, boolean[] b) {
+        int n = Math.max(a.length, b.length);
+        boolean[] out = new boolean[n];
+        for (int i = 0; i < n; i++) {
+            boolean ai = (i < a.length) && a[i];
+            boolean bi = (i < b.length) && b[i];
+            out[i] = ai && bi;
+        }
+        return out;
+    }
+
+    private static int countLabels(ImagePlus labels16) {
+        // Label map with values 0..K; just find max label ID (they’re contiguous after binary re-label)
+        short[] px = (short[]) labels16.getProcessor().getPixels();
+        int max = 0;
+        for (short v : px) {
+            int u = v & 0xFFFF;
+            if (u > max) max = u;
+        }
+        return max;
+    }
+}

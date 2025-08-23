@@ -187,7 +187,7 @@ public class NeuronWorkflowPane extends JPanel {
             @Override protected Void doInBackground() {
                 try {
                     Params p = buildParamsFromUI();
-                    new NeuronsHuPipeline().run(p);
+                    new NeuronsHuPipeline().run(p,false);
                 } catch (Throwable ex) {
                     SwingUtilities.invokeLater(() -> JOptionPane.showMessageDialog(
                             owner,
