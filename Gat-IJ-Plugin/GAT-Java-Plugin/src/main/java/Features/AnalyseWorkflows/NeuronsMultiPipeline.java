@@ -4,6 +4,7 @@ import Features.Core.Params;
 import Features.Tools.ImageOps;
 import Features.Tools.OutputIO;
 import Features.Tools.LabelOps;
+import UI.panes.Tools.ReviewUI;
 import ij.IJ;
 import ij.ImagePlus;
 import ij.plugin.frame.RoiManager;
@@ -104,29 +105,53 @@ public class NeuronsMultiPipeline {
             // Build filtered Hu label map for this marker (for ROI export / ganglia counts)
             ImagePlus filteredLabels = Features.Tools.LabelOps.keepHuLabels(huLab, keep);
 
+
+            // Seed RM with current Hu-gated labels
+            RoiManager rmRev = RoiManager.getInstance2();
+            if (rmRev == null) rmRev = new RoiManager(false);
+            rmRev.reset();
+            Features.Core.PluginCalls.labelsToRois(filteredLabels);
+
+            //Build our backdrop
+            ImagePlus backdrop = ch.duplicate();
+            IJ.run(backdrop, "Green", "");
+            IJ.resetMinAndMax(backdrop);
+
+
+            // Launch review and rebuild labels from edited ROIs
+            ImagePlus reviewed = ReviewUI.reviewAndRebuildLabels(
+                    backdrop,
+                    rmRev,
+                    m.name + " (Hu-gated)",
+                    max.getCalibration(),
+                    filteredLabels
+            );
+
+
             // Count + save ROIs
-            int markerTotal = countLabels(filteredLabels);
+            int markerTotal = countLabels(reviewed);
             totals.put(m.name, markerTotal);
 
             RoiManager rm = RoiManager.getInstance2();
             if (rm == null) rm = new RoiManager(false);
             rm.reset();
-            Features.Core.PluginCalls.labelsToRois(filteredLabels);
+            Features.Core.PluginCalls.labelsToRois(reviewed);
             if (rm.getCount() > 0) {
                 OutputIO.saveRois(rm, new File(outDir, m.name + "_ROIs_" + baseName + ".zip"));
                 if (mp.base.saveFlattenedOverlay)
                     OutputIO.saveFlattenedOverlay(max, rm, new File(outDir, "MAX_" + baseName + "_" + m.name + "_overlay.tif"));
             }
-            rm.reset(); rm.close();
+            rm.reset();
 
             // Per-ganglion counts if available
             if (hu.gangliaLabels != null) {
-                GangliaOps.Result rM = GangliaOps.countPerGanglion(filteredLabels, hu.gangliaLabels);
+                GangliaOps.Result rM = GangliaOps.countPerGanglion(reviewed, hu.gangliaLabels);
                 perGanglia.put(m.name, rM.countsPerGanglion);
             }
 
             // cleanup
-            ch.close(); segInput.close(); markerLabels.close(); filteredLabels.close();
+            ch.close(); segInput.close(); markerLabels.close(); reviewed.close();
+            filteredLabels.close();
         }
 
         // 5) Build combos (AND of keep arrays)
