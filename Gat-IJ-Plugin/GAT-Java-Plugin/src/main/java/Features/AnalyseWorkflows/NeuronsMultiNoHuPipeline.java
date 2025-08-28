@@ -175,11 +175,9 @@ public class NeuronsMultiNoHuPipeline {
         }
 
         // 6) CSV (no Hu totals in this workflow → pass 0)
-        OutputIO.writeMultiCsv(
+        OutputIO.writeMultiCsvNoHu(
                 new File(outDir, "Analysis_NoHu_" + baseName + "_cell_counts_multi.csv"),
                 baseName,
-                /*totalHu*/ 0,
-                /*nGanglia*/ null,
                 totals,
                 perGanglia,
                 /*gangliaArea*/ null
