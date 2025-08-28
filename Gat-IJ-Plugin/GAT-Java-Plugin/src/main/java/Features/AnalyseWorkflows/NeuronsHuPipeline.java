@@ -14,7 +14,38 @@ import java.io.File;
 
 public class NeuronsHuPipeline {
 
-    public void run(Params p) {
+    public static final class HuResult {
+        public final File outDir;
+        public final String baseName;
+        public final ImagePlus max;             // MAX_* image (shown/saved)
+        public final ImagePlus neuronLabels;    // label map at MAX size
+        public final int totalNeuronCount;
+
+        // ganglia (null/empty if disabled)
+        public final ImagePlus gangliaLabels;
+        public final int[] neuronsPerGanglion;  // 1..G
+        public final double[] gangliaAreaUm2;   // 1..G
+        public final Integer nGanglia;
+
+        public HuResult(File outDir, String baseName, ImagePlus max, ImagePlus neuronLabels,
+                        int totalNeuronCount, ImagePlus gangliaLabels, int[] neuronsPerGanglion,
+                        double[] gangliaAreaUm2, Integer nGanglia) {
+            this.outDir = outDir;
+            this.baseName = baseName;
+            this.max = max;
+            this.neuronLabels = neuronLabels;
+            this.totalNeuronCount = totalNeuronCount;
+            this.gangliaLabels = gangliaLabels;
+            this.neuronsPerGanglion = neuronsPerGanglion;
+            this.gangliaAreaUm2 = gangliaAreaUm2;
+            this.nGanglia = nGanglia;
+        }
+    }
+
+    public HuResult run(Params p, Boolean huReturn) {
+
+
+
         // 0) Basic validation
         if (p == null) throw new IllegalArgumentException("Params cannot be null.");
         if (p.stardistModelZip == null || !new File(p.stardistModelZip).isFile()) {
@@ -211,16 +242,27 @@ public class NeuronsHuPipeline {
 
             // F) Re-count using the FILTERED labels (parity with post-threshold macro state)
             GangliaOps.Result r = GangliaOps.countPerGanglion(labels, gangliaLabels);
-            OutputIO.writeGangliaCsv(
-                    new File(outDir, "Analysis_Ganglia_" + baseName + "_counts.csv"),
-                    r.countsPerGanglion, r.areaUm2
-            );
+
 
             IJ.log("Ganglia analysis complete (filtered to ≥1 neuron).");
+            if (huReturn){
+                return new HuResult(outDir, baseName, max, labels, nHu, gangliaLabels, r.countsPerGanglion, r.areaUm2, nG);
+            }else {
+                OutputIO.writeGangliaCsv(
+                        new File(outDir, "Analysis_Ganglia_" + baseName + "_counts.csv"),
+                        r.countsPerGanglion, r.areaUm2
+                );
+                return  null;
+            }
+
         }
 
 
-
+        if (huReturn){
+            return new HuResult(outDir, baseName, max, labels, nHu, null,null,null,null);
+        }else {
+            return  null;
+        }
 
 
     }

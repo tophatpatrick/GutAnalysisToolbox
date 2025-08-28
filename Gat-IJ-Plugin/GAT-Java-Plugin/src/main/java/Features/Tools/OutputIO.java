@@ -8,6 +8,8 @@ import ij.plugin.frame.RoiManager;
 import ij.io.FileInfo;
 
 import java.io.*;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 public final class OutputIO {
     private OutputIO(){}
@@ -94,4 +96,154 @@ public final class OutputIO {
             ij.IJ.handleException(e);
         }
     }
+
+
+    public static void writeMultiCsv(
+            File csv,
+            String baseName,
+            int totalHu,
+            Integer nGangliaOrNull,                       // may be null
+            LinkedHashMap<String,Integer> totals,         // marker & combo totals
+            LinkedHashMap<String,int[]> perGanglia,       // marker & combo per ganglion counts (optional)
+            double[] gangliaAreaUm2                       // optional (length = #ganglia)
+    ) {
+        try (java.io.PrintWriter pw = new java.io.PrintWriter(new java.io.FileWriter(csv))) {
+            // ----- Header -----
+            java.util.List<String> headers = new java.util.ArrayList<>();
+            headers.add("File name");
+            headers.add("Total Hu");
+            if (nGangliaOrNull != null) headers.add("No of ganglia");
+
+            // totals per marker/combo
+            headers.addAll(totals.keySet());
+
+            // per-ganglia blocks
+            if (nGangliaOrNull != null) {
+                for (String name : perGanglia.keySet()) {
+                    headers.add(name + " counts per ganglia");
+                }
+                headers.add("Area_per_ganglia_um2");
+            }
+            pw.println(String.join(",", headers));
+
+            // ----- Rows -----
+            int nRows = (nGangliaOrNull == null) ? 1 : Math.max(1, nGangliaOrNull);
+
+            for (int r = 0; r < nRows; r++) {
+                java.util.List<String> cells = new java.util.ArrayList<>();
+                if (r == 0) {
+                    cells.add(baseName);
+                    cells.add(Integer.toString(totalHu));
+                    if (nGangliaOrNull != null) cells.add(Integer.toString(nGangliaOrNull));
+                    for (String name : totals.keySet()) cells.add(Integer.toString(totals.get(name)));
+                } else {
+                    // blank for totals on subsequent lines
+                    cells.add(""); // File name
+                    cells.add(""); // Total Hu
+                    if (nGangliaOrNull != null) cells.add("");
+                    for (int i = 0; i < totals.size(); i++) cells.add("");
+                }
+
+                if (nGangliaOrNull != null) {
+                    // per-ganglia columns
+                    for (String name : perGanglia.keySet()) {
+                        int[] vec = perGanglia.get(name);
+                        int v = (vec != null && r < vec.length) ? vec[r] : 0;
+                        cells.add(Integer.toString(v));
+                    }
+                    // area column
+                    double a = (gangliaAreaUm2 != null && r < gangliaAreaUm2.length) ? gangliaAreaUm2[r] : 0.0;
+                    cells.add(String.format(java.util.Locale.US, "%.6f", a));
+                }
+
+                pw.println(String.join(",", cells));
+            }
+        } catch (Exception e) {
+            ij.IJ.handleException(e);
+        }
+    }
+
+    /**
+     * CSV for the Multi-Channel *No-Hu* pipeline.
+     * Columns:
+     *   File name, [No of ganglia], <marker & combo totals...>, [<per-ganglia cols...>], [Area_per_ganglia_um2]
+     *
+     * Pass perGangliaOrNull and gangliaAreaUm2OrNull only if you actually ran ganglia analysis.
+     */
+    public static void writeMultiCsvNoHu(
+            File csv,
+            String baseName,
+            LinkedHashMap<String,Integer> totals,
+            LinkedHashMap<String,int[]> perGangliaOrNull,
+            double[] gangliaAreaUm2OrNull
+    ) {
+        try (java.io.PrintWriter pw = new java.io.PrintWriter(new java.io.FileWriter(csv))) {
+
+            // --- determine #ganglia from inputs (if any) ---
+            int nGanglia = 0;
+            if (perGangliaOrNull != null) {
+                for (Map.Entry<String,int[]> e : perGangliaOrNull.entrySet()) {
+                    int[] v = e.getValue();
+                    if (v != null) nGanglia = Math.max(nGanglia, v.length);
+                }
+            }
+            if (gangliaAreaUm2OrNull != null) {
+                nGanglia = Math.max(nGanglia, gangliaAreaUm2OrNull.length);
+            }
+            boolean hasGanglia = nGanglia > 0;
+
+            // --- header ---
+            java.util.List<String> headers = new java.util.ArrayList<>();
+            headers.add("File name");
+            if (hasGanglia) headers.add("No of ganglia");
+
+            // totals per marker/combo (in insertion order from LinkedHashMap)
+            headers.addAll(totals.keySet());
+
+            // per-ganglia blocks
+            if (hasGanglia && perGangliaOrNull != null && !perGangliaOrNull.isEmpty()) {
+                for (String name : perGangliaOrNull.keySet()) {
+                    headers.add(name + " counts per ganglia");
+                }
+                headers.add("Area_per_ganglia_um2");
+            }
+            pw.println(String.join(",", headers));
+
+            // --- rows ---
+            int nRows = hasGanglia ? nGanglia : 1;
+
+            for (int r = 0; r < nRows; r++) {
+                java.util.List<String> cells = new java.util.ArrayList<>();
+
+                if (r == 0) {
+                    cells.add(baseName);
+                    if (hasGanglia) cells.add(Integer.toString(nGanglia));
+                    for (String name : totals.keySet()) {
+                        cells.add(Integer.toString(totals.getOrDefault(name, 0)));
+                    }
+                } else {
+                    // blanks under the totals on subsequent lines
+                    cells.add(""); // File name
+                    if (hasGanglia) cells.add(""); // No of ganglia
+                    for (int i = 0; i < totals.size(); i++) cells.add("");
+                }
+
+                if (hasGanglia && perGangliaOrNull != null && !perGangliaOrNull.isEmpty()) {
+                    for (String name : perGangliaOrNull.keySet()) {
+                        int[] vec = perGangliaOrNull.get(name);
+                        int v = (vec != null && r < vec.length) ? vec[r] : 0;
+                        cells.add(Integer.toString(v));
+                    }
+                    double a = (gangliaAreaUm2OrNull != null && r < gangliaAreaUm2OrNull.length)
+                            ? gangliaAreaUm2OrNull[r] : 0.0;
+                    cells.add(String.format(java.util.Locale.US, "%.6f", a));
+                }
+
+                pw.println(String.join(",", cells));
+            }
+        } catch (Exception e) {
+            ij.IJ.handleException(e);
+        }
+    }
+
 }

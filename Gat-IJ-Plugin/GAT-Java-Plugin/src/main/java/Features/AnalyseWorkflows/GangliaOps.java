@@ -124,6 +124,23 @@ public final class GangliaOps {
         return lab;
     }
 
+    public static double[] areaPerGanglionUm2(ImagePlus gangliaLabels) {
+        short[] gl = (short[]) gangliaLabels.getProcessor().convertToShort(false).getPixels();
+        int maxG = 0;
+        for (short v : gl) { int g = v & 0xffff; if (g > maxG) maxG = g; }
+        int[] areaPx = new int[maxG + 1];
+        for (short v : gl) { int g = v & 0xffff; if (g > 0) areaPx[g]++; }
+
+        double pxUm = gangliaLabels.getCalibration().pixelWidth > 0
+                ? gangliaLabels.getCalibration().pixelWidth : 1.0;
+        double s = pxUm * pxUm;
+
+        double[] areaUm2 = new double[maxG + 1];
+        for (int g = 1; g <= maxG; g++) areaUm2[g] = areaPx[g] * s;
+        return areaUm2;
+    }
+
+
     private static ImagePlus manualDrawToLabels(ImagePlus ref) {
         ref.show();
         RoiManager rm = RoiManager.getInstance2();

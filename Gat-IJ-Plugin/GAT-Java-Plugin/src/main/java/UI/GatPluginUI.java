@@ -67,7 +67,7 @@ public class GatPluginUI implements PlugIn {
         cardPanel.add(new HelpAndSupportPane(navigator),HelpAndSupportPane.Name);
         cardPanel.add(new NeuronWorkflowPane(navigator,dialog),NeuronWorkflowPane.Name);
         cardPanel.add(new MultiChannelNoHuPane(navigator),MultiChannelNoHuPane.Name);
-        cardPanel.add(new MultichannelPane(navigator),MultichannelPane.Name);
+        cardPanel.add(new MultichannelPane(dialog),MultichannelPane.Name);
 
         // register your dashboard pane
 
