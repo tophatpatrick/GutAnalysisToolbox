@@ -48,6 +48,7 @@ public class MultiChannelNoHuPane extends JPanel {
     private JSpinner   spGangliaChannel;
     private JTextField tfGangliaModelFolder;
     private JButton    btnBrowseGangliaModelFolder;
+    private  JSpinner spCellBodyChannel;
 
     // --- Markers list ---
     private JPanel     markersPanel;            // holds rows
@@ -172,15 +173,17 @@ public class MultiChannelNoHuPane extends JPanel {
 
         cbGangliaAnalysis = new JCheckBox("Run ganglia analysis");
         cbGangliaMode = new JComboBox<>(Params.GangliaMode.values());
-        spGangliaChannel = new JSpinner(new SpinnerNumberModel(2, 1, 16, 1));
+        spGangliaChannel   = new JSpinner(new SpinnerNumberModel(2, 1, 64, 1)); // fibres/neurites
+        spCellBodyChannel  = new JSpinner(new SpinnerNumberModel(1, 1, 64, 1)); // NEW: cell-body
         tfGangliaModelFolder = new JTextField(28);
         btnBrowseGangliaModelFolder = new JButton("Browse…");
         btnBrowseGangliaModelFolder.addActionListener(e -> chooseFolderName(tfGangliaModelFolder));
 
         p.add(boxWith("Ganglia", column(
                 cbGangliaAnalysis,
+                row(new JLabel("Fibres / neurites channel (1-based):"), spGangliaChannel),
+                row(new JLabel("Cell-body (‘most cells’) channel (1-based):"), spCellBodyChannel),
                 row(new JLabel("Ganglia mode:"), cbGangliaMode),
-                row(new JLabel("Ganglia channel (1-based):"), spGangliaChannel),
                 row(new JLabel("DeepImageJ model folder (under <Fiji>/models):"), tfGangliaModelFolder, btnBrowseGangliaModelFolder)
         )));
 
@@ -326,7 +329,8 @@ public class MultiChannelNoHuPane extends JPanel {
         // ganglia options (optional)
         base.cellCountsPerGanglia = cbGangliaAnalysis.isSelected();
         base.gangliaMode = (Params.GangliaMode) cbGangliaMode.getSelectedItem();
-        base.gangliaChannel = ((Number) spGangliaChannel.getValue()).intValue();
+        base.gangliaChannel     = ((Number) spGangliaChannel.getValue()).intValue();   // fibres
+        base.gangliaCellChannel = ((Number) spCellBodyChannel.getValue()).intValue();
         base.gangliaModelFolder = tfGangliaModelFolder.getText(); // folder under <Fiji>/models
 
         // build MultiParams
@@ -440,6 +444,9 @@ public class MultiChannelNoHuPane extends JPanel {
         cbGangliaAnalysis.setSelected(false);
         cbGangliaMode.setSelectedItem(Params.GangliaMode.DEEPIMAGEJ);
         spGangliaChannel.setValue(2);
+        spCellBodyChannel.setValue(!markerRows.isEmpty()
+                ? ((Number) markerRows.get(0).spChannel.getValue()).intValue()
+                : 1);
         tfGangliaModelFolder.setText("2D_Ganglia_RGB_v3.bioimage.io.model");
 
         // one example row

@@ -4,6 +4,11 @@ package Features.Core;
 import java.awt.*;
 
 public class Params {
+
+    //Ganglia no hu param
+    public Integer gangliaCellChannel;
+
+
     /** If null, uses current image in Fiji. */
     // Input/output
     public String imagePath = null;       // if null, uses current ImageJ active image
