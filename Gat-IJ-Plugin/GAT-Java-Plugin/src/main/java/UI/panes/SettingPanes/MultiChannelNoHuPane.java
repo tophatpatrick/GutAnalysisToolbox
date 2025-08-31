@@ -1,6 +1,7 @@
 package UI.panes.SettingPanes;
 
 import Features.AnalyseWorkflows.NeuronsMultiNoHuPipeline;
+import Features.AnalyseWorkflows.NeuronsMultiPipeline;
 import Features.Core.Params;
 import UI.Handlers.Navigator;
 import ij.IJ;
@@ -67,7 +68,7 @@ public class MultiChannelNoHuPane extends JPanel {
         JTabbedPane tabs = new JTabbedPane();
         tabs.addTab("Basic", buildBasicTab());
         tabs.addTab("Markers", buildMarkersTab());
-        tabs.addTab("Ganglia", buildGangliaTab());
+        tabs.addTab("Advanced", buildAdvancedTab());
 
         add(tabs, BorderLayout.CENTER);
 
@@ -83,6 +84,7 @@ public class MultiChannelNoHuPane extends JPanel {
     // ---------------- UI builders ----------------
 
     private JPanel buildBasicTab() {
+        JPanel outer = new JPanel(new BorderLayout());
         JPanel p = new JPanel();
         p.setLayout(new BoxLayout(p, BoxLayout.Y_AXIS));
 
@@ -92,11 +94,7 @@ public class MultiChannelNoHuPane extends JPanel {
         btnBrowseImage.addActionListener(e -> chooseFile(tfImagePath, JFileChooser.FILES_ONLY));
         p.add(boxWith("Input image (.tif, .lif, .czi)", row(tfImagePath, btnBrowseImage)));
 
-        // Subtype model (.zip)
-        tfSubtypeModelZip = new JTextField(36);
-        btnBrowseSubtypeModel = new JButton("Browse…");
-        btnBrowseSubtypeModel.addActionListener(e -> chooseFile(tfSubtypeModelZip, JFileChooser.FILES_ONLY));
-        p.add(boxWith("Subtype StarDist model (.zip)", row(tfSubtypeModelZip, btnBrowseSubtypeModel)));
+
 
         // Output dir
         tfOutputDir = new JTextField(36);
@@ -104,38 +102,35 @@ public class MultiChannelNoHuPane extends JPanel {
         btnBrowseOutput.addActionListener(e -> chooseFile(tfOutputDir, JFileChooser.DIRECTORIES_ONLY));
         p.add(boxWith("Output directory (optional; default: Analysis/<basename>)", row(tfOutputDir, btnBrowseOutput)));
 
-        // Rescale group
-        cbRescaleToTrainingPx = new JCheckBox("Rescale to training pixel size");
-        spTrainingPixelSizeUm = new JSpinner(new SpinnerNumberModel(0.568, 0.01, 100.0, 0.001));
-        spTrainingRescaleFactor = new JSpinner(new SpinnerNumberModel(1.0, 0.01, 100.0, 0.01));
-        cbUseEdf = new JCheckBox("Use Extended Depth of Field (CLIJ2)");
 
-        p.add(boxWith("Projection & Rescaling", column(
-                cbUseEdf,
-                row(new JLabel("Training pixel size (µm):"), spTrainingPixelSizeUm),
-                row(new JLabel("Training rescale factor:"),   spTrainingRescaleFactor),
-                cbRescaleToTrainingPx
-        )));
+        cbGangliaAnalysis = new JCheckBox("Run ganglia analysis");
+        cbGangliaMode = new JComboBox<>(Params.GangliaMode.values());
+        spGangliaChannel   = new JSpinner(new SpinnerNumberModel(2, 1, 64, 1)); // fibres/neurites
+        spCellBodyChannel  = new JSpinner(new SpinnerNumberModel(1, 1, 64, 1)); // NEW: cell-body
+        tfGangliaModelFolder = new JTextField(28);
 
-        // Thresholds
-        spDefaultProb = new JSpinner(new SpinnerNumberModel(0.50, 0.0, 1.0, 0.05));
-        spDefaultNms  = new JSpinner(new SpinnerNumberModel(0.30, 0.0, 1.0, 0.05));
-        spOverlapFrac = new JSpinner(new SpinnerNumberModel(0.40, 0.0, 1.0, 0.05));
-        spMinMarkerSizeUm = new JSpinner(new SpinnerNumberModel(160.0, 0.0, 10000.0, 1.0));
-
-        p.add(boxWith("Detection", grid2(
-                new JLabel("Default probability:"), spDefaultProb,
-                new JLabel("Default NMS:"),         spDefaultNms,
-                new JLabel("Min marker size (µm):"), spMinMarkerSizeUm,
-                new JLabel("Overlap (combos):"),    spOverlapFrac
+        p.add(boxWith("Ganglia", column(
+                cbGangliaAnalysis,
+                row(new JLabel("Fibres / neurites channel (1-based):"), spGangliaChannel),
+                row(new JLabel("Cell-body (‘most cells’) channel (1-based):"), spCellBodyChannel),
+                row(new JLabel("Ganglia mode:"), cbGangliaMode)
         )));
 
         cbSaveFlattenedOverlay = new JCheckBox("Save flattened overlays");
 
         p.add(boxWith("Options", column(cbSaveFlattenedOverlay)));
 
-        p.add(Box.createVerticalGlue());
-        return p;
+        p.add(Box.createVerticalStrut(8));
+
+        JScrollPane scroll = new JScrollPane(
+                p,
+                ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED,
+                ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER
+        );
+        scroll.getVerticalScrollBar().setUnitIncrement(16);
+
+        outer.add(scroll, BorderLayout.CENTER);
+        return outer;
     }
 
     private JPanel buildMarkersTab() {
@@ -167,34 +162,67 @@ public class MultiChannelNoHuPane extends JPanel {
         return outer;
     }
 
-    private JPanel buildGangliaTab() {
+    private JPanel buildAdvancedTab() {
+        JPanel outer = new JPanel(new BorderLayout());
         JPanel p = new JPanel();
         p.setLayout(new BoxLayout(p, BoxLayout.Y_AXIS));
 
-        cbGangliaAnalysis = new JCheckBox("Run ganglia analysis");
-        cbGangliaMode = new JComboBox<>(Params.GangliaMode.values());
-        spGangliaChannel   = new JSpinner(new SpinnerNumberModel(2, 1, 64, 1)); // fibres/neurites
-        spCellBodyChannel  = new JSpinner(new SpinnerNumberModel(1, 1, 64, 1)); // NEW: cell-body
+        // Subtype model (.zip)
+        tfSubtypeModelZip = new JTextField(36);
+        btnBrowseSubtypeModel = new JButton("Browse…");
+        btnBrowseSubtypeModel.addActionListener(e -> chooseFile(tfSubtypeModelZip, JFileChooser.FILES_ONLY));
+        p.add(boxWith("Subtype StarDist model (.zip)", row(tfSubtypeModelZip, btnBrowseSubtypeModel)));
+
+        // Thresholds
+        spDefaultProb = new JSpinner(new SpinnerNumberModel(0.50, 0.0, 1.0, 0.05));
+        spDefaultNms  = new JSpinner(new SpinnerNumberModel(0.30, 0.0, 1.0, 0.05));
+        spOverlapFrac = new JSpinner(new SpinnerNumberModel(0.40, 0.0, 1.0, 0.05));
+        spMinMarkerSizeUm = new JSpinner(new SpinnerNumberModel(160.0, 0.0, 10000.0, 1.0));
+
+        p.add(boxWith("Detection", grid2(
+                new JLabel("Default probability:"), spDefaultProb,
+                new JLabel("Default NMS:"),         spDefaultNms,
+                new JLabel("Min marker size (µm):"), spMinMarkerSizeUm,
+                new JLabel("Overlap (combos):"),    spOverlapFrac
+        )));
+
+        // Rescale group
+        cbRescaleToTrainingPx = new JCheckBox("Rescale to training pixel size");
+        spTrainingPixelSizeUm = new JSpinner(new SpinnerNumberModel(0.568, 0.01, 100.0, 0.001));
+        spTrainingRescaleFactor = new JSpinner(new SpinnerNumberModel(1.0, 0.01, 100.0, 0.01));
+
+        p.add(boxWith("Projection & Rescaling", column(
+                row(new JLabel("Training pixel size (µm):"), spTrainingPixelSizeUm),
+                row(new JLabel("Training rescale factor:"),   spTrainingRescaleFactor),
+                cbRescaleToTrainingPx
+        )));
+
         tfGangliaModelFolder = new JTextField(28);
         btnBrowseGangliaModelFolder = new JButton("Browse…");
         btnBrowseGangliaModelFolder.addActionListener(e -> chooseFolderName(tfGangliaModelFolder));
 
-        p.add(boxWith("Ganglia", column(
-                cbGangliaAnalysis,
-                row(new JLabel("Fibres / neurites channel (1-based):"), spGangliaChannel),
-                row(new JLabel("Cell-body (‘most cells’) channel (1-based):"), spCellBodyChannel),
-                row(new JLabel("Ganglia mode:"), cbGangliaMode),
-                row(new JLabel("DeepImageJ model folder (under <Fiji>/models):"), tfGangliaModelFolder, btnBrowseGangliaModelFolder)
+        p.add(boxWith("Ganglia model", column(
+                row(new JLabel(""), tfGangliaModelFolder, btnBrowseGangliaModelFolder)
         )));
 
-        p.add(Box.createVerticalGlue());
-        return p;
+
+        p.add(Box.createVerticalStrut(8));
+
+        JScrollPane scroll = new JScrollPane(
+                p,
+                ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED,
+                ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER
+        );
+        scroll.getVerticalScrollBar().setUnitIncrement(16);
+
+        outer.add(scroll, BorderLayout.CENTER);
+        return outer;
     }
 
     // ---------------- Marker rows ----------------
 
     private void addMarkerRow(String name, int channel, Double prob, Double nms, boolean custom, File roiZip) {
-        MarkerRow row = new MarkerRow(name, channel, prob, nms, custom, roiZip);
+        MarkerRow row = new MarkerRow(name, channel, custom, roiZip);
         markerRows.add(row);
         markersPanel.add(row.panel);
         markersPanel.revalidate();
@@ -202,59 +230,77 @@ public class MultiChannelNoHuPane extends JPanel {
     }
 
     private void removeSelectedMarkerRow() {
-        // Remove the last row that has its "selected" checkbox ticked; if none, remove last row
+        boolean removedAny = false;
+
+        // walk from bottom to top so indices stay valid while removing
         for (int i = markerRows.size() - 1; i >= 0; i--) {
-            if (markerRows.get(i).cbSelect.isSelected()) {
-                markersPanel.remove(markerRows.get(i).panel);
+            MarkerRow row = markerRows.get(i);
+            if (row.cbSelect.isSelected()) {
+                markersPanel.remove(row.panel);
                 markerRows.remove(i);
-                markersPanel.revalidate();
-                markersPanel.repaint();
-                return;
+                removedAny = true;
             }
         }
-        if (!markerRows.isEmpty()) {
-            markersPanel.remove(markerRows.get(markerRows.size() - 1).panel);
-            markerRows.remove(markerRows.size() - 1);
-            markersPanel.revalidate();
-            markersPanel.repaint();
+
+        // if nothing was selected, remove the last row as a fallback
+        if (!removedAny && !markerRows.isEmpty()) {
+            int last = markerRows.size() - 1;
+            markersPanel.remove(markerRows.get(last).panel);
+            markerRows.remove(last);
         }
+
+        // layout update once
+        markersPanel.revalidate();
+        markersPanel.repaint();
     }
 
     private final class MarkerRow {
         final JPanel panel = new JPanel(new GridBagLayout());
         final JCheckBox cbSelect = new JCheckBox();
         final JTextField tfName  = new JTextField(12);
-        final JSpinner spChannel = new JSpinner(new SpinnerNumberModel(1, 1, 64, 1));
-        final JSpinner spProb    = new JSpinner(new SpinnerNumberModel(-1.0, -1.0, 1.0, 0.05)); // -1 = use default
-        final JSpinner spNms     = new JSpinner(new SpinnerNumberModel(-1.0, -1.0, 1.0, 0.05)); // -1 = use default
-        final JCheckBox cbCustom = new JCheckBox("Custom ROI");
+        final JSpinner  spChannel = new JSpinner(new SpinnerNumberModel(1, 1, 64, 1));
+        final JCheckBox cbCustom = new JCheckBox("Use custom ROI .zip");
         final JTextField tfRoiZip = new JTextField(18);
-        final JButton btnBrowseRoi = new JButton("…");
+        final JButton   btnBrowseRoi = new JButton("…");
 
-        MarkerRow(String name, int channel, Double prob, Double nms, boolean custom, File roiZip) {
-            GridBagConstraints lc = new GridBagConstraints();
-            lc.insets = new Insets(2,2,2,2);
-            lc.anchor = GridBagConstraints.WEST;
+        MarkerRow(String name, int channel, boolean custom, File roiZip) {
+            // card-like border
+            panel.setBorder(BorderFactory.createCompoundBorder(
+                    BorderFactory.createLineBorder(new Color(230,230,230)),
+                    BorderFactory.createEmptyBorder(6,6,6,6)
+            ));
 
-            int col = 0;
-            lc.gridx = col++; panel.add(cbSelect, lc);
+            GridBagConstraints c = new GridBagConstraints();
+            c.insets = new Insets(4,4,4,4);
+            c.anchor = GridBagConstraints.WEST;
 
-            lc.gridx = col++; panel.add(new JLabel("Name:"), lc);
-            lc.gridx = col++; tfName.setText(name != null ? name : "marker"); panel.add(tfName, lc);
+            // Row 0: select | Name: [.....] | Channel: [#]
+            c.gridy = 0; c.gridx = 0;                           panel.add(cbSelect, c);
 
-            lc.gridx = col++; panel.add(new JLabel("Channel:"), lc);
-            lc.gridx = col++; spChannel.setValue(channel); panel.add(spChannel, lc);
+            c.gridx = 1;                                        panel.add(new JLabel("Name:"), c);
+            c.gridx = 2; c.weightx = 1; c.fill = GridBagConstraints.HORIZONTAL;
+            tfName.setText(name != null ? name : "marker");
+            tfName.setMaximumSize(new Dimension(Integer.MAX_VALUE, tfName.getPreferredSize().height));
+            panel.add(tfName, c);
 
-            lc.gridx = col++; panel.add(new JLabel("Prob (opt):"), lc);
-            lc.gridx = col++; if (prob != null) spProb.setValue(prob); panel.add(spProb, lc);
+            c.gridx = 3; c.weightx = 0; c.fill = GridBagConstraints.NONE;
+            panel.add(new JLabel("Channel:"), c);
+            c.gridx = 4;                                        spChannel.setValue(channel); panel.add(spChannel, c);
 
-            lc.gridx = col++; panel.add(new JLabel("NMS (opt):"), lc);
-            lc.gridx = col++; if (nms != null) spNms.setValue(nms); panel.add(spNms, lc);
+            // Row 1: Custom ROI zip: [x]  [path...............]  […]
+            c.gridy = 1; c.gridx = 1;                           panel.add(new JLabel("Custom ROI zip:"), c);
+            c.gridx = 2;                                        cbCustom.setSelected(custom); panel.add(cbCustom, c);
 
-            lc.gridx = col++; cbCustom.setSelected(custom); panel.add(cbCustom, lc);
-            lc.gridx = col++; tfRoiZip.setEnabled(custom); tfRoiZip.setText(roiZip != null ? roiZip.getAbsolutePath() : ""); panel.add(tfRoiZip, lc);
-            lc.gridx = col;   btnBrowseRoi.addActionListener(e -> chooseFile(tfRoiZip, JFileChooser.FILES_ONLY));
-            btnBrowseRoi.setEnabled(custom); panel.add(btnBrowseRoi, lc);
+            c.gridx = 3; c.weightx = 1; c.fill = GridBagConstraints.HORIZONTAL;
+            tfRoiZip.setEnabled(custom);
+            tfRoiZip.setText(roiZip != null ? roiZip.getAbsolutePath() : "");
+            tfRoiZip.setMaximumSize(new Dimension(Integer.MAX_VALUE, tfRoiZip.getPreferredSize().height));
+            panel.add(tfRoiZip, c);
+
+            c.gridx = 4; c.weightx = 0; c.fill = GridBagConstraints.NONE;
+            btnBrowseRoi.setEnabled(custom);
+            btnBrowseRoi.addActionListener(e -> chooseFile(tfRoiZip, JFileChooser.FILES_ONLY));
+            panel.add(btnBrowseRoi, c);
 
             cbCustom.addActionListener(e -> {
                 boolean on = cbCustom.isSelected();
@@ -262,25 +308,29 @@ public class MultiChannelNoHuPane extends JPanel {
                 btnBrowseRoi.setEnabled(on);
             });
 
+            // Make the card width follow the container (prevents horizontal scroll)
+            panel.setMaximumSize(new Dimension(Integer.MAX_VALUE, panel.getPreferredSize().height));
             panel.setAlignmentX(Component.LEFT_ALIGNMENT);
-            panel.setBorder(BorderFactory.createLineBorder(new Color(230,230,230)));
         }
 
-        NeuronsMultiNoHuPipeline.MarkerSpec toSpec(double defProb, double defNms) {
+        // Convert row -> pipeline spec (no per-marker prob/nms)
+        NeuronsMultiNoHuPipeline.MarkerSpec toSpec() {
             String nm = tfName.getText().trim();
             if (nm.isEmpty()) throw new IllegalArgumentException("Marker name cannot be empty.");
             int ch = ((Number) spChannel.getValue()).intValue();
-            double p = ((Number) spProb.getValue()).doubleValue();
-            double n = ((Number) spNms.getValue()).doubleValue();
 
             NeuronsMultiNoHuPipeline.MarkerSpec spec = new NeuronsMultiNoHuPipeline.MarkerSpec(nm, ch);
-            if (p >= 0.0) spec.prob = p; // -1 means "use default"
-            if (n >= 0.0) spec.nms  = n;
 
             if (cbCustom.isSelected()) {
                 String z = tfRoiZip.getText().trim();
-                if (z.isEmpty()) throw new IllegalArgumentException("Custom ROI selected for '"+nm+"' but no zip chosen.");
-                spec.withCustomRois(new File(z));
+                if (z.isEmpty()) throw new IllegalArgumentException(
+                        "Custom ROI selected for '"+nm+"' but no zip chosen.");
+                // If your MarkerSpec supports it:
+                // spec.withCustomRois(new File(z));
+                // If not yet implemented in the pipeline, throw to avoid silent ignore:
+                throw new IllegalStateException(
+                        "Custom ROI zip selected, but NeuronsMultiPipeline.MarkerSpec has no withCustomRois(File). " +
+                                "Add it (and handle it in run()), or disable 'Custom ROI zip'.");
             }
             return spec;
         }
@@ -343,7 +393,7 @@ public class MultiChannelNoHuPane extends JPanel {
 
         if (markerRows.isEmpty()) throw new IllegalStateException("Add at least one marker.");
         for (MarkerRow r : markerRows) {
-            mp.markers.add(r.toSpec(mp.multiProb, mp.multiNms));
+            mp.markers.add(r.toSpec());
         }
         return mp;
     }
@@ -432,7 +482,6 @@ public class MultiChannelNoHuPane extends JPanel {
         cbRescaleToTrainingPx.setSelected(true);
         spTrainingPixelSizeUm.setValue(0.568);
         spTrainingRescaleFactor.setValue(1.0);
-        cbUseEdf.setSelected(false);
 
         spDefaultProb.setValue(0.50);
         spDefaultNms.setValue(0.30);
