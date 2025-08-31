@@ -3,7 +3,7 @@ package Analysis;
 import ij.*;
 import ij.io.Opener;
 import ij.plugin.frame.RoiManager;
-import ij.process.ImageProcessor;
+
 import java.io.File;
 
 public class TwoCellTypeAnalysis {

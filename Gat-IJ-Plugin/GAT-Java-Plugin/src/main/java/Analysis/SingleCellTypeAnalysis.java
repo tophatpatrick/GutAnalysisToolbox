@@ -3,7 +3,7 @@ package Analysis;
 import ij.*;
 import ij.io.Opener;
 import ij.plugin.frame.RoiManager;
-import ij.process.ImageProcessor;
+
 import java.io.File;
 
 public class SingleCellTypeAnalysis {
@@ -33,38 +33,6 @@ public class SingleCellTypeAnalysis {
         IJ.run("Clear Results");
         IJ.log("\\Clear");
         IJ.run("Close All");
-
-        String fs = File.separator;
-        String fijiDir = IJ.getDirectory("imagej");
-
-        // Remove unwanted segments from path
-        String unwanted = "Gat-IJ-Plugin" + fs + "GAT-Java-Plugin" + fs + "target" + fs;
-        if (fijiDir.contains(unwanted)) {
-            fijiDir = fijiDir.replace(unwanted, "");
-        }
-
-        String gatDir = fijiDir + fs + "Tools" + fs + "commands";
-
-//        String fs = File.separator;
-//        String fijiDir = IJ.getDirectory("imagej");
-//        String gatDir = fijiDir + fs + "Tools" + fs + "commands";
-//        String gatDir = fijiDir + "scripts" + fs + "GAT" + fs + "Tools" + fs + "commands";
-
-        // Check if required macro files exist
-        String labelToRoiPath = gatDir + fs + "Convert_Label_to_ROIs.ijm";
-        if (!new File(labelToRoiPath).exists()) {
-            throw new Exception("Cannot find label to roi script. Path: " + labelToRoiPath);
-        }
-
-        String roiToLabelPath = gatDir + fs + "Convert_ROI_to_Labels.ijm";
-        if (!new File(roiToLabelPath).exists()) {
-            throw new Exception("Cannot find roi to label script. Path: " + roiToLabelPath);
-        }
-
-        String spatialSingleCellTypePath = gatDir + fs + "spatial_single_celltype.ijm";
-        if (!new File(spatialSingleCellTypePath).exists()) {
-            throw new Exception("Cannot find single cell spatial analysis script. Path: " + spatialSingleCellTypePath);
-        }
 
         // Open the maximum projection image
         Opener opener = new Opener();
@@ -102,9 +70,8 @@ public class SingleCellTypeAnalysis {
         if (roiGangliaPath != null && !roiGangliaPath.equals("NA") && new File(roiGangliaPath).exists()) {
             roiManager.runCommand("Open", roiGangliaPath);
 
-            // Convert ROIs to label map
-            IJ.runMacro(new String(java.nio.file.Files.readAllBytes(
-                    java.nio.file.Paths.get(roiToLabelPath))));
+            // Convert ROIs to label map using Java class
+            ConvertROIToLabels.execute();
 
             Thread.sleep(10);
             IJ.run("Select None");
@@ -125,20 +92,15 @@ public class SingleCellTypeAnalysis {
 
         // Process cell ROIs
         roiManager.runCommand("Open", roiPath);
-        IJ.runMacro(new String(java.nio.file.Files.readAllBytes(
-                java.nio.file.Paths.get(roiToLabelPath))));
+        ConvertROIToLabels.execute();
         IJ.getImage().setTitle("Cell_labels");
         Thread.sleep(10);
         IJ.run("Select None");
         String labelCellImg = IJ.getImage().getTitle();
 
-        // Run spatial analysis macro
-        String args = cellType + "," + labelCellImg + "," + gangliaBinary + "," +
-                savePath + "," + labelDilation + "," + saveParametricImage + "," +
-                pixelWidth + "," + roiPath;
-
-        IJ.runMacro(new String(java.nio.file.Files.readAllBytes(
-                java.nio.file.Paths.get(spatialSingleCellTypePath))), args);
+        // Run spatial analysis using Java class
+        SpatialSingleCellType.execute(cellType, labelCellImg, gangliaBinary, savePath,
+                labelDilation, saveParametricImage, pixelWidth, roiPath);
 
         Thread.sleep(5);
         IJ.log("Files saved at " + savePath);
