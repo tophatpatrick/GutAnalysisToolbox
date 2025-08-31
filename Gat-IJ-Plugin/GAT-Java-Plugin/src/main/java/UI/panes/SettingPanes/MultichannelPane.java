@@ -10,7 +10,7 @@ import java.awt.*;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
-import java.io.File;
+import UI.util.InputValidation;
 
 public class MultichannelPane extends JPanel {
     public static final String Name = "Multiplex Workflow";
@@ -339,6 +339,19 @@ public class MultichannelPane extends JPanel {
 
     private void onRun(JButton runBtn) {
         runBtn.setEnabled(false);
+
+        if (!InputValidation.validateImageOrShow(this, tfImagePath.getText()) ||
+                !InputValidation.validateZipOrShow(this, tfHuModelZip.getText(), "Hu StarDist model") ||
+                !InputValidation.validateZipOrShow(this, tfSubtypeModelZip.getText(), "Subtype StarDist model") ||
+                !InputValidation.validateOutputDirOrShow(this, tfOutputDir.getText()) ||
+                (cbGangliaAnalysis.isSelected() &&
+                        !InputValidation.validateModelsFolderOrShow(this, "2D_Ganglia_RGB_v3.bioimage.io.model"))
+        ) {
+            runBtn.setEnabled(true);
+            return;
+        }
+
+
         SwingWorker<Void,Void> w = new SwingWorker() {
             @Override protected Void doInBackground() {
                 try {

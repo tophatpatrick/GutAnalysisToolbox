@@ -4,6 +4,7 @@ import Features.AnalyseWorkflows.NeuronsMultiNoHuPipeline;
 import Features.AnalyseWorkflows.NeuronsMultiPipeline;
 import Features.Core.Params;
 import UI.Handlers.Navigator;
+import UI.util.InputValidation;
 import ij.IJ;
 
 import javax.swing.*;
@@ -340,6 +341,16 @@ public class MultiChannelNoHuPane extends JPanel {
 
     private void onRun(JButton runBtn) {
         runBtn.setEnabled(false);
+
+        if (!InputValidation.validateImageOrShow(this, tfImagePath.getText()) ||
+                !InputValidation.validateZipOrShow(this, tfSubtypeModelZip.getText(), "Subtype StarDist model") ||
+                !InputValidation.validateOutputDirOrShow(this, tfOutputDir.getText()) ||
+                (cbGangliaAnalysis.isSelected() &&
+                        !InputValidation.validateModelsFolderOrShow(this, tfGangliaModelFolder.getText()))
+        ) {
+            runBtn.setEnabled(true);
+            return;
+        }
 
         SwingWorker<Void,Void> worker = new SwingWorker() {
             @Override protected Void doInBackground() {

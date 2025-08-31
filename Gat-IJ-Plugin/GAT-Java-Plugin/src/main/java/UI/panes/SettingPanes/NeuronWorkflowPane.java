@@ -10,6 +10,9 @@ import javax.swing.border.TitledBorder;
 import java.awt.*;
 import java.io.File;
 
+import UI.util.InputValidation;
+
+
 /**
  * Neuron Workflow pane with Basic & Advanced tabs.
  * - No modal progress window
@@ -199,6 +202,16 @@ public class NeuronWorkflowPane extends JPanel {
 
     private void onRun(JButton runBtn) {
         runBtn.setEnabled(false);
+
+        if (!InputValidation.validateImageOrShow(this, tfImagePath.getText()) ||
+                !InputValidation.validateZipOrShow(this, tfModelZip.getText(), "StarDist model") ||
+                !InputValidation.validateOutputDirOrShow(this, tfOutputDir.getText()) ||
+                (cbGangliaAnalysis.isSelected() &&
+                        !InputValidation.validateModelsFolderOrShow(this, tfGangliaModelFolder.getText()))
+        ) {
+            runBtn.setEnabled(true);
+            return;
+        }
 
         SwingWorker<Void,Void> worker = new SwingWorker() {
             @Override protected Void doInBackground() {
