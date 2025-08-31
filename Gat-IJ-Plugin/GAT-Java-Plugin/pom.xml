@@ -1,4 +1,3 @@
-<?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
@@ -9,128 +8,90 @@
     <version>1.0-SNAPSHOT</version>
 
     <properties>
-        <maven.compiler.source>8</maven.compiler.source>
-        <maven.compiler.target>8</maven.compiler.target>
+        <maven.compiler.source>1.8</maven.compiler.source>
+        <maven.compiler.target>1.8</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
 
     <repositories>
-        <!-- Use HTTPS version of SciJava repository -->
         <repository>
             <id>scijava.public</id>
-            <name>SciJava Public Repository</name>
             <url>https://maven.scijava.org/content/groups/public</url>
-        </repository>
-
-        <!-- ImageJ repository with HTTPS -->
-        <repository>
-            <id>imagej.releases</id>
-            <name>ImageJ Releases</name>
-            <url>https://maven.scijava.org/content/repositories/releases</url>
-        </repository>
-
-        <!-- ImageJ snapshots with HTTPS -->
-        <repository>
-            <id>imagej.snapshots</id>
-            <name>ImageJ Snapshots</name>
-            <url>https://maven.scijava.org/content/repositories/snapshots</url>
-            <snapshots>
-                <enabled>true</enabled>
-            </snapshots>
         </repository>
     </repositories>
 
     <dependencies>
-        <!-- Core ImageJ -->
+        <!-- ImageJ1 core -->
         <dependency>
             <groupId>net.imagej</groupId>
             <artifactId>ij</artifactId>
             <version>1.54p</version>
         </dependency>
 
-        <!-- Material Design look-and-feel for Swing -->
+        <!-- Your Swing L&F -->
         <dependency>
             <groupId>io.github.vincenzopalazzo</groupId>
             <artifactId>material-ui-swing</artifactId>
             <version>1.1.2</version>
         </dependency>
 
-        <!-- ImageJ2 Core -->
+        <!-- (Optional) plugins you call directly from code via IJ.run(...)
+             If you plan to ship a self-contained Fiji, you can skip these
+             here and let the app packager install from update sites instead. -->
+        <!-- Example: MorphoLibJ (Label Size Filtering etc.) -->
+        <!--
         <dependency>
-            <groupId>net.imagej</groupId>
-            <artifactId>imagej</artifactId>
-            <version>2.9.0</version>
+          <groupId>fr.inra.ijpb</groupId>
+          <artifactId>MorphoLibJ_</artifactId>
+          <version>1.5.0</version>
         </dependency>
-
-        <!-- ImageJ Ops for image processing operations -->
-        <dependency>
-            <groupId>net.imagej</groupId>
-            <artifactId>imagej-ops</artifactId>
-            <version>0.45.8</version>
-        </dependency>
-
-        <!-- CLIJ2 for GPU-accelerated image processing -->
-        <dependency>
-            <groupId>net.haesleinhuepf</groupId>
-            <artifactId>clij2_</artifactId>
-            <version>2.5.0.1</version>
-        </dependency>
-
-        <!-- CLIJ (original) -->
-        <dependency>
-            <groupId>net.haesleinhuepf</groupId>
-            <artifactId>clij_</artifactId>
-            <version>1.9.0.1</version>
-        </dependency>
-
-        <!-- ImageJ Legacy for compatibility -->
-<!--        <dependency>-->
-<!--            <groupId>net.imagej</groupId>-->
-<!--            <artifactId>imagej-legacy</artifactId>-->
-<!--            <version>0.37.5</version>-->
-<!--        </dependency>-->
-
-        <!-- Bio-Formats for reading various image formats -->
-        <dependency>
-            <groupId>ome</groupId>
-            <artifactId>formats-gpl</artifactId>
-            <version>6.8.1</version>
-        </dependency>
-
-        <!-- Try to add some Fiji components individually instead of the full fiji pom -->
-        <dependency>
-            <groupId>sc.fiji</groupId>
-            <artifactId>fiji-lib</artifactId>
-            <version>2.1.1</version>
-        </dependency>
-
+        -->
     </dependencies>
 
     <build>
+        <resources>
+            <resource>
+                <directory>src/main/resources</directory>
+                <filtering>false</filtering>
+            </resource>
+        </resources>
+
         <plugins>
-            <!-- Ensure we compile for Java 8 -->
             <plugin>
                 <artifactId>maven-compiler-plugin</artifactId>
-                <version>3.8.1</version>
+                <version>3.11.0</version>
                 <configuration>
                     <source>${maven.compiler.source}</source>
                     <target>${maven.compiler.target}</target>
                 </configuration>
             </plugin>
 
-            <!-- Produce a "fat" JAR including all dependencies -->
+            <!-- For dev: run the DevLauncher main -->
             <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-shade-plugin</artifactId>
-                <version>3.2.4</version>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
+                <version>3.5.0</version>
+                <configuration>
+                    <mainClass>UI.DevLauncher</mainClass>
+                </configuration>
+            </plugin>
+
+
+            <plugin>
+                <groupId>org.scijava</groupId>
+                <artifactId>scijava-maven-plugin</artifactId>
+                <version>3.0.1</version>
                 <executions>
                     <execution>
+                        <id>populate</id>
                         <phase>package</phase>
-                        <goals>
-                            <goal>shade</goal>
-                        </goals>
+                        <goals><goal>populate-app</goal></goals>
                         <configuration>
-                            <createDependencyReducedPom>false</createDependencyReducedPom>
+                            <!-- Point to an existing Fiji.app -->
+                            <appDirectory>${scijava.app.directory}</appDirectory>
+                            <jars>
+                                <jar>${project.build.finalName}.jar</jar>
+                            </jars>
                         </configuration>
                     </execution>
                 </executions>
@@ -138,4 +99,46 @@
         </plugins>
     </build>
 
+    <!-- Build a self-contained Fiji app with your plugin inside -->
+    <profiles>
+        <profile>
+            <id>app</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.scijava</groupId>
+                        <artifactId>scijava-maven-plugin</artifactId>
+                        <version>3.0.1</version>
+                        <executions>
+                            <execution>
+                                <id>app</id>
+                                <phase>package</phase>
+                                <goals><goal>app</goal></goals>
+                                <configuration>
+                                    <appDirectory>${project.build.directory}/fiji-app</appDirectory>
+                                    <sites>
+                                        <site>Fiji</site>
+                                        <site>DeepImageJ</site>
+                                        <site>CSBDeep</site>
+                                        <site>StarDist</site>
+                                        <site>IJPB-plugins</site>
+                                        <site>clij</site>
+                                        <site>clij2</site>
+                                        <site>PTBIOP</site>
+                                    </sites>
+                                    <jars>
+                                        <jar>${project.build.finalName}.jar</jar>
+                                    </jars>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
+
+
 </project>
+
+
