@@ -92,14 +92,12 @@ public class NeuronWorkflowPane extends JPanel {
         p.add(boxWith("Input image (.tif, .lif, etc.)", row(tfImagePath, btnBrowseImage)));
 
         // Hu channel
+        spGangliaChannel     = new JSpinner(new SpinnerNumberModel(2, 1, 16, 1));
         spHuChannel = new JSpinner(new SpinnerNumberModel(3, 1, 16, 1));
-        p.add(boxWith("Hu channel (1-based)", row(spHuChannel)));
-
-        // StarDist model (.zip)
-        tfModelZip = new JTextField(36);
-        btnBrowseModel = new JButton("Browse…");
-        btnBrowseModel.addActionListener(e -> chooseFile(tfModelZip, JFileChooser.FILES_ONLY));
-        p.add(boxWith("StarDist model (.zip)", row(tfModelZip, btnBrowseModel)));
+        p.add(boxWith("Image Channels", grid2(
+                new JLabel("Hu Channel:"),      spHuChannel,
+                new JLabel("Ganglia Channel"),  spGangliaChannel
+        )));
 
         // Output dir
         tfOutputDir = new JTextField(36);
@@ -107,18 +105,6 @@ public class NeuronWorkflowPane extends JPanel {
         btnBrowseOutput.addActionListener(e -> chooseFile(tfOutputDir, JFileChooser.DIRECTORIES_ONLY));
         p.add(boxWith("Output directory (optional; default: Analysis/<basename>)", row(tfOutputDir, btnBrowseOutput)));
 
-        // Rescale + training px size
-        cbRescaleToTrainingPx = new JCheckBox("Rescale to training pixel size");
-        spTrainingPixelSizeUm = new JSpinner(new SpinnerNumberModel(0.568, 0.01, 100.0, 0.001));
-        p.add(boxWith("Rescaling", column(cbRescaleToTrainingPx, row(new JLabel("Training pixel size (µm):"), spTrainingPixelSizeUm))));
-
-        // StarDist thresholds
-        spProbThresh = new JSpinner(new SpinnerNumberModel(0.5, 0.0, 1.0, 0.05));
-        spNmsThresh  = new JSpinner(new SpinnerNumberModel(0.3, 0.0, 1.0, 0.05));
-        p.add(boxWith("StarDist thresholds", grid2(
-                new JLabel("Probability:"), spProbThresh,
-                new JLabel("NMS:"),         spNmsThresh
-        )));
 
         // EDF / overlay / ganglia toggle
         cbSaveFlattenedOverlay = new JCheckBox("Save flattened overlay");
@@ -135,6 +121,9 @@ public class NeuronWorkflowPane extends JPanel {
     }
 
     private JPanel buildAdvancedTab() {
+
+        JPanel outer = new JPanel(new BorderLayout());
+
         JPanel p = new JPanel();
         p.setLayout(new BoxLayout(p, BoxLayout.Y_AXIS));
 
@@ -146,17 +135,36 @@ public class NeuronWorkflowPane extends JPanel {
         p.add(boxWith("Calibration & size filtering", column(
                 cbRequireMicronUnits,
                 grid2(new JLabel("Neuron seg lower limit (µm):"), spNeuronSegLowerLimitUm,
-                        new JLabel("Neuron seg min (µm)       :"),   spNeuronSegMinMicron),
-                row(new JLabel("Training rescale factor:"), spTrainingRescaleFactor)
+                        new JLabel("Neuron seg min (µm)       :"),   spNeuronSegMinMicron,
+                        new JLabel("Training rescale factor:"), spTrainingRescaleFactor)
         )));
 
-        spGangliaChannel     = new JSpinner(new SpinnerNumberModel(2, 1, 16, 1));
+        // StarDist model (.zip)
+        tfModelZip = new JTextField(36);
+        btnBrowseModel = new JButton("Browse…");
+        btnBrowseModel.addActionListener(e -> chooseFile(tfModelZip, JFileChooser.FILES_ONLY));
+        p.add(boxWith("StarDist model (.zip)", row(tfModelZip, btnBrowseModel)));
+
+        // StarDist thresholds
+        spProbThresh = new JSpinner(new SpinnerNumberModel(0.5, 0.0, 1.0, 0.05));
+        spNmsThresh  = new JSpinner(new SpinnerNumberModel(0.3, 0.0, 1.0, 0.05));
+        p.add(boxWith("StarDist thresholds", grid2(
+                new JLabel("Probability:"), spProbThresh,
+                new JLabel("NMS:"),         spNmsThresh
+        )));
+
+
+        // Rescale + training px size
+        cbRescaleToTrainingPx = new JCheckBox("Rescale to training pixel size");
+        spTrainingPixelSizeUm = new JSpinner(new SpinnerNumberModel(0.568, 0.01, 100.0, 0.001));
+        p.add(boxWith("Rescaling", column(cbRescaleToTrainingPx, row(new JLabel("Training pixel size (µm):"), spTrainingPixelSizeUm))));
+
+
         tfGangliaModelFolder = new JTextField(28);
         btnBrowseGangliaModelFolder = new JButton("Browse…");
         btnBrowseGangliaModelFolder.addActionListener(e -> chooseFolderName(tfGangliaModelFolder));
 
         p.add(boxWith("Ganglia model", column(
-                row(new JLabel("Ganglia channel (1-based):"), spGangliaChannel),
                 row(new JLabel(""), tfGangliaModelFolder, btnBrowseGangliaModelFolder)
         )));
 
@@ -174,8 +182,17 @@ public class NeuronWorkflowPane extends JPanel {
         )));
         p.add(boxWith("Review", cbGangliaInteractiveReview));
 
-        p.add(Box.createVerticalGlue());
-        return p;
+        p.add(Box.createVerticalStrut(8));
+
+        JScrollPane scroll = new JScrollPane(
+                p,
+                ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED,
+                ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER
+        );
+        scroll.getVerticalScrollBar().setUnitIncrement(16);
+
+        outer.add(scroll, BorderLayout.CENTER);
+        return outer;
     }
 
     // ---------------- Actions ----------------
@@ -242,7 +259,7 @@ public class NeuronWorkflowPane extends JPanel {
 
     private void loadDefaults() {
         // Fill with your known-good defaults (same as your working run)
-        tfImagePath.setText("/Users/miles/Desktop/ms_28_wk_colon_DAPI_nNOS_Hu_10X.tif");
+        tfImagePath.setText("/path/to/image");
         spHuChannel.setValue(3);
 
         String modelZip = new File(new File(IJ.getDirectory("imagej"), "models"), "2D_enteric_neuron_v4_1.zip").getAbsolutePath();
