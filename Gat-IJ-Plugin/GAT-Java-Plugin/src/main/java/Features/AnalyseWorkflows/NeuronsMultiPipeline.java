@@ -17,9 +17,12 @@ public class NeuronsMultiPipeline {
     // ----- Input spec ---------------------------------------------------------
     public static final class MarkerSpec {
         public final String name;
-        public final int channel;     // 1-based channel index in the MAX composite
-        public Double prob;           // optional StarDist prob override
-        public Double nms;            // optional StarDist nms override
+        public final int channel;      // 1-based
+        public Double prob;            // optional
+        public Double nms;             // optional
+
+        // ADD ↓↓↓
+        public File customRoisZip;     // optional: user-supplied ROI zip
 
         public MarkerSpec(String name, int channel) {
             this.name = name;
@@ -27,6 +30,11 @@ public class NeuronsMultiPipeline {
         }
         public MarkerSpec withThresh(Double prob, Double nms) {
             this.prob = prob; this.nms = nms; return this;
+        }
+        // ADD ↓↓↓
+        public MarkerSpec withCustomRois(File zip) {
+            this.customRoisZip = zip;
+            return this;
         }
     }
 
@@ -87,11 +95,39 @@ public class NeuronsMultiPipeline {
                     (int)Math.round(ch.getWidth() * scaleFactor),
                     (int)Math.round(ch.getHeight() * scaleFactor));
 
-            double prob = (m.prob != null) ? m.prob : mp.multiProb;
-            double nms  = (m.nms  != null) ? m.nms  : mp.multiNms;
+            ImagePlus markerLabels;
+            if (m.customRoisZip != null && m.customRoisZip.isFile()) {
+                // ---- Use user-supplied ROI ZIP instead of StarDist ----
+                RoiManager tmp = new RoiManager(false);
+                tmp.reset();
+                tmp.runCommand("Open", m.customRoisZip.getAbsolutePath());
 
-            ImagePlus markerLabels = Features.Core.PluginCalls.runStarDist2DLabel(segInput, mp.subtypeModelZip, prob, nms);
-            markerLabels = Features.Core.PluginCalls.removeBorderLabels(markerLabels);
+                // If you have helpers:
+                //   bin = Features.Core.PluginCalls.roisToBinary(max, tmp);
+                //   markerLabels = Features.Core.PluginCalls.binaryToLabels(bin);
+
+                // Minimal fallback (if you don't have roisToBinary):
+                ij.process.ByteProcessor bp = new ij.process.ByteProcessor(max.getWidth(), max.getHeight());
+                bp.setValue(255);
+                for (ij.gui.Roi r : tmp.getRoisAsArray()) {
+                    bp.setRoi(r);
+                    bp.fill(); // fill ROI area
+                }
+                ImagePlus bin = new ImagePlus("bin", bp);
+                markerLabels = Features.Core.PluginCalls.binaryToLabels(bin);
+                bin.close();
+
+                tmp.reset(); tmp.close();
+
+            } else {
+                // ---- StarDist path (your original code) ----
+                double prob = (m.prob != null) ? m.prob : mp.multiProb;
+                double nms  = (m.nms  != null) ? m.nms  : mp.multiNms;
+
+                markerLabels = Features.Core.PluginCalls.runStarDist2DLabel(segInput, mp.subtypeModelZip, prob, nms);
+                markerLabels = Features.Core.PluginCalls.removeBorderLabels(markerLabels);
+                if (subtypeMinPx > 0) markerLabels = Features.Core.PluginCalls.labelMinSizeFilterPx(markerLabels, subtypeMinPx);
+            }
             if (subtypeMinPx > 0) markerLabels = Features.Core.PluginCalls.labelMinSizeFilterPx(markerLabels, subtypeMinPx);
 
             if (markerLabels.getWidth() != max.getWidth() || markerLabels.getHeight() != max.getHeight()) {
@@ -198,6 +234,8 @@ public class NeuronsMultiPipeline {
         }
         return out;
     }
+
+
 
     private static int countLabels(ImagePlus labels16) {
         // Label map with values 0..K; just find max label ID (they’re contiguous after binary re-label)
