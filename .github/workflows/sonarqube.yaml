@@ -33,5 +33,5 @@ jobs:
       - name: Build and analyze
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        run: mvn -B verify org.sonarsource.scanner.maven:sonar-maven-plugin:3.9.1.2184:sonar -Dsonar.projectKey=tophatpatrick_GutAnalysisToolbox
+        run: mvn -B verify org.sonarsource.scanner.maven:sonar-maven-plugin:3.9.1.2184:sonar -Dsonar.host.url=https://sonarcloud.io -Dsonar.projectKey=tophatpatrick_GutAnalysisToolbox
         working-directory: ./Gat-IJ-Plugin/GAT-Java-Plugin
