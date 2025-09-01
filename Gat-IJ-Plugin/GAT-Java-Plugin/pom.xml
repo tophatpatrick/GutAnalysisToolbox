@@ -11,6 +11,7 @@
         <maven.compiler.source>1.8</maven.compiler.source>
         <maven.compiler.target>1.8</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <fiji.app.directory>${fiji.app.directory}</fiji.app.directory>
     </properties>
 
     <repositories>
@@ -88,7 +89,7 @@
                         <goals><goal>populate-app</goal></goals>
                         <configuration>
                             <!-- Point to an existing Fiji.app -->
-                            <appDirectory>${scijava.app.directory}</appDirectory>
+                            <appDirectory>${fiji.app.directory}</appDirectory>
                             <jars>
                                 <jar>${project.build.finalName}.jar</jar>
                             </jars>
@@ -140,5 +141,3 @@
 
 
 </project>
-
-
