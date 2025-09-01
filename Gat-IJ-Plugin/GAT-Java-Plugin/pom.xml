@@ -12,7 +12,7 @@
         <maven.compiler.target>1.8</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <sonar.organization>tophatpatrick</sonar.organization>
-        <fiji.app.directory>${fiji.app.directory}</fiji.app.directory>
+        <fiji.app.directory>../../Fiji.app</fiji.app.directory>
     </properties>
 
     <repositories>
