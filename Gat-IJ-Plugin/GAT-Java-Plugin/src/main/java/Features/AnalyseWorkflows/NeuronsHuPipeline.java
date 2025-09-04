@@ -3,12 +3,15 @@ package Features.AnalyseWorkflows;
 import ij.IJ;
 import ij.ImagePlus;
 import ij.measure.Calibration;
+import ij.plugin.filter.EDM;
 import ij.plugin.frame.RoiManager;
 
 import Features.Core.Params;
 import Features.Core.PluginCalls;
 import Features.Tools.ImageOps;
 import Features.Tools.OutputIO;
+import ij.process.ImageConverter;
+import ij.process.ImageProcessor;
 
 import java.io.File;
 
@@ -160,6 +163,7 @@ public class NeuronsHuPipeline {
 
 // paint ROIs → binary → labels, at MAX size
         ImagePlus correctedBinary = PluginCalls.roisToBinary(huReview, rm);
+        applyWatershedInPlace(correctedBinary);
         ImagePlus labelsEdited    = PluginCalls.binaryToLabels(correctedBinary);
         labelsEdited.setCalibration(max.getCalibration());
 
@@ -283,6 +287,16 @@ public class NeuronsHuPipeline {
     private static String stripExt(String name) {
         int dot = name.lastIndexOf('.');
         return dot > 0 ? name.substring(0, dot) : name;
+    }
+
+    public static void applyWatershedInPlace(ImagePlus bin) {
+        // Must be an 8-bit binary mask where background=0 and objects=255
+        if (bin.getBitDepth() != 8) new ImageConverter(bin).convertToGray8();
+
+        ImageProcessor ip = bin.getProcessor();
+
+        new EDM().toWatershed(ip);
+        bin.updateAndDraw();
     }
 
 }

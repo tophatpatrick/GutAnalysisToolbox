@@ -155,6 +155,7 @@ public class NeuronsMultiPipeline {
 
 
             // Launch review and rebuild labels from edited ROIs
+            ij.macro.Interpreter.batchMode = false;
             ImagePlus reviewed = ReviewUI.reviewAndRebuildLabels(
                     backdrop,
                     rmRev,
@@ -162,6 +163,7 @@ public class NeuronsMultiPipeline {
                     max.getCalibration(),
                     filteredLabels
             );
+            ij.macro.Interpreter.batchMode = true;
 
 
             // Count + save ROIs
