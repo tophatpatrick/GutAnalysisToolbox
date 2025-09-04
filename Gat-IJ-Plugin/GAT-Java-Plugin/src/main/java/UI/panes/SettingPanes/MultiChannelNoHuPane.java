@@ -37,7 +37,6 @@ public class MultiChannelNoHuPane extends JPanel {
     private JSpinner   spOverlapFrac;           // 0..1  (for combinations)
 
     private JSpinner   spMinMarkerSizeUm;       // double (like neuronSegMinMicron)
-    private JCheckBox  cbUseEdf;                // use CLIJ2 EDF
 
     private JCheckBox  cbSaveFlattenedOverlay;
 
@@ -379,7 +378,6 @@ public class MultiChannelNoHuPane extends JPanel {
         base.imagePath = emptyToNull(tfImagePath.getText());
         base.outputDir = emptyToNull(tfOutputDir.getText());
 
-        base.useClij2EDF = cbUseEdf.isSelected();
         base.rescaleToTrainingPx   = cbRescaleToTrainingPx.isSelected();
         base.trainingPixelSizeUm   = ((Number) spTrainingPixelSizeUm.getValue()).doubleValue();
         base.trainingRescaleFactor = ((Number) spTrainingRescaleFactor.getValue()).doubleValue();
@@ -489,7 +487,7 @@ public class MultiChannelNoHuPane extends JPanel {
 
     private void loadDefaults() {
         // You can customize these defaults to your environment
-        tfSubtypeModelZip.setText(new File(new File(IJ.getDirectory("imagej"), "models"), "2D_neuron_subtype.zip").getAbsolutePath());
+        tfSubtypeModelZip.setText(new File(new File(IJ.getDirectory("imagej"), "models"), "2D_enteric_neuron_subtype_v4.zip").getAbsolutePath());
         cbRescaleToTrainingPx.setSelected(true);
         spTrainingPixelSizeUm.setValue(0.568);
         spTrainingRescaleFactor.setValue(1.0);
