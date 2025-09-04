@@ -154,8 +154,10 @@ public class NeuronsMultiNoHuPipeline {
             rmRev.reset();
             PluginCalls.labelsToRois(markerLabels);        // seed with current call
             ImagePlus fallback = markerLabels.duplicate();
+            ij.macro.Interpreter.batchMode = false;
             ImagePlus reviewed = ReviewUI.reviewAndRebuildLabels(
                     ch, rmRev, m.name + " (review)", max.getCalibration(), fallback);
+            ij.macro.Interpreter.batchMode = true;
             rmRev.reset(); rmRev.close();
             fallback.close();
 

@@ -40,6 +40,7 @@ public final class OutputIO {
             throw new IllegalStateException("Failed to create dir: " + out.getAbsolutePath());
         }
 
+
         return out;
     }
 
@@ -62,14 +63,21 @@ public final class OutputIO {
     }
 
     public static void saveFlattenedOverlay(ImagePlus base, RoiManager rm, File out) {
+        // Work on a hidden duplicate
         ImagePlus dup = base.duplicate();
         dup.hide();
+
+        // Ask RM to draw its overlay onto this dup
         rm.runCommand(dup, "Show All with labels");
-        Overlay ov = dup.getOverlay();
-        if (ov != null) dup.setOverlay(ov);
-        IJ.run(dup, "Flatten", "");
-        IJ.saveAsTiff(dup, out.getAbsolutePath());
-        dup.close();
+
+        // Pure-API flatten
+        ImagePlus flat = dup.flatten();        // returns an RGB image with overlay baked in
+
+        new ij.io.FileSaver(flat).saveAsTiff(out.getAbsolutePath());
+
+        // tidy
+        dup.changes = false;  dup.close();
+        flat.changes = false; flat.close();
     }
 
     public static void writeCountsCsv(File csv, String baseName, String cellType, int count) {
