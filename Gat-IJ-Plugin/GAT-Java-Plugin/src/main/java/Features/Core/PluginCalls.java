@@ -355,6 +355,7 @@ public final class PluginCalls {
 
         labels.setCalibration(binary.getCalibration());
         clearThreshold(labels);
+        labels.hide();
         return labels;
     }
 

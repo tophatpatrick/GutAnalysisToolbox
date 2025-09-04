@@ -16,4 +16,12 @@ public final class SilentRun {
             WindowManager.setTempCurrentImage(null);
         }
     }
+
+    public static ImagePlus runAndGrab(ImagePlus bound, String command, String options) {
+        int[] before = ij.WindowManager.getIDList();
+        on(bound, command, options);
+        ImagePlus out = Features.Core.PluginCalls.findNewImageSince(before);
+        if (out != null) out.hide();
+        return out;
+    }
 }

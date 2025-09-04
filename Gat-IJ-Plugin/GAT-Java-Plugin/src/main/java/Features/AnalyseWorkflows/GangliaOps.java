@@ -80,12 +80,13 @@ public final class GangliaOps {
         ImagePlus bin = PluginCalls.runDeepImageJForGanglia(
                 maxProjection, p.gangliaChannel, p.huChannel, p.gangliaModelFolder, 200.0, p);
 
-        // Do NOT remove border labels (macro doesn’t)
-        // Do NOT fill holes (macro doesn’t)
 
         ImagePlus labels = PluginCalls.binaryToLabels(bin);
         labels.setCalibration(maxProjection.getCalibration());
-        if (labels != bin) bin.close();
+        if (labels != bin){
+            bin.changes = false;
+            bin.close();
+        }
         return labels;
     }
 
