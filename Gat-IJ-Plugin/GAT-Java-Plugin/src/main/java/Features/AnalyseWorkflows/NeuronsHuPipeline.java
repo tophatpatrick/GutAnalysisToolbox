@@ -45,12 +45,17 @@ public class NeuronsHuPipeline {
     public HuResult run(Params p, Boolean huReturn) {
 
 
+        boolean prevBatch = ij.macro.Interpreter.batchMode;
+        ij.macro.Interpreter.batchMode = true;
+
 
         // 0) Basic validation
         if (p == null) throw new IllegalArgumentException("Params cannot be null.");
         if (p.stardistModelZip == null || !new File(p.stardistModelZip).isFile()) {
             throw new IllegalArgumentException("StarDist model not found: " + p.stardistModelZip);
         }
+
+
 
         // 1) Open image (Bio-Formats if path provided)
         ImagePlus imp = (p.imagePath == null || p.imagePath.isEmpty())
@@ -122,6 +127,8 @@ public class NeuronsHuPipeline {
 // push labels into RM (silent)
         PluginCalls.labelsToRois(labels);
 
+        ij.macro.Interpreter.batchMode = false;
+
 // show Hu (at MAX size) + colored LUT so cells are clear
         ImagePlus huReview = hu.duplicate();         // 'hu' is at MAX_* size already
         huReview.setTitle("Hu (review) - " + baseName);
@@ -144,8 +151,11 @@ public class NeuronsHuPipeline {
                         "Click OK when done."
         ).show();
 
+
 // remove overlay and rebuild labels from whatever is in RM now
         rm.runCommand(huReview, "Show All without labels");
+
+        ij.macro.Interpreter.batchMode = true;
 
 
 // paint ROIs → binary → labels, at MAX size
@@ -199,6 +209,7 @@ public class NeuronsHuPipeline {
             ImagePlus gangliaLabelsRaw = GangliaOps.segment(p, max, labels);
             gangliaLabelsRaw.setCalibration(max.getCalibration());
 
+
             // B) Count neurons per RAW ganglion (to know which have ≥1 neuron)
             GangliaOps.Result rAll = GangliaOps.countPerGanglion(labels, gangliaLabelsRaw);
 
@@ -228,14 +239,7 @@ public class NeuronsHuPipeline {
             int nG = rmG.getCount();
             IJ.log("Ganglia ROIs after Label Map to ROIs: " + nG);
 
-            if (nG == 0) {
-                IJ.log("WARN: 0 ganglia ROIs created. Check that 'gangliaLabels' is a 16-bit label map with >0 labels.");
-            } else {
-                OutputIO.saveRois(rmG, new File(outDir, "Ganglia_ROIs_" + baseName + ".zip"));
-                if (p.saveFlattenedOverlay) {
-                    OutputIO.saveFlattenedOverlay(max, rmG, new File(outDir, "MAX_" + baseName + "_ganglia_overlay.tif"));
-                }
-            }
+
             if (p.saveFlattenedOverlay && rmG.getCount() > 0) {
                 OutputIO.saveFlattenedOverlay(max, rmG, new File(outDir, "MAX_" + baseName + "_ganglia_overlay.tif"));
             }
@@ -243,6 +247,9 @@ public class NeuronsHuPipeline {
             // F) Re-count using the FILTERED labels (parity with post-threshold macro state)
             GangliaOps.Result r = GangliaOps.countPerGanglion(labels, gangliaLabels);
 
+            rmG.setVisible(false);
+            rmG.reset();
+            rmG.close();
 
             IJ.log("Ganglia analysis complete (filtered to ≥1 neuron).");
             if (huReturn){
@@ -255,7 +262,11 @@ public class NeuronsHuPipeline {
                 return  null;
             }
 
+
+
         }
+
+        ij.macro.Interpreter.batchMode = prevBatch;
 
 
         if (huReturn){
@@ -267,8 +278,11 @@ public class NeuronsHuPipeline {
 
     }
 
+
+
     private static String stripExt(String name) {
         int dot = name.lastIndexOf('.');
         return dot > 0 ? name.substring(0, dot) : name;
     }
+
 }
