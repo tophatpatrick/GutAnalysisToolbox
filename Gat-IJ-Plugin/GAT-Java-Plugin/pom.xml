@@ -12,7 +12,6 @@
         <maven.compiler.target>1.8</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <sonar.organization>tophatpatrick</sonar.organization>
-        <fiji.app.directory>../../Fiji.app</fiji.app.directory>
     </properties>
 
     <repositories>
@@ -21,6 +20,19 @@
             <url>https://maven.scijava.org/content/groups/public</url>
         </repository>
     </repositories>
+
+    <!-- JUnit 5 BOM to manage versions -->
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>org.junit</groupId>
+                <artifactId>junit-bom</artifactId>
+                <version>5.11.4</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
 
     <dependencies>
         <!-- ImageJ1 core -->
@@ -48,6 +60,25 @@
           <version>1.5.0</version>
         </dependency>
         -->
+
+        <!--
+            Testing framework
+        -->
+
+        <!-- junit-jupiter-api for most simple tests -->
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-api</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <!-- junit-jupiter-engine to run the tests -->
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-engine</artifactId>
+            <scope>test</scope>
+        </dependency>
+
     </dependencies>
 
     <build>
@@ -103,6 +134,26 @@
 
     <!-- Build a self-contained Fiji app with your plugin inside -->
     <profiles>
+        <profile>
+            <id>clean-app</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-clean-plugin</artifactId>
+                        <version>3.4.0</version>
+                        <executions>
+                            <execution>
+                                <goals>
+                                    <goal>clean</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+
         <profile>
             <id>app</id>
             <build>
