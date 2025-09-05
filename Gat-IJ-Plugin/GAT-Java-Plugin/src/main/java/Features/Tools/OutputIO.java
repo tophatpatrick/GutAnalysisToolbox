@@ -44,7 +44,7 @@ public final class OutputIO {
         return out;
     }
 
-    public static File uniqueDir(File target) {
+    private static File uniqueDir(File target) {
         if (!target.exists()) return target;
         int k = 1;
         while (true) {
