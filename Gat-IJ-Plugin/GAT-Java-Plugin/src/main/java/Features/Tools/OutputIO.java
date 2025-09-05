@@ -45,11 +45,23 @@ public final class OutputIO {
     }
 
     private static File uniqueDir(File target) {
+        File parent = target.getParentFile();
+        String name = target.getName();
+        String base = name;
+        String ext  = "";
+        int dot = name.lastIndexOf('.');
+        // treat ".bashrc" as no-extension (dot must not be the first char)
+        if (dot > 0 && dot < name.length() - 1) {
+            base = name.substring(0, dot);
+            ext  = name.substring(dot); // includes the dot
+        }
         if (!target.exists()) return target;
         int k = 1;
         while (true) {
-            File t = new File(target.getParentFile(), target.getName() + "_" + k);
-            if (!t.exists()) return t;
+            File cand = (parent == null)
+                    ? new File(base + "_" + k + ext)
+                    : new File(parent, base + "_" + k + ext);
+            if (!cand.exists()) return cand;
             k++;
         }
     }

@@ -4,6 +4,7 @@ import Features.Core.Params;
 import Features.Tools.ImageOps;
 import Features.Tools.OutputIO;
 import Features.Tools.LabelOps;
+import Features.Tools.ProgressUI;
 import UI.panes.Tools.ReviewUI;
 import ij.IJ;
 import ij.ImagePlus;
@@ -55,11 +56,27 @@ public class NeuronsMultiPipeline {
             throw new IllegalArgumentException("Subtype StarDist model not found: " + mp.subtypeModelZip);
         if (mp.markers.isEmpty()) throw new IllegalArgumentException("No markers provided.");
 
+
+        final int perMarkerSteps = 4;
+        final int comboSteps     = 1;
+        final int nm              = mp.markers.size();
+        final int nCombos        = (nm * (nm - 1)) / 2;
+
+        // total = Hu + per-marker + combos + 1(final CSV)
+        int totalSteps = NeuronsHuPipeline.estimateSteps(mp.base)
+                + (perMarkerSteps * nm)
+                + (comboSteps * nCombos)
+                + 1;
+
+        ProgressUI progress = new ProgressUI("Hu + Multi-channel");
+        progress.start(totalSteps);
+
         // 1) Run Hu once (returns MAX, Hu labels, ganglia info)
-        NeuronsHuPipeline.HuResult hu = new NeuronsHuPipeline().run(mp.base, /*huReturn=*/true);
+        NeuronsHuPipeline.HuResult hu = new NeuronsHuPipeline().run(mp.base, /*huReturn=*/true, progress);
         ImagePlus max    = hu.max;
         ImagePlus huLab  = hu.neuronLabels;
         int       totalHu = hu.totalNeuronCount;
+
 
         // 2) Common bits for rescale math
         double pxUm = max.getCalibration().pixelWidth;
@@ -86,8 +103,9 @@ public class NeuronsMultiPipeline {
         Map<String, boolean[]> keepMaskByMarker = new LinkedHashMap<>();
 
         // 4) Loop each marker
+
         for (MarkerSpec m : mp.markers) {
-            IJ.log("[Multi] Segmenting marker: " + m.name + " (ch " + m.channel + ")");
+            progress.step("Prep: " + m.name);
             ImagePlus ch = ImageOps.extractChannel(max, m.channel);
             ImagePlus segInput = (scaleFactor == 1.0)
                     ? ch
@@ -95,6 +113,7 @@ public class NeuronsMultiPipeline {
                     (int)Math.round(ch.getWidth() * scaleFactor),
                     (int)Math.round(ch.getHeight() * scaleFactor));
 
+            progress.pulse("Segment: " + m.name);
             ImagePlus markerLabels;
             if (m.customRoisZip != null && m.customRoisZip.isFile()) {
                 // ---- Use user-supplied ROI ZIP instead of StarDist ----
@@ -128,8 +147,11 @@ public class NeuronsMultiPipeline {
                 markerLabels = Features.Core.PluginCalls.removeBorderLabels(markerLabels);
                 if (subtypeMinPx > 0) markerLabels = Features.Core.PluginCalls.labelMinSizeFilterPx(markerLabels, subtypeMinPx);
             }
-            if (subtypeMinPx > 0) markerLabels = Features.Core.PluginCalls.labelMinSizeFilterPx(markerLabels, subtypeMinPx);
 
+
+            if (subtypeMinPx > 0) markerLabels = Features.Core.PluginCalls.labelMinSizeFilterPx(markerLabels, subtypeMinPx);
+            progress.stopPulse("Segment done: " + m.name);
+            progress.step("Postprocess/resize: " + m.name);
             if (markerLabels.getWidth() != max.getWidth() || markerLabels.getHeight() != max.getHeight()) {
                 markerLabels = ImageOps.resizeTo(markerLabels, max.getWidth(), max.getHeight());
             }
@@ -153,7 +175,7 @@ public class NeuronsMultiPipeline {
             IJ.run(backdrop, "Green", "");
             IJ.resetMinAndMax(backdrop);
 
-
+            progress.step("Review: " + m.name);
             // Launch review and rebuild labels from edited ROIs
             ij.macro.Interpreter.batchMode = false;
             ImagePlus reviewed = ReviewUI.reviewAndRebuildLabels(
@@ -165,7 +187,7 @@ public class NeuronsMultiPipeline {
             );
             ij.macro.Interpreter.batchMode = true;
 
-
+            progress.step("Save: " + m.name);
             // Count + save ROIs
             int markerTotal = countLabels(reviewed);
             totals.put(m.name, markerTotal);
@@ -208,6 +230,17 @@ public class NeuronsMultiPipeline {
                     GangliaOps.Result rc = GangliaOps.countPerGanglion(lab, hu.gangliaLabels);
                     perGanglia.put(comboName, rc.countsPerGanglion);
                 }
+                progress.step("Save combo: " + comboName);
+                RoiManager rm = RoiManager.getInstance2();
+                if (rm == null) rm = new RoiManager(false);
+                rm.reset();
+                Features.Core.PluginCalls.labelsToRois(lab);
+                if (rm.getCount() > 0) {
+                    OutputIO.saveRois(rm, new File(outDir, comboName + "_ROIs_" + baseName + ".zip"));
+                    if (mp.base.saveFlattenedOverlay)
+                        OutputIO.saveFlattenedOverlay(max, rm, new File(outDir, "MAX_" + baseName + "_" + comboName + "_overlay.tif"));
+                }
+                rm.reset();
                 lab.close();
             }
         }
@@ -223,7 +256,7 @@ public class NeuronsMultiPipeline {
                 gangliaArea
         );
 
-        IJ.log("[Multi] Complete: " + outDir.getAbsolutePath());
+        progress.close();
     }
 
     private static boolean[] andMasks(boolean[] a, boolean[] b) {
