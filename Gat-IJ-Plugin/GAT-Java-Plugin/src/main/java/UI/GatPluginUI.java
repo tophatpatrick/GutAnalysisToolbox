@@ -82,7 +82,7 @@ public class GatPluginUI implements PlugIn {
         panes.put(CalciumImagingPane.Name,  new CalciumImagingPane(navigator));
         panes.put(MultiplexPane.Name,       new MultiplexPane(navigator));
         panes.put(ToolsPane.Name,           new ToolsPane(navigator));
-        panes.put(SpatialAnalysisPane.Name, new SpatialAnalysisPane(navigator));
+        panes.put(SpatialAnalysisPane.Name, new SpatialAnalysisPane(navigator, dialog));
 
 
 
