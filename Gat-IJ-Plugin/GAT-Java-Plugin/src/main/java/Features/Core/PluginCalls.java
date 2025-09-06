@@ -26,6 +26,28 @@ public final class PluginCalls {
         return imp;
     }
 
+    //Build the ganglia rgb image so that we can display it in the results page
+    public static ImagePlus buildGangliaRgbForOverlay(ImagePlus maxProj, int gangliaCh1, int huCh1) {
+        ImagePlus g  = Features.Tools.ImageOps.extractChannel(maxProj, gangliaCh1);
+        ImagePlus hu = Features.Tools.ImageOps.extractChannel(maxProj, huCh1);
+        IJ.resetMinAndMax(g);  IJ.resetMinAndMax(hu);
+
+        ij.process.ByteProcessor r8 = (ij.process.ByteProcessor) hu.getProcessor().convertToByte(true);
+        ij.process.ByteProcessor g8 = (ij.process.ByteProcessor) g .getProcessor().convertToByte(true);
+        ij.process.ByteProcessor b8 = (ij.process.ByteProcessor) hu.getProcessor().convertToByte(true);
+
+        ij.process.ColorProcessor cp = new ij.process.ColorProcessor(maxProj.getWidth(), maxProj.getHeight());
+        cp.setRGB((byte[]) r8.getPixels(), (byte[]) g8.getPixels(), (byte[]) b8.getPixels());
+
+        ImagePlus rgb = new ImagePlus("ganglia_rgb_base", cp);
+        rgb.setCalibration(maxProj.getCalibration());
+        rgb.hide();
+
+        g.changes=false; g.close();
+        hu.changes=false; hu.close();
+        return rgb;
+    }
+
     /** CLIJ2 EDF (variance) projection, returns pulled image */
     public static ImagePlus clij2EdfVariance(ImagePlus src) {
         src.show();
