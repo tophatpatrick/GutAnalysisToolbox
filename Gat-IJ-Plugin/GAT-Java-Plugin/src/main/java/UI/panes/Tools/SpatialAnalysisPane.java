@@ -487,6 +487,7 @@ public class SpatialAnalysisPane extends JPanel {
         panel.add(Box.createVerticalGlue());
         return panel;
     }
+}
 
 //    private JPanel createSingleCelltypeTab() {
 //        JPanel panel = new JPanel();
@@ -813,4 +814,4 @@ public class SpatialAnalysisPane extends JPanel {
 //        panel.add(Box.createVerticalGlue());
 //        return panel;
 //    }
-}
+//}
