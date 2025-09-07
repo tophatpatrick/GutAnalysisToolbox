@@ -46,9 +46,28 @@
                 <artifactId>maven-compiler-plugin</artifactId>
                 <version>3.8.1</version>
                 <configuration>
-                    <source>${java.version}</source>
-                    <target>${java.version}</target>
+                    <source>1.8</source>
+                    <target>1.8</target>
                 </configuration>
+            </plugin>
+
+            <plugin>
+                <groupId>org.scijava</groupId>
+                <artifactId>scijava-maven-plugin</artifactId>
+                <version>3.0.1</version>
+                <executions>
+                    <execution>
+                        <id>populate-fiji</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>populate-app</goal>
+                        </goals>
+                        <configuration>
+                            <!-- Path to your Fiji.app folder -->
+                            <appDirectory>C:\Users\USER\Desktop\Uni\Fit4002\Fiji.app</appDirectory>
+                        </configuration>
+                    </execution>
+                </executions>
             </plugin>
 
             <!-- Produce a “fat” JAR including all dependencies -->

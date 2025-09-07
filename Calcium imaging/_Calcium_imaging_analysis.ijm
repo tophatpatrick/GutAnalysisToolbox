@@ -74,7 +74,8 @@ file_dir=File.directory;
 
 
 getDimensions(w, h, channels, slices, frames); //get dimensions so the resolution and frames can be used later on
-getPixelSize(unit, pixelWidth, pixelHeight);
+
+getPixelSize(unit, pixelWidth, pixelHeight);
 
 //check if unit is microns or micron
 unit=String.trim(unit);
