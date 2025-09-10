@@ -3,9 +3,9 @@ package services.merge;
 import java.nio.file.Path;
 
 public enum FileExtension {
-    CSV("csv"),
-    TXT("txt"),
-    TSV("tsv");
+    CSV("csv");
+//    TXT("txt"),
+//    TSV("tsv");
 
     private final String ext; // without dot
 

@@ -1,7 +1,10 @@
 package UI.panes.Tools;
 
 import UI.Handlers.Navigator;
-import services.merge.*;
+import services.merge.CsvMerger;
+import services.merge.DefaultLabelStrategy;
+import services.merge.FileExtension;
+import services.merge.MergeException;
 
 import javax.swing.*;
 import java.awt.*;
@@ -15,9 +18,6 @@ public class AnalysisPane extends JPanel {
     private final JRadioButton multiRb    = new JRadioButton("Merge multiple CSV types (discover filenames from first subfolder)");
     private final JTextField   patternTf  = new JTextField("results", 20);
 
-    // NEW: file extension dropdown (default CSV)
-    private final JComboBox<FileExtension> extCb = new JComboBox<>(FileExtension.values());
-
     private final JPanel       singleRow  = new JPanel(new GridBagLayout());
 
     private final JTextField   rootTf     = new JTextField(28);
@@ -30,7 +30,7 @@ public class AnalysisPane extends JPanel {
         setLayout(new BorderLayout(12, 12));
         setBorder(BorderFactory.createEmptyBorder(12, 12, 12, 12));
 
-        JLabel title = new JLabel("Merge Analysis", SwingConstants.CENTER);
+        JLabel title = new JLabel("Merge Analysis", SwingConstants.LEFT);
         title.setFont(title.getFont().deriveFont(Font.BOLD, 18f));
         add(title, BorderLayout.NORTH);
 
@@ -50,7 +50,7 @@ public class AnalysisPane extends JPanel {
         gc.gridy++; form.add(singleRb, gc);
         gc.gridy++; form.add(multiRb, gc);
 
-        // single row (pattern + extension)
+        // single row (pattern + fixed extension label)
         gc.gridy++;
         singleRow.setVisible(true);
         GridBagConstraints sgc = new GridBagConstraints();
@@ -61,12 +61,9 @@ public class AnalysisPane extends JPanel {
         sgc.gridx = 1; sgc.fill = GridBagConstraints.HORIZONTAL; sgc.weightx = 1.0;
         singleRow.add(patternTf, sgc);
 
-        // NEW: extension dropdown
+        // Fixed extension label (CSV only)
         sgc.gridx = 2; sgc.fill = GridBagConstraints.NONE; sgc.weightx = 0;
-        singleRow.add(new JLabel("Extension:"), sgc);
-        sgc.gridx = 3;
-        extCb.setSelectedItem(FileExtension.CSV);
-        singleRow.add(extCb, sgc);
+        singleRow.add(new JLabel(".csv"), sgc);
 
         form.add(singleRow, gc);
 
@@ -91,6 +88,7 @@ public class AnalysisPane extends JPanel {
         form.add(actions, gc);
 
         add(form, BorderLayout.CENTER);
+
         // behavior
         singleRb.addActionListener(e -> singleRow.setVisible(true));
         multiRb.addActionListener(e -> singleRow.setVisible(false));
@@ -109,8 +107,8 @@ public class AnalysisPane extends JPanel {
         runBtn.setEnabled(false);
         setCursor(Cursor.getPredefinedCursor(Cursor.WAIT_CURSOR));
 
-        FileExtension ext = (FileExtension) extCb.getSelectedItem();
-        if (ext == null) ext = FileExtension.CSV;
+        // Fixed extension: CSV
+        FileExtension ext = FileExtension.CSV;
 
         if (singleRb.isSelected()) {
             String pattern = patternTf.getText().trim();
