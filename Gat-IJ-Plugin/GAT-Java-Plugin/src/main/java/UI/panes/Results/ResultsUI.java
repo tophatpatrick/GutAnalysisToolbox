@@ -1,12 +1,8 @@
 package UI.panes.Results;
 
 import Features.AnalyseWorkflows.NeuronsHuPipeline.HuResult;
-import Features.Core.PluginCalls;
-import Features.Tools.OutputIO;
 import ij.IJ;
 import ij.ImagePlus;
-import ij.gui.Plot;
-import ij.plugin.frame.RoiManager;
 import ij.process.ImageProcessor;
 
 import javax.swing.*;
@@ -89,12 +85,37 @@ public class ResultsUI {
             center.add(tableScroll);
 
             center.add(Box.createVerticalStrut(10));
-            center.add(sectionTitle("Neurons per ganglion (bar)"));
+            center.add(sectionTitle("Neurons per ganglion (box plot)"));
+            BufferedImage boxImg = makeGangliaBoxPlot(r);
+            JLabel chart = new JLabel(new ImageIcon(boxImg));
             JPanel chartWrap = new JPanel(new FlowLayout(FlowLayout.CENTER, 0, 0));
-            JLabel chart = new JLabel(new ImageIcon(makeGangliaBarPlot(r)));
             chart.setBorder(new EmptyBorder(6,0,8,0));
             chartWrap.add(chart);
-            center.add(chartWrap);
+
+// Save button (saves chart(s) into the output folder)
+            JButton saveBtn = new JButton("Save plots…");
+            saveBtn.addActionListener(e -> {
+                try {
+                    File outPng = new File(r.outDir, "Plot_neurons_per_ganglion_box.png");
+                    saveImage(boxImg, outPng);
+                    JOptionPane.showMessageDialog(chartWrap,
+                            "Saved:\n" + outPng.getAbsolutePath(),
+                            "Saved", JOptionPane.INFORMATION_MESSAGE);
+                } catch (Exception ex) {
+                    IJ.handleException(ex);
+                }
+            });
+
+            JPanel chartWithBtn = new JPanel();
+            chartWithBtn.setLayout(new BoxLayout(chartWithBtn, BoxLayout.Y_AXIS));
+            chartWithBtn.add(chartWrap);
+            JPanel btnRow = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
+            btnRow.add(saveBtn);
+            btnRow.setBorder(new EmptyBorder(0,0,8,0));
+            chartWithBtn.add(btnRow);
+
+            center.add(chartWithBtn);
+
         }
 
         JScrollPane scroller = new JScrollPane(center);
@@ -126,8 +147,130 @@ public class ResultsUI {
         JLabel l = new JLabel(text);
         l.setFont(l.getFont().deriveFont(Font.BOLD));
         p.add(l, BorderLayout.CENTER);
-        p.setBorder(new EmptyBorder(2,0,2,0));
+        p.setBorder(new EmptyBorder(2, 0, 6, 0)); // was (2,0,2,0)
         return p;
+    }
+
+    private static BufferedImage makeGangliaBoxPlot(HuResult r) {
+        if (r.neuronsPerGanglion == null || r.neuronsPerGanglion.length <= 1) {
+            return placeholderImage(420, 240, "No ganglia data");
+        }
+        java.util.List<Integer> vals = new java.util.ArrayList<>();
+        for (int i = 1; i < r.neuronsPerGanglion.length; i++) {
+            int v = r.neuronsPerGanglion[i];
+            if (v > 0) vals.add(v);
+        }
+        if (vals.isEmpty()) return placeholderImage(420, 240, "No ganglia data");
+
+        double[] q = fiveNumberSummary(vals); // {min, q1, median, q3, max}
+
+        // extra top padding so nothing bumps the header
+        int W = 560, H = 300, padL = 60, padR = 20, padT = 36, padB = 40;
+        BufferedImage bi = new BufferedImage(W, H, BufferedImage.TYPE_INT_RGB);
+        Graphics2D g = bi.createGraphics();
+        g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+        // background
+        g.setColor(Color.WHITE);
+        g.fillRect(0, 0, W, H);
+
+        // NO internal chart title (we use the Swing section header)
+
+        // Frame
+        int x0 = padL, x1 = W - padR, y0 = H - padB, y1 = padT;
+        g.setColor(new Color(220,220,220));
+        g.drawRect(x0, y1, (x1 - x0), (y0 - y1));
+
+        // y ticks/grid
+        int ymax = (int)Math.ceil(q[4] * 1.10);
+        ymax = Math.max(ymax, 1);
+        g.setFont(g.getFont().deriveFont(12f));
+        for (int i = 0; i <= 5; i++) {
+            double yv = i * (ymax / 5.0);
+            int y = y0 - (int)Math.round((yv / ymax) * (y0 - y1));
+            g.setColor(new Color(235,235,235)); g.drawLine(x0, y, x1, y);
+            g.setColor(new Color(90,90,90));
+            String lab = String.valueOf((int)Math.round(yv));
+            int tw = g.getFontMetrics().stringWidth(lab);
+            g.drawString(lab, x0 - tw - 6, y + 4);
+        }
+
+        // x-axis label (bottom)
+        String xlab = "Neuron count";
+        int xw = g.getFontMetrics().stringWidth(xlab);
+        g.setColor(new Color(80,80,80));
+        g.drawString(xlab, x0 + ((x1 - x0) - xw) / 2, H - 10);
+
+        // value→y mapper
+        int finalYmax = ymax;
+        java.util.function.DoubleFunction<Integer> Y = v -> y0 - (int)Math.round((v / finalYmax) * (y0 - y1));
+
+        // box at center
+        int cx = (x0 + x1) / 2;
+        int boxW = 80;
+
+        // whiskers
+        g.setColor(new Color(70,70,70));
+        g.drawLine(cx, Y.apply(q[0]), cx, Y.apply(q[1]));
+        g.drawLine(cx, Y.apply(q[3]), cx, Y.apply(q[4]));
+        g.drawLine(cx - 15, Y.apply(q[0]), cx + 15, Y.apply(q[0]));
+        g.drawLine(cx - 15, Y.apply(q[4]), cx + 15, Y.apply(q[4]));
+
+        // box (Q1–Q3)
+        int top = Y.apply(q[3]), bot = Y.apply(q[1]);
+        g.setColor(new Color(180,205,255));
+        g.fillRect(cx - boxW/2, top, boxW, bot - top);
+        g.setColor(new Color(60,90,160));
+        g.drawRect(cx - boxW/2, top, boxW, bot - top);
+
+        // median
+        int my = Y.apply(q[2]);
+        g.setStroke(new BasicStroke(2f));
+        g.drawLine(cx - boxW/2, my, cx + boxW/2, my);
+
+        // stats INSIDE the plot area (top-left), not above it
+        g.setStroke(new BasicStroke(1f));
+        g.setColor(new Color(60,60,60));
+        String stats = String.format(java.util.Locale.US,
+                "min=%.0f  Q1=%.0f  median=%.0f  Q3=%.0f  max=%.0f   (n=%d)",
+                q[0], q[1], q[2], q[3], q[4], vals.size());
+        int ascent = g.getFontMetrics().getAscent();
+        g.drawString(stats, x0 + 6, y1 + ascent + 2);
+
+        g.dispose();
+        return bi;
+    }
+
+
+    private static double[] fiveNumberSummary(java.util.List<Integer> vals) {
+        java.util.Collections.sort(vals);
+        int n = vals.size();
+        java.util.function.IntFunction<Double> at = i -> vals.get(Math.max(0, Math.min(n-1, i))).doubleValue();
+        // median helpers
+        java.util.function.BiFunction<Integer,Integer,Double> median = (lo, hi) -> {
+            int len = hi - lo + 1;
+            if (len <= 0) return Double.NaN;
+            int mid = lo + len/2;
+            if ((len & 1) == 1) return at.apply(mid);
+            return (at.apply(mid-1) + at.apply(mid)) / 2.0;
+        };
+        double med = median.apply(0, n-1);
+        // lower half: up to (but excluding) median when n odd
+        int hiL = (n%2==0) ? (n/2 - 1) : (n/2 - 1);
+        double q1 = median.apply(0, Math.max(0, hiL));
+        // upper half: from (n/2 + (n%2)) .. n-1
+        int loU = (n%2==0) ? (n/2) : (n/2 + 1);
+        double q3 = median.apply(loU, n-1);
+        return new double[]{ vals.get(0), q1, med, q3, vals.get(n-1) };
+    }
+
+    private static BufferedImage placeholderImage(int w, int h, String msg) {
+        BufferedImage bi = new BufferedImage(w, h, BufferedImage.TYPE_INT_RGB);
+        Graphics2D g = bi.createGraphics();
+        g.setColor(Color.WHITE); g.fillRect(0,0,w,h);
+        g.setColor(Color.DARK_GRAY); g.drawString(msg, Math.max(10, w/2-60), h/2);
+        g.dispose();
+        return bi;
     }
 
     private static JPanel makeThumbCard(String title, ImagePlus impForThumb, int widthPx) {
@@ -171,29 +314,6 @@ public class ResultsUI {
         return (imp != null) ? imp : fallback;
     }
 
-    /**
-     * Ensures an overlay TIFF exists; if not, derives ROIs from the label image,
-     * draws them on a hidden duplicate of base, flattens, and saves.
-     */
-    private static File ensureOverlayFile(File outFile, ImagePlus base, ImagePlus labelMap) {
-        if (outFile.exists()) return outFile;
-
-        try {
-            RoiManager rm = new RoiManager(false); // hidden
-            rm.reset();
-            // Push label ROIs into RM (PluginCalls utility from your codebase)
-            PluginCalls.labelsToRois(labelMap);
-
-            // Save flattened overlay
-            OutputIO.saveFlattenedOverlay(base, rm, outFile);
-
-            rm.reset();
-            rm.close();
-        } catch (Throwable t) {
-            IJ.log("Could not generate overlay: " + outFile.getName() + " – " + t.getMessage());
-        }
-        return outFile;
-    }
 
     private static JTable makeGangliaTable(HuResult r) {
         DefaultTableModel model = new DefaultTableModel(new Object[]{"ganglion_id","neuron_count","area_um2"}, 0) {
@@ -228,28 +348,12 @@ public class ResultsUI {
         return table;
     }
 
-    private static BufferedImage makeGangliaBarPlot(HuResult r) {
-        int n = r.neuronsPerGanglion.length;
-        if (n <= 1) {
-            BufferedImage bi = new BufferedImage(400, 200, BufferedImage.TYPE_INT_RGB);
-            Graphics2D g = bi.createGraphics();
-            g.setColor(Color.WHITE); g.fillRect(0,0,bi.getWidth(),bi.getHeight());
-            g.setColor(Color.DARK_GRAY); g.drawString("No ganglia data", 150, 100);
-            g.dispose();
-            return bi;
-        }
-        double[] x = new double[n - 1];
-        double[] y = new double[n - 1];
-        int max = 0;
-        for (int gid = 1; gid < n; gid++) {
-            int v = r.neuronsPerGanglion[gid];
-            x[gid - 1] = gid;
-            y[gid - 1] = v;
-            if (v > max) max = v;
-        }
-        Plot plot = new Plot("Neurons per ganglion", "Ganglion #", "Count");
-        plot.setLimits(0.5, (n - 1) + 0.5, 0, Math.max(1, (int) Math.ceil(max * 1.1)));
-        plot.add("bar", x, y);
-        return plot.getProcessor().getBufferedImage();
+
+
+
+    private static void saveImage(BufferedImage img, File out) throws IOException {
+        out.getParentFile().mkdirs();
+        javax.imageio.ImageIO.write(img, "PNG", out);
     }
+
 }
