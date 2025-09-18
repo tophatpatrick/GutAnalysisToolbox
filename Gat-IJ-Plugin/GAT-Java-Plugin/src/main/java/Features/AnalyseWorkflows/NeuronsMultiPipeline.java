@@ -2,16 +2,20 @@ package Features.AnalyseWorkflows;
 
 import Features.Core.Params;
 import Features.Tools.ImageOps;
-import Features.Tools.OutputIO;
 import Features.Tools.LabelOps;
+import Features.Tools.OutputIO;
 import Features.Tools.ProgressUI;
 import UI.panes.Tools.ReviewUI;
 import ij.IJ;
 import ij.ImagePlus;
 import ij.plugin.frame.RoiManager;
 
+import javax.swing.*;
 import java.io.File;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 
 public class NeuronsMultiPipeline {
 
@@ -49,12 +53,52 @@ public class NeuronsMultiPipeline {
         public final List<MarkerSpec> markers = new ArrayList<>();
     }
 
+    // ----- Output / result for the multi-stage UI -----------------------------
+    public static final class MultiResult {
+        public final File outDir;
+        public final String baseName;
+        public final ImagePlus max;                 // preview / thumbnails
+        public final int totalHu;                   // total Hu neurons
+        public final Integer nGanglia;              // may be null
+        public final double[] gangliaAreaUm2;       // may be null
+        public final ImagePlus gangliaLabels;       // may be null
+
+        // marker or combo name -> total Hu-gated neuron count
+        public final LinkedHashMap<String,Integer> totals;
+
+        // marker or combo name -> neurons-per-ganglion array (1..G)
+        public final LinkedHashMap<String,int[]> perGanglia;
+
+        public MultiResult(File outDir,
+                           String baseName,
+                           ImagePlus max,
+                           int totalHu,
+                           Integer nGanglia,
+                           double[] gangliaAreaUm2,
+                           ImagePlus gangliaLabels,
+                           LinkedHashMap<String,Integer> totals,
+                           LinkedHashMap<String,int[]> perGanglia) {
+            this.outDir = outDir;
+            this.baseName = baseName;
+            this.max = max;
+            this.totalHu = totalHu;
+            this.nGanglia = nGanglia;
+            this.gangliaAreaUm2 = gangliaAreaUm2;
+            this.gangliaLabels = gangliaLabels;
+            this.totals = totals;
+            this.perGanglia = perGanglia;
+        }
+    }
+
+
     // ----- Run ----------------------------------------------------------------
     public void run(MultiParams mp) {
         if (mp == null || mp.base == null) throw new IllegalArgumentException("MultiParams/base cannot be null");
         if (mp.subtypeModelZip == null || !new File(mp.subtypeModelZip).isFile())
             throw new IllegalArgumentException("Subtype StarDist model not found: " + mp.subtypeModelZip);
         if (mp.markers.isEmpty()) throw new IllegalArgumentException("No markers provided.");
+
+
 
 
         final int perMarkerSteps = 4;
@@ -96,6 +140,10 @@ public class NeuronsMultiPipeline {
         File outDir = hu.outDir; String baseName = hu.baseName;
         LinkedHashMap<String,Integer> totals = new LinkedHashMap<>();
         LinkedHashMap<String,int[]>   perGanglia = new LinkedHashMap<>();
+
+
+
+
         double[] gangliaArea = hu.gangliaAreaUm2;       // may be null
         Integer  nGanglia    = hu.nGanglia;             // may be null
 
@@ -257,6 +305,13 @@ public class NeuronsMultiPipeline {
         );
 
         progress.close();
+
+        MultiResult mr = new MultiResult(
+                outDir, baseName, max, totalHu,
+                nGanglia, gangliaArea, hu.gangliaLabels,
+                totals, perGanglia
+        );
+        SwingUtilities.invokeLater(() -> UI.panes.Results.ResultsMultiUI.promptAndMaybeShow(mr));
     }
 
     private static boolean[] andMasks(boolean[] a, boolean[] b) {
@@ -269,6 +324,8 @@ public class NeuronsMultiPipeline {
         }
         return out;
     }
+
+
 
 
 
