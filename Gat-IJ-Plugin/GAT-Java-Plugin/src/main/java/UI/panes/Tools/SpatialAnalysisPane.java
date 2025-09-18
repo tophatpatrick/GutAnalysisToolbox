@@ -39,6 +39,9 @@ public class SpatialAnalysisPane extends JPanel {
         super(new BorderLayout(10, 10));
         setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
 
+        // Set preferred size for this pane
+        setPreferredSize(new Dimension(900, 700));
+
         // Create tabbed pane
         JTabbedPane tabbedPane = new JTabbedPane();
 
@@ -110,6 +113,12 @@ public class SpatialAnalysisPane extends JPanel {
             throw new Exception("Please select an output folder");
         }
 
+        System.out.println("singleMaxProjPath = " + singleMaxProjPath.getText().trim());
+        System.out.println("singleRoiCellsPath = " + singleRoiCellsPath.getText().trim());
+        System.out.println("singleRoiGangliaPath = " + singleRoiGangliaPath.getText().trim());
+        System.out.println("singleOutputPath = " + singleOutputPath.getText().trim());
+        System.out.println("singleCellTypeName = " + singleCellTypeName.getText().trim());
+
         // Get parameters
         String maxProj = singleMaxProjPath.getText().trim();
         String roiCells = singleRoiCellsPath.getText().trim();
@@ -141,6 +150,14 @@ public class SpatialAnalysisPane extends JPanel {
             throw new Exception("Please select an output folder");
         }
 
+        System.out.println("twoMaxProjPath = " + twoMaxProjPath.getText().trim());
+        System.out.println("twoRoi1Path = " + twoRoi1Path.getText().trim());
+        System.out.println("twoRoi2Path = " + twoRoi2Path.getText().trim());
+        System.out.println("twoRoiGangliaPath = " + twoRoiGangliaPath.getText().trim());
+        System.out.println("twoOutputPath = " + twoOutputPath.getText().trim());
+        System.out.println("twoCellType1Name = " + twoCellType1Name.getText().trim());
+        System.out.println("twoCellType2Name = " + twoCellType2Name.getText().trim());
+
         // Get parameters
         String maxProj = twoMaxProjPath.getText().trim();
         String cellType1 = twoCellType1Name.getText().trim();
@@ -149,16 +166,20 @@ public class SpatialAnalysisPane extends JPanel {
         String roi2 = twoRoi2Path.getText().trim();
         String roiGanglia = twoRoiGangliaPath.getText().trim();
         String output = twoOutputPath.getText().trim();
-        boolean assignPanNeuronal = twoAssignPanNeuronal.isSelected();
-        String panNeuronalChoice = twoCell1Radio.isSelected() ? "Cell 1" : "Cell 2";
+//        boolean assignPanNeuronal = twoAssignPanNeuronal.isSelected();
+//        String panNeuronalChoice = twoCell1Radio.isSelected() ? "Cell 1" : "Cell 2";
         double expansion = (Double) twoExpansionSpinner.getValue();
         boolean saveParametric = twoSaveParametricImage.isSelected();
 
         // Create and execute analysis
         TwoCellTypeAnalysis analysis = new TwoCellTypeAnalysis(
                 maxProj, cellType1, roi1, cellType2, roi2, roiGanglia, output,
-                assignPanNeuronal, panNeuronalChoice, expansion, saveParametric
+                expansion, saveParametric
         );
+//        TwoCellTypeAnalysis analysis = new TwoCellTypeAnalysis(
+//                maxProj, cellType1, roi1, cellType2, roi2, roiGanglia, output,
+//                assignPanNeuronal, panNeuronalChoice, expansion, saveParametric
+//        );
         analysis.execute();
     }
 
@@ -416,42 +437,42 @@ public class SpatialAnalysisPane extends JPanel {
 
         panel.add(Box.createVerticalStrut(10));
 
-        // Pan-neuronal marker section
-        JPanel panNeuronalWrapper = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
-        JLabel panNeuronalLabel = new JLabel("Pan-neuronal Marker Options");
-        panNeuronalLabel.setFont(new Font("SansSerif", Font.BOLD, 14));
-        panNeuronalWrapper.add(panNeuronalLabel);
-        panel.add(panNeuronalWrapper);
-
-        // Pan-neuronal hint
-        JPanel hintRow1 = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
-        JLabel hintLabel1 = new JLabel("<html>If using a pan-neuronal marker, make sure to assign the marker that is pan-neuronal</html>");
-        hintLabel1.setFont(new Font("SansSerif", Font.ITALIC, 12));
-        hintLabel1.setForeground(Color.GRAY);
-        hintRow1.add(hintLabel1);
-        panel.add(hintRow1);
-
-        twoAssignPanNeuronal = new JCheckBox("Assign as pan-neuronal");
-        twoAssignPanNeuronal.setAlignmentX(Component.LEFT_ALIGNMENT);
-        panel.add(twoAssignPanNeuronal);
-
-        // Pan-neuronal choice radio buttons
-        JPanel panNeuronalChoiceRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
-        panNeuronalChoiceRow.add(new JLabel("Pan-neuronal choice:"));
-
-        ButtonGroup panNeuronalGroup = new ButtonGroup();
-        twoCell1Radio = new JRadioButton("Cell 1");
-        twoCell2Radio = new JRadioButton("Cell 2");
-        twoCell1Radio.setSelected(true);
-
-        panNeuronalGroup.add(twoCell1Radio);
-        panNeuronalGroup.add(twoCell2Radio);
-
-        panNeuronalChoiceRow.add(twoCell1Radio);
-        panNeuronalChoiceRow.add(twoCell2Radio);
-        panel.add(panNeuronalChoiceRow);
-
-        panel.add(Box.createVerticalStrut(10));
+//        // Pan-neuronal marker section
+//        JPanel panNeuronalWrapper = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
+//        JLabel panNeuronalLabel = new JLabel("Pan-neuronal Marker Options");
+//        panNeuronalLabel.setFont(new Font("SansSerif", Font.BOLD, 14));
+//        panNeuronalWrapper.add(panNeuronalLabel);
+//        panel.add(panNeuronalWrapper);
+//
+//        // Pan-neuronal hint
+//        JPanel hintRow1 = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
+//        JLabel hintLabel1 = new JLabel("<html>If using a pan-neuronal marker, make sure to assign the marker that is pan-neuronal</html>");
+//        hintLabel1.setFont(new Font("SansSerif", Font.ITALIC, 12));
+//        hintLabel1.setForeground(Color.GRAY);
+//        hintRow1.add(hintLabel1);
+//        panel.add(hintRow1);
+//
+//        twoAssignPanNeuronal = new JCheckBox("Assign as pan-neuronal");
+//        twoAssignPanNeuronal.setAlignmentX(Component.LEFT_ALIGNMENT);
+//        panel.add(twoAssignPanNeuronal);
+//
+//        // Pan-neuronal choice radio buttons
+//        JPanel panNeuronalChoiceRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
+//        panNeuronalChoiceRow.add(new JLabel("Pan-neuronal choice:"));
+//
+//        ButtonGroup panNeuronalGroup = new ButtonGroup();
+//        twoCell1Radio = new JRadioButton("Cell 1");
+//        twoCell2Radio = new JRadioButton("Cell 2");
+//        twoCell1Radio.setSelected(true);
+//
+//        panNeuronalGroup.add(twoCell1Radio);
+//        panNeuronalGroup.add(twoCell2Radio);
+//
+//        panNeuronalChoiceRow.add(twoCell1Radio);
+//        panNeuronalChoiceRow.add(twoCell2Radio);
+//        panel.add(panNeuronalChoiceRow);
+//
+//        panel.add(Box.createVerticalStrut(10));
 
         // Cell expansion parameter
         JPanel expansionRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
@@ -468,350 +489,23 @@ public class SpatialAnalysisPane extends JPanel {
         hintRow2.add(hintLabel2);
         panel.add(hintRow2);
 
+//        // Enable/disable pan-neuronal options based on checkbox
+//        twoAssignPanNeuronal.addActionListener(e -> {
+//            boolean enabled = twoAssignPanNeuronal.isSelected();
+//            twoCell1Radio.setEnabled(enabled);
+//            twoCell2Radio.setEnabled(enabled);
+//        });
+//
+//        // Initially disable radio buttons
+//        twoCell1Radio.setEnabled(false);
+//        twoCell2Radio.setEnabled(false);
+
         // Save parametric image option
         twoSaveParametricImage = new JCheckBox("Save parametric image");
         twoSaveParametricImage.setAlignmentX(Component.LEFT_ALIGNMENT);
         panel.add(twoSaveParametricImage);
 
-        // Enable/disable pan-neuronal options based on checkbox
-        twoAssignPanNeuronal.addActionListener(e -> {
-            boolean enabled = twoAssignPanNeuronal.isSelected();
-            twoCell1Radio.setEnabled(enabled);
-            twoCell2Radio.setEnabled(enabled);
-        });
-
-        // Initially disable radio buttons
-        twoCell1Radio.setEnabled(false);
-        twoCell2Radio.setEnabled(false);
-
         panel.add(Box.createVerticalGlue());
         return panel;
     }
 }
-
-//    private JPanel createSingleCelltypeTab() {
-//        JPanel panel = new JPanel();
-//        panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
-//
-//        // Image selection section
-//        panel.add(Box.createVerticalStrut(10));
-//
-//        JPanel labelWrapper = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
-//        JLabel imageLabel = new JLabel("Image and ROI Selection");
-//        imageLabel.setFont(new Font("SansSerif", Font.BOLD, 16));
-//        labelWrapper.add(imageLabel);
-//        panel.add(labelWrapper);
-//
-//        // Maximum projection image selection
-//        JPanel maxProjRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
-//        maxProjRow.add(new JLabel("Select the maximum projection image:"));
-//        JTextField maxProjPath = new JTextField(25);
-//        JButton browseProjBtn = new JButton("Browse");
-//
-//        browseProjBtn.addActionListener(e -> {
-//            JFileChooser fileChooser = new JFileChooser();
-//            int result = fileChooser.showOpenDialog(panel);
-//            if (result == JFileChooser.APPROVE_OPTION) {
-//                maxProjPath.setText(fileChooser.getSelectedFile().getAbsolutePath());
-//            }
-//        });
-//
-//        maxProjRow.add(maxProjPath);
-//        maxProjRow.add(browseProjBtn);
-//        panel.add(maxProjRow);
-//
-//        // ROI manager for cells selection
-//        JPanel roiCellsRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
-//        roiCellsRow.add(new JLabel("Select roi manager for cells:"));
-//        JTextField roiCellsPath = new JTextField(25);
-//        JButton browseRoiBtn = new JButton("Browse");
-//
-//        browseRoiBtn.addActionListener(e -> {
-//            JFileChooser fileChooser = new JFileChooser();
-//            int result = fileChooser.showOpenDialog(panel);
-//            if (result == JFileChooser.APPROVE_OPTION) {
-//                roiCellsPath.setText(fileChooser.getSelectedFile().getAbsolutePath());
-//            }
-//        });
-//
-//        roiCellsRow.add(roiCellsPath);
-//        roiCellsRow.add(browseRoiBtn);
-//        panel.add(roiCellsRow);
-//
-//        // ROI manager for ganglia selection
-//        JPanel roiGangliaRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
-//        roiGangliaRow.add(new JLabel("Select roi manager for ganglia (Enter NA if none):"));
-//        JTextField roiGangliaPath = new JTextField("NA", 20);
-//        JButton browseGangliaBtn = new JButton("Browse");
-//
-//        browseGangliaBtn.addActionListener(e -> {
-//            JFileChooser fileChooser = new JFileChooser();
-//            int result = fileChooser.showOpenDialog(panel);
-//            if (result == JFileChooser.APPROVE_OPTION) {
-//                roiGangliaPath.setText(fileChooser.getSelectedFile().getAbsolutePath());
-//            }
-//        });
-//
-//        roiGangliaRow.add(roiGangliaPath);
-//        roiGangliaRow.add(browseGangliaBtn);
-//        panel.add(roiGangliaRow);
-//
-//        // Output folder selection
-//        JPanel outputRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
-//        outputRow.add(new JLabel("Select Output Folder:"));
-//        JTextField outputPath = new JTextField(25);
-//        JButton browseOutputBtn = new JButton("Browse");
-//
-//        browseOutputBtn.addActionListener(e -> {
-//            JFileChooser fileChooser = new JFileChooser();
-//            fileChooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
-//            int result = fileChooser.showOpenDialog(panel);
-//            if (result == JFileChooser.APPROVE_OPTION) {
-//                outputPath.setText(fileChooser.getSelectedFile().getAbsolutePath());
-//            }
-//        });
-//
-//        outputRow.add(outputPath);
-//        outputRow.add(browseOutputBtn);
-//        panel.add(outputRow);
-//
-//        panel.add(Box.createVerticalStrut(15));
-//
-//        // Parameters section
-//        JPanel paramWrapper = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
-//        JLabel paramLabel = new JLabel("Analysis Parameters");
-//        paramLabel.setFont(new Font("SansSerif", Font.BOLD, 16));
-//        paramWrapper.add(paramLabel);
-//        panel.add(paramWrapper);
-//
-//        // Cell type name
-//        JPanel cellTypeRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
-//        cellTypeRow.add(new JLabel("Name of celltype:"));
-//        JTextField cellTypeName = new JTextField("Hu", 10);
-//        cellTypeRow.add(cellTypeName);
-//        panel.add(cellTypeRow);
-//
-//        // Cell expansion parameter
-//        JPanel expansionRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
-//        expansionRow.add(new JLabel("Cell expansion (microns):"));
-//        JSpinner expansionSpinner = new JSpinner(new SpinnerNumberModel(6.5, 1.0, 15.0, 0.5));
-//        expansionRow.add(expansionSpinner);
-//        panel.add(expansionRow);
-//
-//        // Add explanatory text
-//        JPanel hintRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
-//        JLabel hintLabel = new JLabel("<html>Expand cells by a certain distance so that they touch each other<br>and then count immediate neighbours (6.5 micron is default)</html>");
-//        hintLabel.setFont(new Font("SansSerif", Font.ITALIC, 12));
-//        hintLabel.setForeground(Color.GRAY);
-//        hintRow.add(hintLabel);
-//        panel.add(hintRow);
-//
-//        // Save parametric image option
-//        JCheckBox saveParametricImage = new JCheckBox("Save parametric image");
-//        saveParametricImage.setAlignmentX(Component.LEFT_ALIGNMENT);
-//        panel.add(saveParametricImage);
-//
-//        panel.add(Box.createVerticalGlue());
-//        return panel;
-//    }
-//
-//    private JPanel createTwoCelltypeTab() {
-//        JPanel panel = new JPanel();
-//        panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
-//
-//        // Image selection section
-//        panel.add(Box.createVerticalStrut(10));
-//
-//        JPanel labelWrapper = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
-//        JLabel imageLabel = new JLabel("Image and ROI Selection");
-//        imageLabel.setFont(new Font("SansSerif", Font.BOLD, 16));
-//        labelWrapper.add(imageLabel);
-//        panel.add(labelWrapper);
-//
-//        // Maximum projection image selection
-//        JPanel maxProjRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
-//        maxProjRow.add(new JLabel("Select the maximum projection image:"));
-//        JTextField maxProjPath = new JTextField(25);
-//        JButton browseProjBtn = new JButton("Browse");
-//
-//        browseProjBtn.addActionListener(e -> {
-//            JFileChooser fileChooser = new JFileChooser();
-//            int result = fileChooser.showOpenDialog(panel);
-//            if (result == JFileChooser.APPROVE_OPTION) {
-//                maxProjPath.setText(fileChooser.getSelectedFile().getAbsolutePath());
-//            }
-//        });
-//
-//        maxProjRow.add(maxProjPath);
-//        maxProjRow.add(browseProjBtn);
-//        panel.add(maxProjRow);
-//
-//        // Cell type 1 ROI selection
-//        JPanel cellType1Row = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
-//        cellType1Row.add(new JLabel("Select roi manager for cell 1:"));
-//        JTextField roi1Path = new JTextField(25);
-//        JButton browseRoi1Btn = new JButton("Browse");
-//
-//        browseRoi1Btn.addActionListener(e -> {
-//            JFileChooser fileChooser = new JFileChooser();
-//            int result = fileChooser.showOpenDialog(panel);
-//            if (result == JFileChooser.APPROVE_OPTION) {
-//                roi1Path.setText(fileChooser.getSelectedFile().getAbsolutePath());
-//            }
-//        });
-//
-//        cellType1Row.add(roi1Path);
-//        cellType1Row.add(browseRoi1Btn);
-//        panel.add(cellType1Row);
-//
-//        // Cell type 2 ROI selection
-//        JPanel cellType2Row = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
-//        cellType2Row.add(new JLabel("Select roi manager for cell 2:"));
-//        JTextField roi2Path = new JTextField(25);
-//        JButton browseRoi2Btn = new JButton("Browse");
-//
-//        browseRoi2Btn.addActionListener(e -> {
-//            JFileChooser fileChooser = new JFileChooser();
-//            int result = fileChooser.showOpenDialog(panel);
-//            if (result == JFileChooser.APPROVE_OPTION) {
-//                roi2Path.setText(fileChooser.getSelectedFile().getAbsolutePath());
-//            }
-//        });
-//
-//        cellType2Row.add(roi2Path);
-//        cellType2Row.add(browseRoi2Btn);
-//        panel.add(cellType2Row);
-//
-//        // ROI manager for ganglia selection
-//        JPanel roiGangliaRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
-//        roiGangliaRow.add(new JLabel("Select roi manager for ganglia (Enter NA if none):"));
-//        JTextField roiGangliaPath = new JTextField("NA", 20);
-//        JButton browseGangliaBtn = new JButton("Browse");
-//
-//        browseGangliaBtn.addActionListener(e -> {
-//            JFileChooser fileChooser = new JFileChooser();
-//            int result = fileChooser.showOpenDialog(panel);
-//            if (result == JFileChooser.APPROVE_OPTION) {
-//                roiGangliaPath.setText(fileChooser.getSelectedFile().getAbsolutePath());
-//            }
-//        });
-//
-//        roiGangliaRow.add(roiGangliaPath);
-//        roiGangliaRow.add(browseGangliaBtn);
-//        panel.add(roiGangliaRow);
-//
-//        // Output folder selection
-//        JPanel outputRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
-//        outputRow.add(new JLabel("Select Output Folder:"));
-//        JTextField outputPath = new JTextField(25);
-//        JButton browseOutputBtn = new JButton("Browse");
-//
-//        browseOutputBtn.addActionListener(e -> {
-//            JFileChooser fileChooser = new JFileChooser();
-//            fileChooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
-//            int result = fileChooser.showOpenDialog(panel);
-//            if (result == JFileChooser.APPROVE_OPTION) {
-//                outputPath.setText(fileChooser.getSelectedFile().getAbsolutePath());
-//            }
-//        });
-//
-//        outputRow.add(outputPath);
-//        outputRow.add(browseOutputBtn);
-//        panel.add(outputRow);
-//
-//        panel.add(Box.createVerticalStrut(15));
-//
-//        // Parameters section
-//        JPanel paramWrapper = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
-//        JLabel paramLabel = new JLabel("Analysis Parameters");
-//        paramLabel.setFont(new Font("SansSerif", Font.BOLD, 16));
-//        paramWrapper.add(paramLabel);
-//        panel.add(paramWrapper);
-//
-//        // Cell type names
-//        JPanel cellName1Row = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
-//        cellName1Row.add(new JLabel("Name of celltype 1:"));
-//        JTextField cellType1Name = new JTextField("cell_1", 10);
-//        cellName1Row.add(cellType1Name);
-//        panel.add(cellName1Row);
-//
-//        JPanel cellName2Row = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
-//        cellName2Row.add(new JLabel("Name of celltype 2:"));
-//        JTextField cellType2Name = new JTextField("cell_2", 10);
-//        cellName2Row.add(cellType2Name);
-//        panel.add(cellName2Row);
-//
-//        panel.add(Box.createVerticalStrut(10));
-//
-//        // Pan-neuronal marker section
-//        JPanel panNeuronalWrapper = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
-//        JLabel panNeuronalLabel = new JLabel("Pan-neuronal Marker Options");
-//        panNeuronalLabel.setFont(new Font("SansSerif", Font.BOLD, 14));
-//        panNeuronalWrapper.add(panNeuronalLabel);
-//        panel.add(panNeuronalWrapper);
-//
-//        // Pan-neuronal hint
-//        JPanel hintRow1 = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
-//        JLabel hintLabel1 = new JLabel("<html>If using a pan-neuronal marker, make sure to assign the marker that is pan-neuronal</html>");
-//        hintLabel1.setFont(new Font("SansSerif", Font.ITALIC, 12));
-//        hintLabel1.setForeground(Color.GRAY);
-//        hintRow1.add(hintLabel1);
-//        panel.add(hintRow1);
-//
-//        JCheckBox assignPanNeuronal = new JCheckBox("Assign as pan-neuronal");
-//        assignPanNeuronal.setAlignmentX(Component.LEFT_ALIGNMENT);
-//        panel.add(assignPanNeuronal);
-//
-//        // Pan-neuronal choice radio buttons
-//        JPanel panNeuronalChoiceRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
-//        panNeuronalChoiceRow.add(new JLabel("Pan-neuronal choice:"));
-//
-//        ButtonGroup panNeuronalGroup = new ButtonGroup();
-//        JRadioButton cell1Radio = new JRadioButton("Cell 1");
-//        JRadioButton cell2Radio = new JRadioButton("Cell 2");
-//        cell1Radio.setSelected(true);
-//
-//        panNeuronalGroup.add(cell1Radio);
-//        panNeuronalGroup.add(cell2Radio);
-//
-//        panNeuronalChoiceRow.add(cell1Radio);
-//        panNeuronalChoiceRow.add(cell2Radio);
-//        panel.add(panNeuronalChoiceRow);
-//
-//        panel.add(Box.createVerticalStrut(10));
-//
-//        // Cell expansion parameter
-//        JPanel expansionRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
-//        expansionRow.add(new JLabel("Cell expansion distance for cells (microns):"));
-//        JSpinner expansionSpinner = new JSpinner(new SpinnerNumberModel(6.5, 1.0, 15.0, 0.5));
-//        expansionRow.add(expansionSpinner);
-//        panel.add(expansionRow);
-//
-//        // Add explanatory text
-//        JPanel hintRow2 = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
-//        JLabel hintLabel2 = new JLabel("<html>Expand cells by a certain distance so that they touch each other<br>and then count immediate neighbours (6.5 micron is default)</html>");
-//        hintLabel2.setFont(new Font("SansSerif", Font.ITALIC, 12));
-//        hintLabel2.setForeground(Color.GRAY);
-//        hintRow2.add(hintLabel2);
-//        panel.add(hintRow2);
-//
-//        // Save parametric image option
-//        JCheckBox saveParametricImage = new JCheckBox("Save parametric image");
-//        saveParametricImage.setAlignmentX(Component.LEFT_ALIGNMENT);
-//        panel.add(saveParametricImage);
-//
-//        // Enable/disable pan-neuronal options based on checkbox
-//        assignPanNeuronal.addActionListener(e -> {
-//            boolean enabled = assignPanNeuronal.isSelected();
-//            cell1Radio.setEnabled(enabled);
-//            cell2Radio.setEnabled(enabled);
-//        });
-//
-//        // Initially disable radio buttons
-//        cell1Radio.setEnabled(false);
-//        cell2Radio.setEnabled(false);
-//
-//        panel.add(Box.createVerticalGlue());
-//        return panel;
-//    }
-//}

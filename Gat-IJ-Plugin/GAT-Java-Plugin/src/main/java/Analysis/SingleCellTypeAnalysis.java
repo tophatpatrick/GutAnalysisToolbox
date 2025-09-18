@@ -43,11 +43,11 @@ public class SingleCellTypeAnalysis {
         maxProjImage.show();
 
         // Get file name and restrict length if necessary
-        String fileName = new File(maxProjPath).getName();
-        fileName = fileName.substring(0, fileName.lastIndexOf('.'));
-        if (fileName.length() > 50) {
-            fileName = fileName.substring(0, 39);
-        }
+//        String fileName = new File(maxProjPath).getName();
+//        fileName = fileName.substring(0, fileName.lastIndexOf('.'));
+//        if (fileName.length() > 50) {
+//            fileName = fileName.substring(0, 39);
+//        }
 
         // Get pixel size
         double pixelWidth = maxProjImage.getCalibration().pixelWidth;

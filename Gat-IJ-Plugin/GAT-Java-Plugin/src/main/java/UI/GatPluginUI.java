@@ -52,7 +52,7 @@ public class GatPluginUI implements PlugIn {
         dialog.setDefaultCloseOperation(WindowConstants.DISPOSE_ON_CLOSE);
         dialog.setLayout(new BorderLayout(8,8));
 //        dialog.setPreferredSize(new Dimension(900,550));
-        Dimension fixedSize = new Dimension(900, 550);
+        Dimension fixedSize = new Dimension(950, 650);
         dialog.setPreferredSize(fixedSize);
         dialog.setMinimumSize(fixedSize);
         dialog.setResizable(true);        // Lock size

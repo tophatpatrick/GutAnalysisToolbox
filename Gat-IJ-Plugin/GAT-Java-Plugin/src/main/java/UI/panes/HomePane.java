@@ -48,7 +48,7 @@ public class HomePane extends JPanel{
 
         JLabel dashLabel = new JLabel("Dashboard Placeholder", SwingConstants.CENTER);
         dashLabel.setBorder(BorderFactory.createLineBorder(Color.GRAY,2));
-        dashLabel.setPreferredSize(new Dimension(550,450));
+        dashLabel.setPreferredSize(new Dimension(600,550));
 
         add(dashLabel,BorderLayout.CENTER);
 
