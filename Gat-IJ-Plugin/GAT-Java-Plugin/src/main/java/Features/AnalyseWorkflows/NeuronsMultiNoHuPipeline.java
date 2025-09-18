@@ -11,8 +11,12 @@ import ij.IJ;
 import ij.ImagePlus;
 import ij.plugin.frame.RoiManager;
 
+import javax.swing.*;
 import java.io.File;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 
 public class NeuronsMultiNoHuPipeline {
 
@@ -64,6 +68,30 @@ public class NeuronsMultiNoHuPipeline {
         int tail = 2;
 
         return base + perMarker + combos + tail;
+    }
+
+    // ------- output / result for the No-Hu multi UI -------
+    public static final class NoHuResult {
+        public final File outDir;
+        public final String baseName;
+        public final ImagePlus max;                 // for thumbnails
+        public final LinkedHashMap<String,Integer> totals;       // marker or combo -> total cells
+        public final LinkedHashMap<String,int[]>   perGanglia;   // marker or combo -> counts per ganglion (1..G)
+        public final Integer nGanglia;                              // null if ganglia not run
+        public final double[] gangliaAreaUm2;                       // null if ganglia not run
+
+        public NoHuResult(File outDir, String baseName, ImagePlus max,
+                          LinkedHashMap<String,Integer> totals,
+                          LinkedHashMap<String,int[]> perGanglia,
+                          Integer nGanglia, double[] gangliaAreaUm2) {
+            this.outDir = outDir;
+            this.baseName = baseName;
+            this.max = max;
+            this.totals = totals;
+            this.perGanglia = perGanglia;
+            this.nGanglia = nGanglia;
+            this.gangliaAreaUm2 = gangliaAreaUm2;
+        }
     }
 
 
@@ -294,6 +322,19 @@ public class NeuronsMultiNoHuPipeline {
 
         //close the progress bar
         progress.close();
+
+        NoHuResult result = new NoHuResult(
+                outDir,
+                baseName,
+                max,
+                totals,
+                perGanglia,
+                (gangliaLabels != null ? Integer.valueOf(nGanglia) : null),
+                gangliaAreaUm2
+        );
+        SwingUtilities.invokeLater(() ->
+                UI.panes.Results.ResultsMultiNoHuUI.promptAndMaybeShow(result)
+        );
     }
 
     // ------- helpers -------
