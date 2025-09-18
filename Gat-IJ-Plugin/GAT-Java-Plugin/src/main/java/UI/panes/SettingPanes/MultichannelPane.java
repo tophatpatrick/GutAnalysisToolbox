@@ -2,6 +2,7 @@ package UI.panes.SettingPanes;
 
 import Features.AnalyseWorkflows.NeuronsMultiPipeline;
 import Features.Core.Params;
+import UI.util.InputValidation;
 import ij.IJ;
 
 import javax.swing.*;
@@ -10,7 +11,6 @@ import java.awt.*;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
-import UI.util.InputValidation;
 
 public class MultichannelPane extends JPanel {
     public static final String Name = "Multiplex Workflow";
@@ -20,6 +20,7 @@ public class MultichannelPane extends JPanel {
     // Reuse Hu basics
     private JTextField tfImagePath, tfOutputDir;
     private JButton btnBrowseImage, btnBrowseOutput;
+    private JButton btnPreviewImage;
 
     private JSpinner spHuChannel;
     private JTextField tfHuModelZip;
@@ -225,7 +226,9 @@ public class MultichannelPane extends JPanel {
         tfImagePath = new JTextField(36);
         btnBrowseImage = new JButton("Browse…");
         btnBrowseImage.addActionListener(e -> chooseFile(tfImagePath, JFileChooser.FILES_ONLY));
-        p.add(box("Input image", row(tfImagePath, btnBrowseImage)));
+        btnPreviewImage = new JButton("Preview");
+        btnPreviewImage.addActionListener(e -> previewImage());
+        p.add(box("Input image (.tif, .lif, etc.)", row(tfImagePath, btnBrowseImage,btnPreviewImage)));
 
         spHuChannel = new JSpinner(new SpinnerNumberModel(3,1,32,1));
 
@@ -490,6 +493,44 @@ public class MultichannelPane extends JPanel {
         g.setAlignmentX(Component.LEFT_ALIGNMENT);
         return g;
     }
+
+
+    private void previewImage() {
+        final String path = (tfImagePath.getText() == null) ? "" : tfImagePath.getText().trim();
+        btnPreviewImage.setEnabled(false);
+
+        new SwingWorker<Void,Void>() {
+            @Override protected Void doInBackground() {
+                try {
+                    if (path.isEmpty()) {
+                        // Show the standard ImageJ file chooser (File ▸ Open…)
+                        IJ.open();
+                    } else {
+                        // Open exactly the way ImageJ would from File ▸ Open…
+                        IJ.open(path);
+                    }
+                } catch (Throwable ex) {
+                    SwingUtilities.invokeLater(() -> JOptionPane.showMessageDialog(
+                            owner,
+                            "Preview failed:\n" + ex.getClass().getSimpleName() + ": " + ex.getMessage(),
+                            "Preview error",
+                            JOptionPane.ERROR_MESSAGE
+                    ));
+                }
+                return null;
+            }
+            @Override protected void done() {
+                btnPreviewImage.setEnabled(true);
+            }
+        }.execute();
+    }
+
+
+
+
+
+
+
     private static void chooseFile(JTextField target, int mode) {
         JFileChooser ch = new JFileChooser();
         ch.setFileSelectionMode(mode);

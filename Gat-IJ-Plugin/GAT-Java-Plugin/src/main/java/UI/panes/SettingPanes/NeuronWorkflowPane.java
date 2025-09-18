@@ -3,14 +3,13 @@ package UI.panes.SettingPanes;
 import Features.AnalyseWorkflows.NeuronsHuPipeline;
 import Features.Core.Params;
 import UI.Handlers.Navigator;
+import UI.util.InputValidation;
 import ij.IJ;
 
 import javax.swing.*;
 import javax.swing.border.TitledBorder;
 import java.awt.*;
 import java.io.File;
-
-import UI.util.InputValidation;
 
 
 /**
@@ -28,6 +27,7 @@ public class NeuronWorkflowPane extends JPanel {
     // Basic tab fields
     private JTextField tfImagePath;
     private JButton    btnBrowseImage;
+    private JButton    btnPreviewImage;
 
     private JSpinner   spHuChannel;
 
@@ -92,7 +92,12 @@ public class NeuronWorkflowPane extends JPanel {
         tfImagePath = new JTextField(36);
         btnBrowseImage = new JButton("Browse…");
         btnBrowseImage.addActionListener(e -> chooseFile(tfImagePath, JFileChooser.FILES_ONLY));
-        p.add(boxWith("Input image (.tif, .lif, etc.)", row(tfImagePath, btnBrowseImage)));
+
+        btnPreviewImage = new JButton("Preview");
+        btnPreviewImage.addActionListener(e -> previewImage());
+
+        p.add(boxWith("Input image (.tif, .lif, etc.)", row(tfImagePath, btnBrowseImage, btnPreviewImage)));
+
 
         // Hu channel
         spGangliaChannel     = new JSpinner(new SpinnerNumberModel(2, 1, 16, 1));
@@ -269,6 +274,38 @@ public class NeuronWorkflowPane extends JPanel {
 
         return p;
     }
+
+    private void previewImage() {
+        final String path = (tfImagePath.getText() == null) ? "" : tfImagePath.getText().trim();
+        btnPreviewImage.setEnabled(false);
+
+        new SwingWorker<Void,Void>() {
+            @Override protected Void doInBackground() {
+                try {
+                    if (path.isEmpty()) {
+                        // Show the standard ImageJ file chooser (File ▸ Open…)
+                        IJ.open();
+                    } else {
+                        // Open exactly the way ImageJ would from File ▸ Open…
+                        IJ.open(path);
+                    }
+                } catch (Throwable ex) {
+                    SwingUtilities.invokeLater(() -> JOptionPane.showMessageDialog(
+                            owner,
+                            "Preview failed:\n" + ex.getClass().getSimpleName() + ": " + ex.getMessage(),
+                            "Preview error",
+                            JOptionPane.ERROR_MESSAGE
+                    ));
+                }
+                return null;
+            }
+            @Override protected void done() {
+                btnPreviewImage.setEnabled(true);
+            }
+        }.execute();
+    }
+
+
 
     private void loadDefaults() {
         // Fill with your known-good defaults (same as your working run)
