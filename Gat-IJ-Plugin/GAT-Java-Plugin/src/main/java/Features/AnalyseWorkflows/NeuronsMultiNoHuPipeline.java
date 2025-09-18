@@ -5,6 +5,7 @@ import Features.Core.Params;
 import Features.Core.PluginCalls;
 import Features.Tools.ImageOps;
 import Features.Tools.OutputIO;
+import Features.Tools.ProgressUI;
 import UI.panes.Tools.ReviewUI;
 import ij.IJ;
 import ij.ImagePlus;
@@ -29,6 +30,8 @@ public class NeuronsMultiNoHuPipeline {
         public MarkerSpec withCustomRois(File zip) { this.customRoisZip = zip; return this; }
     }
 
+
+
     public static final class MultiParams {
         public Params base;               // projection / rescale / ganglia options reused
         public String subtypeModelZip;    // StarDist model (ZIP) for subtype channels
@@ -38,6 +41,33 @@ public class NeuronsMultiNoHuPipeline {
         public final List<MarkerSpec> markers = new ArrayList<>();
     }
 
+    public static int estimateSteps(MultiParams mp){
+
+        int n = mp != null ? mp.markers.size() : 0;
+        int nCombos = (n * (n - 1)) / 2;
+
+        // Base: open + projection + rescale math
+        int base = 3;
+
+        // Ganglia (No-Hu path): run model, label/export ROIs, compute areas, cleanup
+        if (mp != null && mp.base != null && mp.base.cellCountsPerGanglia) {
+            base += 4;
+        }
+
+        // Per-marker: prep, segment, post/resize, review, save  (5 each)
+        int perMarker = 5 * n;
+
+        // Combos: build AND + save (2 each)
+        int combos = 2 * nCombos;
+
+        // Finalize: write CSV + save MAX/cleanup
+        int tail = 2;
+
+        return base + perMarker + combos + tail;
+    }
+
+
+
     // ------- run -------
     public void run(MultiParams mp) {
         if (mp == null || mp.base == null) throw new IllegalArgumentException("MultiParams/base cannot be null.");
@@ -45,7 +75,12 @@ public class NeuronsMultiNoHuPipeline {
             throw new IllegalArgumentException("Subtype StarDist model not found: " + mp.subtypeModelZip);
         if (mp.markers.isEmpty()) throw new IllegalArgumentException("Add at least one marker.");
 
+        ij.macro.Interpreter.batchMode = true;
+        ProgressUI progress = new ProgressUI("No-Hu multi-channel");
+        progress.start(estimateSteps(mp));
+
         // 1) Open image & make MAX
+        progress.step("Open image");
         ImagePlus imp = (mp.base.imagePath == null || mp.base.imagePath.isEmpty())
                 ? IJ.getImage()
                 : PluginCalls.openWithBioFormats(mp.base.imagePath);
@@ -54,12 +89,14 @@ public class NeuronsMultiNoHuPipeline {
         final String baseName = stripExt(imp.getTitle());
         final File outDir = OutputIO.prepareOutputDir(mp.base.outputDir, imp, baseName);
 
+        progress.step("Create projection");
         ImagePlus max = (imp.getNSlices() > 1)
                 ? (mp.base.useClij2EDF ? PluginCalls.clij2EdfVariance(imp) : ImageOps.mip(imp))
                 : imp.duplicate();
         max.setTitle("MAX_" + baseName);
 
         // 2) Rescale math
+        progress.step("Rescale math");
         final double pxUm = (max.getCalibration() != null && max.getCalibration().pixelWidth > 0)
                 ? max.getCalibration().pixelWidth : 1.0;
         final double scale = (mp.base.trainingRescaleFactor > 0) ? mp.base.trainingRescaleFactor : 1.0;
@@ -86,6 +123,8 @@ public class NeuronsMultiNoHuPipeline {
                     ? mp.base.gangliaCellChannel
                     : (!mp.markers.isEmpty() ? mp.markers.get(0).channel : fibresCh);
 
+            progress.pulse("Ganglia: run model");
+            ij.macro.Interpreter.batchMode = false;
             ImagePlus gangliaBinary = PluginCalls.runDeepImageJForGanglia(
                     max,
                     fibresCh,                         // C1 (green) in the DIJ input
@@ -94,7 +133,11 @@ public class NeuronsMultiNoHuPipeline {
                     (mp.base.gangliaMinAreaUm2 != null ? mp.base.gangliaMinAreaUm2 : 200.0),
                     mp.base
             );
+            ij.macro.Interpreter.batchMode = true;
 
+            progress.stopPulse("Ganglia: model done");
+
+            progress.step("Ganglia: label + export ROIs");
             // Label the binary and export ROIs like the macro
             gangliaLabels = PluginCalls.binaryToLabels(gangliaBinary);
             RoiManager rmG = new RoiManager(false);
@@ -108,9 +151,11 @@ public class NeuronsMultiNoHuPipeline {
                     OutputIO.saveFlattenedOverlay(max, rmG, new File(outDir, "MAX_" + baseName + "_ganglia_overlay.tif"));
             }
             rmG.reset(); rmG.close();
+            progress.step("Ganglia: compute areas");
 
             gangliaAreaUm2 = GangliaOps.areaPerGanglionUm2(gangliaLabels);
 
+            progress.step("Ganglia: cleanup");
             gangliaBinary.close();
         }
 
@@ -121,7 +166,8 @@ public class NeuronsMultiNoHuPipeline {
 
         // 4) Per-marker: segment → review → save
         for (MarkerSpec m : mp.markers) {
-            IJ.log("[NoHu] Marker: " + m.name + " (ch " + m.channel + ")");
+            progress.step("Prep: " + m.name);
+
 
             ImagePlus ch = ImageOps.extractChannel(max, m.channel);
             ImagePlus segInput = (scaleFactor == 1.0)
@@ -130,6 +176,7 @@ public class NeuronsMultiNoHuPipeline {
                     (int)Math.round(ch.getWidth() * scaleFactor),
                     (int)Math.round(ch.getHeight() * scaleFactor));
 
+            progress.pulse("Segment: " + m.name);
             ImagePlus markerLabels;
             if (m.customRoisZip != null && m.customRoisZip.isFile()) {
                 RoiManager tmp = new RoiManager(false);
@@ -148,14 +195,18 @@ public class NeuronsMultiNoHuPipeline {
                     markerLabels = ImageOps.resizeTo(markerLabels, max.getWidth(), max.getHeight());
                 }
             }
+            progress.stopPulse("Segment done: " + m.name);
 
+            progress.step("Review: " + m.name);
             // ---- Review (seed RM, pass fallback) ----
             RoiManager rmRev = new RoiManager(false);
             rmRev.reset();
             PluginCalls.labelsToRois(markerLabels);        // seed with current call
             ImagePlus fallback = markerLabels.duplicate();
+            ij.macro.Interpreter.batchMode = false;
             ImagePlus reviewed = ReviewUI.reviewAndRebuildLabels(
                     ch, rmRev, m.name + " (review)", max.getCalibration(), fallback);
+            ij.macro.Interpreter.batchMode = true;
             rmRev.reset(); rmRev.close();
             fallback.close();
 
@@ -167,6 +218,7 @@ public class NeuronsMultiNoHuPipeline {
                 if (gangliaAreaUm2 == null) gangliaAreaUm2 = r.areaUm2;
             }
 
+            progress.step("Save: " + m.name);
             // Count & save
             int n = countLabels(reviewed);
             totals.put(m.name, n);
@@ -195,6 +247,7 @@ public class NeuronsMultiNoHuPipeline {
                 String aName = names.get(i), bName = names.get(j);
                 String combo = aName + "+" + bName;
 
+                progress.step("Combo: " + combo);
                 ImagePlus a = labelsByMarker.get(aName);
                 ImagePlus b = labelsByMarker.get(bName);
                 ImagePlus c = andLabels(a, b);                 // pixelwise AND -> relabel
@@ -206,6 +259,8 @@ public class NeuronsMultiNoHuPipeline {
                     GangliaOps.Result rc = GangliaOps.countPerGanglion(c, gangliaLabels);
                     perGanglia.put(combo, rc.countsPerGanglion);
                 }
+
+                progress.step("Save combo: " + combo);
 
                 RoiManager rm = new RoiManager(false);
                 rm.reset();
@@ -220,6 +275,8 @@ public class NeuronsMultiNoHuPipeline {
             }
         }
 
+
+        progress.step("Write CSV");
         // 6) CSV
         OutputIO.writeMultiCsvNoHu(
                 new File(outDir, "Analysis_NoHu_" + baseName + "_cell_counts_multi.csv"),
@@ -229,11 +286,14 @@ public class NeuronsMultiNoHuPipeline {
                 gangliaAreaUm2
         );
 
+        progress.step("Save MAX & cleanup");
         // 7) Save MAX and clean up
         OutputIO.saveTiff(max, new File(outDir, "MAX_" + baseName + ".tif"));
         for (ImagePlus keep : labelsByMarker.values()) keep.close();
         if (gangliaLabels != null) { gangliaLabels.changes = false; gangliaLabels.close(); }
-        IJ.log("[NoHu] Complete: " + outDir.getAbsolutePath());
+
+        //close the progress bar
+        progress.close();
     }
 
     // ------- helpers -------

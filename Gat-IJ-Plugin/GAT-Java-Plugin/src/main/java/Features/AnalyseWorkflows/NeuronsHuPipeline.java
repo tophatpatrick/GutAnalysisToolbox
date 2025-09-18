@@ -3,13 +3,16 @@ package Features.AnalyseWorkflows;
 import ij.IJ;
 import ij.ImagePlus;
 import ij.measure.Calibration;
+import ij.plugin.filter.EDM;
 import ij.plugin.frame.RoiManager;
 
 import Features.Core.Params;
 import Features.Core.PluginCalls;
 import Features.Tools.ImageOps;
 import Features.Tools.OutputIO;
-
+import ij.process.ImageConverter;
+import ij.process.ImageProcessor;
+import Features.Tools.ProgressUI;
 import java.io.File;
 
 public class NeuronsHuPipeline {
@@ -43,15 +46,34 @@ public class NeuronsHuPipeline {
     }
 
     public HuResult run(Params p, Boolean huReturn) {
+        return run(p, huReturn, null);
+    }
 
+    public static int estimateSteps(Params p) {
+        // keep this in sync with your step() calls
+        return 12 + (p.cellCountsPerGanglia ? 7 : 0);
+    }
+
+    public HuResult run(Params p, Boolean huReturn, ProgressUI progress) {
+
+
+        boolean ownProgress = (progress == null);
+        if (ownProgress) {
+            progress = new ProgressUI("Neuron/Hu pipeline");
+            progress.start(estimateSteps(p));
+        }
+
+        boolean prevBatch = ij.macro.Interpreter.batchMode;
+        ij.macro.Interpreter.batchMode = true;
 
 
         // 0) Basic validation
-        if (p == null) throw new IllegalArgumentException("Params cannot be null.");
         if (p.stardistModelZip == null || !new File(p.stardistModelZip).isFile()) {
             throw new IllegalArgumentException("StarDist model not found: " + p.stardistModelZip);
         }
 
+
+        progress.step("Opening image");
         // 1) Open image (Bio-Formats if path provided)
         ImagePlus imp = (p.imagePath == null || p.imagePath.isEmpty())
                 ? IJ.getImage()
@@ -64,22 +86,26 @@ public class NeuronsHuPipeline {
         String baseName = stripExt(imp.getTitle());
         File outDir = OutputIO.prepareOutputDir(p.outputDir, imp, baseName);
 
+        progress.step("Checking calibration");
         // 2) Calibration check
         Calibration cal = imp.getCalibration();
         if (p.requireMicronUnits && !PluginCalls.isMicronUnit(cal.getUnit()))
             throw new IllegalStateException("Image must be calibrated in microns. Unit: " + cal.getUnit());
         double pxUm = cal.pixelWidth; // the amount of microns per pixel
 
+        progress.step("Creating Projection");
         // 3) Projection
         ImagePlus max = (imp.getNSlices() > 1)
                 ? (p.useClij2EDF ? PluginCalls.clij2EdfVariance(imp) : ImageOps.mip(imp))
                 : imp.duplicate();
         max.setTitle("MAX_" + baseName);
 
+        progress.step("Extracting Hu Channel");
         // 4) Extract Hu channel (1-based)
         ImagePlus hu = ImageOps.extractChannel(max, p.huChannel);
         hu.setTitle(p.cellTypeName + "_segmentation");
 
+        progress.step("Rescaling to the training pixel size");
         // ==== 5) Optional rescale to training pixel size (faithful to macro) ====
         // Macro: target_pixel_size = training_pixel_size / scale; scale_factor = pixelWidth / target_pixel_size
         double scale = (p.trainingRescaleFactor > 0) ? p.trainingRescaleFactor : 1.0; // 'scale' from Advanced dialog in macro
@@ -93,10 +119,12 @@ public class NeuronsHuPipeline {
                 (int)Math.round(hu.getWidth() * scaleFactor),
                 (int)Math.round(hu.getHeight() * scaleFactor));
 
+        progress.step("Segmenting with Stardist");
         // ==== 6) StarDist 2D -> Label Image (ZIP) ====
         ImagePlus labels = PluginCalls.runStarDist2DLabel(
                 segInput, p.stardistModelZip, p.probThresh, p.nmsThresh);
 
+        progress.step("Removing border labels and size filtering");
         // ==== 7) Remove border labels + size filtering ====
         // IMPORTANT: the macro passes a pixel COUNT threshold: neuron_seg_lower_limit_um / pixelWidth
         int minPixelArea = 0;
@@ -109,11 +137,12 @@ public class NeuronsHuPipeline {
             labels = PluginCalls.labelMinSizeFilterPx(labels, minPixelArea);
         }
 
+        progress.step("Scaling Labels");
         // ==== 8) Scale labels back to MAX size if we scaled ====
         if (labels.getWidth() != max.getWidth() || labels.getHeight() != max.getHeight()) {
             labels = ImageOps.resizeTo(labels, max.getWidth(), max.getHeight());
         }
-
+        progress.step("Converting Labels to ROI's");
         // ==== 9) Labels -> ROIs ====
         RoiManager rm = RoiManager.getInstance2();
         if (rm == null) rm = new RoiManager();
@@ -121,6 +150,10 @@ public class NeuronsHuPipeline {
 
 // push labels into RM (silent)
         PluginCalls.labelsToRois(labels);
+
+        ij.macro.Interpreter.batchMode = false;
+
+        progress.step("Show Hu review");
 
 // show Hu (at MAX size) + colored LUT so cells are clear
         ImagePlus huReview = hu.duplicate();         // 'hu' is at MAX_* size already
@@ -144,12 +177,16 @@ public class NeuronsHuPipeline {
                         "Click OK when done."
         ).show();
 
+        progress.step("Rebuilding labels from edited ROIs");
 // remove overlay and rebuild labels from whatever is in RM now
         rm.runCommand(huReview, "Show All without labels");
+
+        ij.macro.Interpreter.batchMode = true;
 
 
 // paint ROIs → binary → labels, at MAX size
         ImagePlus correctedBinary = PluginCalls.roisToBinary(huReview, rm);
+        applyWatershedInPlace(correctedBinary);
         ImagePlus labelsEdited    = PluginCalls.binaryToLabels(correctedBinary);
         labelsEdited.setCalibration(max.getCalibration());
 
@@ -159,6 +196,7 @@ public class NeuronsHuPipeline {
         huReview.changes = false; huReview.close();
         labels = labelsEdited;
 
+        progress.step("Counting ROIs + saving");
 // (optional) keep RM contents for later saving; otherwise rm.reset();
         int nHu = rm.getCount();
 
@@ -195,13 +233,16 @@ public class NeuronsHuPipeline {
 
         // --- Ganglia (optional) ---
         if (p.cellCountsPerGanglia) {
+            progress.step("Segmenting Ganglia");
             // A) Segment ganglia (raw labels from chosen method)
             ImagePlus gangliaLabelsRaw = GangliaOps.segment(p, max, labels);
             gangliaLabelsRaw.setCalibration(max.getCalibration());
 
+            progress.step("Ganglia: pre-count");
             // B) Count neurons per RAW ganglion (to know which have ≥1 neuron)
             GangliaOps.Result rAll = GangliaOps.countPerGanglion(labels, gangliaLabelsRaw);
 
+            progress.step("Ganglia: keep ≥1 neuron");
             // C) Keep only ganglia that contain at least one neuron -> BINARY mask
             //    (macro equivalence: label_overlap >= 1 → Convert to Mask → "ganglia_binary")
             ImagePlus gangliaBinary = GangliaOps.keepGangliaWithAtLeast(gangliaLabelsRaw, rAll.countsPerGanglion, 1);
@@ -209,6 +250,7 @@ public class NeuronsHuPipeline {
             gangliaBinary.setTitle("ganglia_binary_MAX_" + baseName);
             OutputIO.saveTiff(gangliaBinary, new File(outDir, gangliaBinary.getTitle() + ".tif"));
 
+            progress.step("Filtering Ganglia Projections");
             // D) Convert the filtered BINARY back to labels for ROI export / area calc
             ij.IJ.run(gangliaBinary, "Fill Holes", "");
             ImagePlus gangliaLabels = PluginCalls.binaryToLabels(gangliaBinary);
@@ -216,6 +258,7 @@ public class NeuronsHuPipeline {
             gangliaLabels.setTitle("Ganglia_label_MAX_" + baseName);
             OutputIO.saveTiff(gangliaLabels, new File(outDir, gangliaLabels.getTitle() + ".tif"));
 
+            progress.step("Converting Ganglia to ROI's");
             // E) Convert to ROIs and save (matches macro’s ROI export stage)
             RoiManager rmG = RoiManager.getInstance2();
             if (rmG == null) {
@@ -226,25 +269,20 @@ public class NeuronsHuPipeline {
             PluginCalls.labelsToRois(gangliaLabels);
             rmG = RoiManager.getInstance2();
             int nG = rmG.getCount();
-            IJ.log("Ganglia ROIs after Label Map to ROIs: " + nG);
 
-            if (nG == 0) {
-                IJ.log("WARN: 0 ganglia ROIs created. Check that 'gangliaLabels' is a 16-bit label map with >0 labels.");
-            } else {
-                OutputIO.saveRois(rmG, new File(outDir, "Ganglia_ROIs_" + baseName + ".zip"));
-                if (p.saveFlattenedOverlay) {
-                    OutputIO.saveFlattenedOverlay(max, rmG, new File(outDir, "MAX_" + baseName + "_ganglia_overlay.tif"));
-                }
-            }
+            progress.step("Saving Image Overlay's");
             if (p.saveFlattenedOverlay && rmG.getCount() > 0) {
                 OutputIO.saveFlattenedOverlay(max, rmG, new File(outDir, "MAX_" + baseName + "_ganglia_overlay.tif"));
             }
 
+            progress.step("Final Ganglia Counting");
             // F) Re-count using the FILTERED labels (parity with post-threshold macro state)
             GangliaOps.Result r = GangliaOps.countPerGanglion(labels, gangliaLabels);
 
+            rmG.setVisible(false);
+            rmG.reset();
+            rmG.close();
 
-            IJ.log("Ganglia analysis complete (filtered to ≥1 neuron).");
             if (huReturn){
                 return new HuResult(outDir, baseName, max, labels, nHu, gangliaLabels, r.countsPerGanglion, r.areaUm2, nG);
             }else {
@@ -255,8 +293,12 @@ public class NeuronsHuPipeline {
                 return  null;
             }
 
+
+
         }
 
+        ij.macro.Interpreter.batchMode = prevBatch;
+        if (ownProgress) progress.close();
 
         if (huReturn){
             return new HuResult(outDir, baseName, max, labels, nHu, null,null,null,null);
@@ -267,8 +309,21 @@ public class NeuronsHuPipeline {
 
     }
 
+
+
     private static String stripExt(String name) {
         int dot = name.lastIndexOf('.');
         return dot > 0 ? name.substring(0, dot) : name;
     }
+
+    public static void applyWatershedInPlace(ImagePlus bin) {
+        // Must be an 8-bit binary mask where background=0 and objects=255
+        if (bin.getBitDepth() != 8) new ImageConverter(bin).convertToGray8();
+
+        ImageProcessor ip = bin.getProcessor();
+
+        new EDM().toWatershed(ip);
+        bin.updateAndDraw();
+    }
+
 }

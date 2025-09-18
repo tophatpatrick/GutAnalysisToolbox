@@ -3,7 +3,12 @@ package Features.Core;
 import Features.Tools.SilentRun;
 import ij.IJ;
 import ij.ImagePlus;
+import ij.ImageStack;
+import ij.plugin.RGBStackMerge;
 import ij.plugin.frame.RoiManager;
+import ij.process.FloatProcessor;
+import ij.process.ImageProcessor;
+
 import java.io.File;
 import java.text.DecimalFormat;
 
@@ -186,55 +191,64 @@ public final class PluginCalls {
         return lab2d;
     }
 
-    /** Build 3-channel composite for DIJ: C1=ganglia marker, C2=Hu, C3=blank */
-    public static ImagePlus buildGangliaRGB(ImagePlus maxProj, int gangliaCh1, int huCh1) {
-        IJ.run(maxProj, "Select None", "");
-        IJ.run(maxProj, "Duplicate...", "title=ganglia_ch duplicate channels=" + gangliaCh1);
-        ImagePlus g = IJ.getImage();
-        IJ.resetMinAndMax(g);            // <-- important
-        IJ.run(g, "Green", "");
 
-        IJ.run(maxProj, "Duplicate...", "title=cells_ch duplicate channels=" + huCh1);
-        ImagePlus h = IJ.getImage();
-        IJ.resetMinAndMax(h);            // <-- important
-        IJ.run(h, "Magenta", "");
+    public static final class GangliaPrep {
+        public final ImagePlus dijInput3C;   // 3-channel, 32-bit hyperstack (C=3,Z=1,T=1), 0..1
+        public final ImagePlus rgbForOverlay; // RGB Color image for painting overlay
+        GangliaPrep(ImagePlus d, ImagePlus r) { dijInput3C=d; rgbForOverlay=r; }
+    }
 
-        IJ.run("Merge Channels...", "c1=[ganglia_ch] c2=[cells_ch] create");
-        ImagePlus comp = IJ.getImage();
+    /** Prepare both inputs with no IJ.run converters/dialogs. */
+    public static GangliaPrep prepareGangliaInputs(ImagePlus maxProj, int gangliaCh1, int huCh1) {
+        // 1) Extract the two source channels (grayscale, no UI)
+        ImagePlus g  = Features.Tools.ImageOps.extractChannel(maxProj, gangliaCh1); // ganglia marker
+        ImagePlus hu = Features.Tools.ImageOps.extractChannel(maxProj, huCh1);      // Hu (cells)
+        IJ.resetMinAndMax(g);  IJ.resetMinAndMax(hu);  // define display ranges
 
-        IJ.run(comp, "RGB Color", "");
-        ImagePlus rgb = IJ.getImage();
-        rgb.setTitle("ganglia_rgb");
+        final int w = maxProj.getWidth(), h = maxProj.getHeight();
+
+        // 2) Build the review RGB image: R=Hu, G=Ganglia, B=Hu  → Hu appears magenta, ganglia green
+        //    Use convertToByte(true) so display range is respected (matches macro look).
+        ij.process.ByteProcessor r8 = (ij.process.ByteProcessor) hu.getProcessor().convertToByte(true);
+        ij.process.ByteProcessor g8 = (ij.process.ByteProcessor) g .getProcessor().convertToByte(true);
+        ij.process.ByteProcessor b8 = (ij.process.ByteProcessor) hu.getProcessor().convertToByte(true);
+
+        ij.process.ColorProcessor cp = new ij.process.ColorProcessor(w, h);
+        cp.setRGB((byte[]) r8.getPixels(), (byte[]) g8.getPixels(), (byte[]) b8.getPixels());
+
+        ImagePlus rgb = new ImagePlus("ganglia_rgb", cp);
         rgb.setCalibration(maxProj.getCalibration());
+        rgb.hide();
 
-        IJ.run("Duplicate...", "title=ganglia_rgb_2");
-        ImagePlus rgb2 = IJ.getImage();
-        comp.changes = false; comp.close();
-        g.changes = false; g.close();
-        h.changes = false; h.close();
-        return rgb;
+        // Optional: keep a hidden copy with the old helper name if any code still expects it.
+        ImagePlus rgb2 = new ImagePlus("ganglia_rgb_2", (ij.process.ColorProcessor) cp.duplicate());
+        rgb2.setCalibration(maxProj.getCalibration());
+        rgb2.hide();
+
+        // 3) Build DeepImageJ input: 3 slices of float 0..1, exposed as C=3 hyperstack
+        ij.process.FloatProcessor rf = r8.convertToFloatProcessor(); rf.multiply(1.0/255.0);
+        ij.process.FloatProcessor gf = g8.convertToFloatProcessor(); gf.multiply(1.0/255.0);
+        ij.process.FloatProcessor bf = b8.convertToFloatProcessor(); bf.multiply(1.0/255.0);
+
+        ImageStack st = new ImageStack(w, h);
+        st.addSlice("R", rf); st.addSlice("G", gf); st.addSlice("B", bf);
+
+        ImagePlus dij = new ImagePlus("ganglia_rgb", st);   // title kept stable for DIJ
+        dij.setDimensions(3, 1, 1);                         // C=3
+        dij.setOpenAsHyperStack(true);
+        dij.setCalibration(maxProj.getCalibration());
+        dij.hide();
+
+        // Tidy temps
+        g.changes = false;  g.close();
+        hu.changes = false; hu.close();
+
+        return new GangliaPrep(dij, rgb);
     }
 
-    /** Macro-faithful preprocessing:
-     *  RGB Color -> RGB Stack (3 slices) -> 32-bit -> divide by 255 (each slice)
-     *  -> promote to a 3-channel hyperstack (C=3, Z=1, T=1) so DIJ sees "Channel".
-     */
-    private static ImagePlus preprocessGangliaLikeMacro(ImagePlus rgb) {
-        rgb.show(); IJ.selectWindow(rgb.getID());
-        IJ.run(rgb, "RGB Stack", "");          // 3 slices: R, G, B
-        ImagePlus st = IJ.getImage();
-        IJ.run(st, "32-bit", "");
 
-        int n = st.getStackSize();
-        for (int s = 1; s <= n; s++) {
-            st.setSlice(s);
-            IJ.run(st, "Divide...", "value=255 slice");   // 0..1
-        }
-        // No "Make Composite" here — let DIJ read 3 slices as 3 channels.
-        st.setTitle("ganglia_rgb");                        // keep title stable
-        st.setCalibration(rgb.getCalibration());
-        return st;
-    }
+
+
 
 
     // full macro-faithful path for ganglia (RGB + im_preprocessing + DIJ + post)
@@ -242,11 +256,9 @@ public final class PluginCalls {
             ImagePlus maxProj, int gangliaCh1, int huCh1,
             String modelFolderName, double minAreaUm2, Params p) {
 
-        // Build exactly like the macro: C1=ganglia marker, C2=Hu, then RGB Color
-        ImagePlus rgbColor = buildGangliaRGB(maxProj, gangliaCh1, huCh1);
-
-        // Inline preprocessing (macro-equivalent)
-        ImagePlus in3C = preprocessGangliaLikeMacro(rgbColor);
+        GangliaPrep prep = prepareGangliaInputs(maxProj, gangliaCh1, huCh1);
+        ImagePlus in3C = prep.dijInput3C;        // feed DIJ
+        ImagePlus rgbColor = prep.rgbForOverlay;
 
         // DIJ model folder
         File fiji = new File(IJ.getDirectory("imagej"));
@@ -276,30 +288,37 @@ public final class PluginCalls {
         double areaUm2 = (minAreaUm2 > 0 ? minAreaUm2
                 : (p != null && p.gangliaMinAreaUm2 != null ? p.gangliaMinAreaUm2 : 200.0));
         int minAreaPx = (int)Math.ceil(areaUm2 / (px * px));
-        IJ.run(out, "Size Opening 2D/3D", "min=" + Math.max(1, minAreaPx));
+        SilentRun.runAndGrab(out, "Size Opening 2D/3D", "min=" + Math.max(1, minAreaPx));
 
         // Optional interactive review
+        // --- Interactive review ---
         if (p != null && p.gangliaInteractiveReview) {
-            out.setTitle("ganglia_mask");                  // clear title
-            ImagePlus rgb2 = ij.WindowManager.getImage("ganglia_rgb_2");
+            ij.macro.Interpreter.batchMode = false;
 
-            // Put the color image on top of the mask as a translucent overlay
-            if (rgb2 != null) {
-                ij.gui.ImageRoi ir = new ij.gui.ImageRoi(0, 0, rgb2.getProcessor().duplicate());
-                ir.setOpacity(0.60);                       // 0..1
-                ij.gui.Overlay ov = new ij.gui.Overlay(ir);
-                out.setOverlay(ov);
+            out.setTitle("ganglia_mask");
+
+            // colored overlay
+            ij.gui.ImageRoi ir = new ij.gui.ImageRoi(0, 0, rgbColor.getProcessor().duplicate());
+            ir.setOpacity(0.60);
+            out.setOverlay(new ij.gui.Overlay(ir));
+
+            // make sure *this* window has focus
+            out.show();
+            IJ.selectWindow(out.getID());
+            if (out.getWindow() != null) {
+                out.getWindow().toFront();
+                if (out.getCanvas() != null) out.getCanvas().requestFocusInWindow();
             }
 
-            // Make sure we're painting the MASK
-            out.show();
-            if (out.getWindow() != null) out.getWindow().toFront();
+            // set brush tool robustly (Toolbar API + string fallback)
 
-            // Brush semantics: white = add, black = remove (X toggles fg/bg in ImageJ)
             IJ.setTool("brush");
-            IJ.setForegroundColor(255, 255, 255);
-            IJ.setBackgroundColor(0,   0,   0);
 
+            // ensure FG/BG are correct for painting; X will toggle them
+            IJ.setForegroundColor(255, 255, 255);   // WHITE = add
+            IJ.setBackgroundColor(0, 0, 0);         // BLACK = remove
+
+            // the caption you liked before
             new ij.gui.WaitForUserDialog(
                     "Ganglia overlay",
                     "Paint on the window titled 'ganglia_mask'.\n" +
@@ -307,14 +326,22 @@ public final class PluginCalls {
                             "Click OK when done."
             ).show();
 
+            // clean up + hide the review window so it doesn't reappear later
             IJ.run(out, "Select None", "");
-            out.setOverlay(null);                          // don't keep overlay in saved TIFFs
+            out.setOverlay(null);
+            if (out.getWindow() != null) out.hide();
+
+            ij.macro.Interpreter.batchMode = true;
+
+            // optional tidy
+            rgbColor.changes = false; rgbColor.close();
         }
 
-        // Second Size Opening pass (macro does this unconditionally)
-        IJ.run(out, "Size Opening 2D/3D", "min=" + Math.max(1, minAreaPx));
-        IJ.run(out, "Size Opening 2D/3D", "min=" + Math.max(1, minAreaPx));
 
+
+        // Second Size Opening pass
+        out = SilentRun.runAndGrab(out, "Size Opening 2D/3D", "min=" + Math.max(1, minAreaPx));
+        out = SilentRun.runAndGrab(out, "Size Opening 2D/3D", "min=" + Math.max(1, minAreaPx));
         // Cleanup temps
         if (rgbColor != in3C) { rgbColor.changes = false; rgbColor.close(); }
         if (in3C != out)       { in3C.changes = false; in3C.close(); }
@@ -322,6 +349,7 @@ public final class PluginCalls {
         if (rgb2 != null) { rgb2.changes = false; rgb2.close(); }
 
         // Return final binary (macro keeps binary here)
+        if (out.getWindow() != null) out.hide();
         return out;
     }
     public static void clearThreshold(ImagePlus imp) {
@@ -355,6 +383,7 @@ public final class PluginCalls {
 
         labels.setCalibration(binary.getCalibration());
         clearThreshold(labels);
+        labels.hide();
         return labels;
     }
 

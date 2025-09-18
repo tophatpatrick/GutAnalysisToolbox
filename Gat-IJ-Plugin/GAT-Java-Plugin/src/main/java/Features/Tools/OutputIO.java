@@ -40,15 +40,28 @@ public final class OutputIO {
             throw new IllegalStateException("Failed to create dir: " + out.getAbsolutePath());
         }
 
+
         return out;
     }
 
     private static File uniqueDir(File target) {
+        File parent = target.getParentFile();
+        String name = target.getName();
+        String base = name;
+        String ext  = "";
+        int dot = name.lastIndexOf('.');
+        // treat ".bashrc" as no-extension (dot must not be the first char)
+        if (dot > 0 && dot < name.length() - 1) {
+            base = name.substring(0, dot);
+            ext  = name.substring(dot); // includes the dot
+        }
         if (!target.exists()) return target;
         int k = 1;
         while (true) {
-            File t = new File(target.getParentFile(), target.getName() + "_" + k);
-            if (!t.exists()) return t;
+            File cand = (parent == null)
+                    ? new File(base + "_" + k + ext)
+                    : new File(parent, base + "_" + k + ext);
+            if (!cand.exists()) return cand;
             k++;
         }
     }
@@ -62,14 +75,21 @@ public final class OutputIO {
     }
 
     public static void saveFlattenedOverlay(ImagePlus base, RoiManager rm, File out) {
+        // Work on a hidden duplicate
         ImagePlus dup = base.duplicate();
         dup.hide();
+
+        // Ask RM to draw its overlay onto this dup
         rm.runCommand(dup, "Show All with labels");
-        Overlay ov = dup.getOverlay();
-        if (ov != null) dup.setOverlay(ov);
-        IJ.run(dup, "Flatten", "");
-        IJ.saveAsTiff(dup, out.getAbsolutePath());
-        dup.close();
+
+        // Pure-API flatten
+        ImagePlus flat = dup.flatten();        // returns an RGB image with overlay baked in
+
+        new ij.io.FileSaver(flat).saveAsTiff(out.getAbsolutePath());
+
+        // tidy
+        dup.changes = false;  dup.close();
+        flat.changes = false; flat.close();
     }
 
     public static void writeCountsCsv(File csv, String baseName, String cellType, int count) {
