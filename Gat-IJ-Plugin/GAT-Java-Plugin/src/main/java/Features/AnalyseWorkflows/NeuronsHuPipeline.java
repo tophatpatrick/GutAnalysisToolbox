@@ -1,5 +1,6 @@
 package Features.AnalyseWorkflows;
 
+import UI.panes.Results.ResultsUI;
 import ij.IJ;
 import ij.ImagePlus;
 import ij.measure.Calibration;
@@ -13,6 +14,8 @@ import Features.Tools.OutputIO;
 import ij.process.ImageConverter;
 import ij.process.ImageProcessor;
 import Features.Tools.ProgressUI;
+
+import javax.swing.*;
 import java.io.File;
 
 public class NeuronsHuPipeline {
@@ -197,7 +200,6 @@ public class NeuronsHuPipeline {
         labels = labelsEdited;
 
         progress.step("Counting ROIs + saving");
-// (optional) keep RM contents for later saving; otherwise rm.reset();
         int nHu = rm.getCount();
 
         //save our stuff here
@@ -209,6 +211,19 @@ public class NeuronsHuPipeline {
         if (p.saveFlattenedOverlay && nHu > 0) {
             OutputIO.saveFlattenedOverlay(max, rm, new File(outDir, "MAX_" + baseName + "_overlay.tif"));
         }
+
+        try {
+            ImagePlus rgbBase = PluginCalls.buildGangliaRgbForOverlay(max, p.gangliaChannel, p.huChannel);
+            OutputIO.saveFlattenedOverlay(rgbBase, rm,
+                    new File(outDir, "RGB_" + baseName + "_neurons_overlay.tif"));
+            rgbBase.changes = false; rgbBase.close();
+
+        } catch (Throwable t) {
+            IJ.log("RGB neuron overlay save skipped: " + t.getMessage());
+        }
+
+
+
 
         rm.reset();
         rm.close();
@@ -279,6 +294,15 @@ public class NeuronsHuPipeline {
             // F) Re-count using the FILTERED labels (parity with post-threshold macro state)
             GangliaOps.Result r = GangliaOps.countPerGanglion(labels, gangliaLabels);
 
+            try {
+                ImagePlus rgbBase2 = PluginCalls.buildGangliaRgbForOverlay(max, p.gangliaChannel, p.huChannel);
+                OutputIO.saveFlattenedOverlay(rgbBase2, rmG,
+                        new File(outDir, "RGB_" + baseName + "_ganglia_overlay.tif"));
+                rgbBase2.changes = false; rgbBase2.close();
+            } catch (Throwable t) {
+                IJ.log("RGB ganglia overlay save skipped: " + t.getMessage());
+            }
+
             rmG.setVisible(false);
             rmG.reset();
             rmG.close();
@@ -286,11 +310,20 @@ public class NeuronsHuPipeline {
             if (huReturn){
                 return new HuResult(outDir, baseName, max, labels, nHu, gangliaLabels, r.countsPerGanglion, r.areaUm2, nG);
             }else {
+
+                progress.close();
                 OutputIO.writeGangliaCsv(
                         new File(outDir, "Analysis_Ganglia_" + baseName + "_counts.csv"),
                         r.countsPerGanglion, r.areaUm2
                 );
-                return  null;
+                HuResult result = new HuResult(
+                        outDir, baseName, max, labels, nHu,
+                        gangliaLabels, r.countsPerGanglion, r.areaUm2, nG
+                );
+
+                SwingUtilities.invokeLater(() -> ResultsUI.promptAndMaybeShow(result));
+
+                return null;
             }
 
 
@@ -300,10 +333,18 @@ public class NeuronsHuPipeline {
         ij.macro.Interpreter.batchMode = prevBatch;
         if (ownProgress) progress.close();
 
+
+
         if (huReturn){
             return new HuResult(outDir, baseName, max, labels, nHu, null,null,null,null);
         }else {
-            return  null;
+            HuResult result = new HuResult(
+                    outDir, baseName, max, labels, nHu,
+                    null,null,null,null
+            );
+
+            SwingUtilities.invokeLater(() -> ResultsUI.promptAndMaybeShow(result));
+            return null;
         }
 
 
