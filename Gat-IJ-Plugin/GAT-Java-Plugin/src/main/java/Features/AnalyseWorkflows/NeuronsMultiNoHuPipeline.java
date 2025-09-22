@@ -18,6 +18,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import static Features.Tools.RoiManagerHelper.*;
+
 public class NeuronsMultiNoHuPipeline {
 
     // ------- spec & params -------
@@ -379,36 +381,6 @@ public class NeuronsMultiNoHuPipeline {
         binary.close();
         relabeled.setCalibration(a.getCalibration());
         return relabeled;
-    }
-
-    // --- ROI Manager lifecycle helpers ---
-    private static final class RmHandle {
-        final RoiManager rm;
-        final boolean weOpened;
-        RmHandle(RoiManager rm, boolean weOpened) { this.rm = rm; this.weOpened = weOpened; }
-    }
-
-    private static RmHandle ensureGlobalRM() {
-        RoiManager rm = RoiManager.getInstance2();
-        boolean weOpened = false;
-        if (rm == null) { rm = new RoiManager(); weOpened = true; } // becomes the singleton, shows if needed
-        rm.setVisible(false); // we’ll let ReviewUI show it when needed
-        return new RmHandle(rm, weOpened);
-    }
-
-    private static void syncToSingleton(RoiManager[] ref) {
-        // After any call that might (re)create the singleton, refresh your handle
-        RoiManager s = RoiManager.getInstance2();
-        if (s != null) ref[0] = s;
-    }
-
-    private static void maybeCloseRM(RmHandle h) {
-        if (h != null && h.weOpened && h.rm != null) {
-            try { h.rm.reset(); } catch (Throwable ignore) {}
-            try { h.rm.setVisible(false); } catch (Throwable ignore) {}
-            try { h.rm.close(); } catch (Throwable ignore) {}   // IJ API close
-            try { h.rm.dispose(); } catch (Throwable ignore) {} // AWT Frame disposal
-        }
     }
 
 
