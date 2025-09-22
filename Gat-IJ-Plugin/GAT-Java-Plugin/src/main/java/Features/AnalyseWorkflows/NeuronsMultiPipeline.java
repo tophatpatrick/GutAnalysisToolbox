@@ -153,6 +153,7 @@ public class NeuronsMultiPipeline {
         // 4) Loop each marker
 
         for (MarkerSpec m : mp.markers) {
+            ij.macro.Interpreter.batchMode = true;
             progress.step("Prep: " + m.name);
             ImagePlus ch = ImageOps.extractChannel(max, m.channel);
             ImagePlus segInput = (scaleFactor == 1.0)
@@ -214,7 +215,7 @@ public class NeuronsMultiPipeline {
 
             // Seed RM with current Hu-gated labels
             RoiManager rmRev = RoiManager.getInstance2();
-            if (rmRev == null) rmRev = new RoiManager(false);
+            if (rmRev == null) rmRev = new RoiManager();
             rmRev.reset();
             Features.Core.PluginCalls.labelsToRois(filteredLabels);
 
