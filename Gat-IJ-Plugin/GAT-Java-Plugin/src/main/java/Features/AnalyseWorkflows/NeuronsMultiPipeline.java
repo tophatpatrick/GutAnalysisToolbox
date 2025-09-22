@@ -251,6 +251,9 @@ public class NeuronsMultiPipeline {
                     OutputIO.saveFlattenedOverlay(max, rm, new File(outDir, "MAX_" + baseName + "_" + m.name + "_overlay.tif"));
             }
             rm.reset();
+            rm.close();
+            rm.hide();
+            rm.setVisible(false);
 
             // Per-ganglion counts if available
             if (hu.gangliaLabels != null) {
@@ -290,6 +293,8 @@ public class NeuronsMultiPipeline {
                         OutputIO.saveFlattenedOverlay(max, rm, new File(outDir, "MAX_" + baseName + "_" + comboName + "_overlay.tif"));
                 }
                 rm.reset();
+                rm.close();
+                rm.setVisible(false);
                 lab.close();
             }
         }
@@ -312,6 +317,17 @@ public class NeuronsMultiPipeline {
                 nGanglia, gangliaArea, hu.gangliaLabels,
                 totals, perGanglia
         );
+
+        RoiManager rmRev = RoiManager.getInstance2();
+        if (rmRev == null) rmRev = new RoiManager();
+        rmRev.reset();
+
+        rmRev.close();
+        rmRev.hide();
+        rmRev.setVisible(false);
+        rmRev.reset();
+
+
         SwingUtilities.invokeLater(() -> UI.panes.Results.ResultsMultiUI.promptAndMaybeShow(mr));
     }
 

@@ -123,6 +123,9 @@ public class NeuronsMultiNoHuPipeline {
                 : imp.duplicate();
         max.setTitle("MAX_" + baseName);
 
+        //create our global roi manager
+        RmHandle rmh = ensureGlobalRM();
+
         // 2) Rescale math
         progress.step("Rescale math");
         final double pxUm = (max.getCalibration() != null && max.getCalibration().pixelWidth > 0)
@@ -168,8 +171,9 @@ public class NeuronsMultiNoHuPipeline {
             progress.step("Ganglia: label + export ROIs");
             // Label the binary and export ROIs like the macro
             gangliaLabels = PluginCalls.binaryToLabels(gangliaBinary);
-            RoiManager rmG = new RoiManager(false);
+            RoiManager rmG = rmh.rm;
             rmG.reset();
+            rmG.setVisible(false);
             PluginCalls.labelsToRois(gangliaLabels);
 
             nGanglia = rmG.getCount();
@@ -178,7 +182,8 @@ public class NeuronsMultiNoHuPipeline {
                 if (mp.base.saveFlattenedOverlay)
                     OutputIO.saveFlattenedOverlay(max, rmG, new File(outDir, "MAX_" + baseName + "_ganglia_overlay.tif"));
             }
-            rmG.reset(); rmG.close();
+            rmG.reset();
+            rmG.setVisible(false);
             progress.step("Ganglia: compute areas");
 
             gangliaAreaUm2 = GangliaOps.areaPerGanglionUm2(gangliaLabels);
@@ -207,12 +212,12 @@ public class NeuronsMultiNoHuPipeline {
             progress.pulse("Segment: " + m.name);
             ImagePlus markerLabels;
             if (m.customRoisZip != null && m.customRoisZip.isFile()) {
-                RoiManager tmp = new RoiManager(false);
+                RoiManager tmp = rmh.rm;
                 tmp.reset();
                 tmp.runCommand("Open", m.customRoisZip.getAbsolutePath());
                 ImagePlus bin = PluginCalls.roisToBinary(max, tmp);
                 markerLabels = PluginCalls.binaryToLabels(bin);
-                tmp.reset(); tmp.close(); bin.close();
+                tmp.reset();bin.close();
             } else {
                 double prob = (m.prob != null) ? m.prob : mp.multiProb;
                 double nms  = (m.nms  != null) ? m.nms  : mp.multiNms;
@@ -227,15 +232,17 @@ public class NeuronsMultiNoHuPipeline {
 
             progress.step("Review: " + m.name);
             // ---- Review (seed RM, pass fallback) ----
-            RoiManager rmRev = new RoiManager(false);
+            RoiManager rmRev = rmh.rm;
             rmRev.reset();
             PluginCalls.labelsToRois(markerLabels);        // seed with current call
+            syncToSingleton(new RoiManager[]{ rmRev });
             ImagePlus fallback = markerLabels.duplicate();
             ij.macro.Interpreter.batchMode = false;
             ImagePlus reviewed = ReviewUI.reviewAndRebuildLabels(
                     ch, rmRev, m.name + " (review)", max.getCalibration(), fallback);
             ij.macro.Interpreter.batchMode = true;
-            rmRev.reset(); rmRev.close();
+            rmRev.reset();
+            rmRev.setVisible(false);
             fallback.close();
 
             if (gangliaLabels != null) {
@@ -251,16 +258,17 @@ public class NeuronsMultiNoHuPipeline {
             int n = countLabels(reviewed);
             totals.put(m.name, n);
 
-            RoiManager rmSave = new RoiManager(false);
+            RoiManager rmSave = rmh.rm;
             rmSave.reset();
             PluginCalls.labelsToRois(reviewed);
+            syncToSingleton(new RoiManager[]{ rmSave });
             if (rmSave.getCount() > 0) {
                 OutputIO.saveRois(rmSave, new File(outDir, m.name + "_ROIs_" + baseName + ".zip"));
                 if (mp.base.saveFlattenedOverlay)
                     OutputIO.saveFlattenedOverlay(max, rmSave, new File(outDir, "MAX_" + baseName + "_" + m.name + "_overlay.tif"));
             }
-            rmSave.reset(); rmSave.close();
-
+            rmSave.reset();
+            rmSave.setVisible(false);
 
             labelsByMarker.put(m.name, reviewed); // keep for combos
             ch.close();
@@ -290,15 +298,17 @@ public class NeuronsMultiNoHuPipeline {
 
                 progress.step("Save combo: " + combo);
 
-                RoiManager rm = new RoiManager(false);
+                RoiManager rm = rmh.rm;
                 rm.reset();
                 PluginCalls.labelsToRois(c);
+                syncToSingleton(new RoiManager[]{ rm});
                 if (rm.getCount() > 0) {
                     OutputIO.saveRois(rm, new File(outDir, combo + "_ROIs_" + baseName + ".zip"));
                     if (mp.base.saveFlattenedOverlay)
                         OutputIO.saveFlattenedOverlay(max, rm, new File(outDir, "MAX_" + baseName + "_" + combo + "_overlay.tif"));
                 }
-                rm.reset(); rm.close();
+                rm.reset();
+                rm.setVisible(false);
                 c.close();
             }
         }
@@ -332,6 +342,7 @@ public class NeuronsMultiNoHuPipeline {
                 (gangliaLabels != null ? Integer.valueOf(nGanglia) : null),
                 gangliaAreaUm2
         );
+        maybeCloseRM(rmh);
         SwingUtilities.invokeLater(() ->
                 UI.panes.Results.ResultsMultiNoHuUI.promptAndMaybeShow(result)
         );
@@ -369,5 +380,36 @@ public class NeuronsMultiNoHuPipeline {
         relabeled.setCalibration(a.getCalibration());
         return relabeled;
     }
+
+    // --- ROI Manager lifecycle helpers ---
+    private static final class RmHandle {
+        final RoiManager rm;
+        final boolean weOpened;
+        RmHandle(RoiManager rm, boolean weOpened) { this.rm = rm; this.weOpened = weOpened; }
+    }
+
+    private static RmHandle ensureGlobalRM() {
+        RoiManager rm = RoiManager.getInstance2();
+        boolean weOpened = false;
+        if (rm == null) { rm = new RoiManager(); weOpened = true; } // becomes the singleton, shows if needed
+        rm.setVisible(false); // we’ll let ReviewUI show it when needed
+        return new RmHandle(rm, weOpened);
+    }
+
+    private static void syncToSingleton(RoiManager[] ref) {
+        // After any call that might (re)create the singleton, refresh your handle
+        RoiManager s = RoiManager.getInstance2();
+        if (s != null) ref[0] = s;
+    }
+
+    private static void maybeCloseRM(RmHandle h) {
+        if (h != null && h.weOpened && h.rm != null) {
+            try { h.rm.reset(); } catch (Throwable ignore) {}
+            try { h.rm.setVisible(false); } catch (Throwable ignore) {}
+            try { h.rm.close(); } catch (Throwable ignore) {}   // IJ API close
+            try { h.rm.dispose(); } catch (Throwable ignore) {} // AWT Frame disposal
+        }
+    }
+
 
 }
