@@ -177,7 +177,7 @@ public class NeuronsMultiNoHuPipeline {
             rmG.reset();
             rmG.setVisible(false);
             PluginCalls.labelsToRois(gangliaLabels);
-
+            syncToSingleton(new RoiManager[]{ rmG });
             nGanglia = rmG.getCount();
             if (nGanglia > 0) {
                 OutputIO.saveRois(rmG, new File(outDir, "Ganglia_ROIs_" + baseName + ".zip"));
