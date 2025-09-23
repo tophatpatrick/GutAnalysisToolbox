@@ -1,14 +1,13 @@
 package Features.AnalyseWorkflows;
 
 import Features.Core.Params;
-import Features.Tools.ImageOps;
-import Features.Tools.LabelOps;
-import Features.Tools.OutputIO;
-import Features.Tools.ProgressUI;
+import Features.Tools.*;
 import UI.panes.Tools.ReviewUI;
 import ij.IJ;
 import ij.ImagePlus;
+import ij.gui.Roi;
 import ij.plugin.frame.RoiManager;
+import static Features.Tools.RoiManagerHelper.*;
 
 import javax.swing.*;
 import java.io.File;
@@ -100,7 +99,6 @@ public class NeuronsMultiPipeline {
 
 
 
-
         final int perMarkerSteps = 4;
         final int comboSteps     = 1;
         final int nm              = mp.markers.size();
@@ -141,18 +139,20 @@ public class NeuronsMultiPipeline {
         LinkedHashMap<String,Integer> totals = new LinkedHashMap<>();
         LinkedHashMap<String,int[]>   perGanglia = new LinkedHashMap<>();
 
-
-
-
         double[] gangliaArea = hu.gangliaAreaUm2;       // may be null
         Integer  nGanglia    = hu.nGanglia;             // may be null
 
         // For combos later
         Map<String, boolean[]> keepMaskByMarker = new LinkedHashMap<>();
 
+        RmHandle rmh = ensureGlobalRM();
+        RoiManager rm = rmh.rm;
+        rm.setVisible(false);
+
         // 4) Loop each marker
 
         for (MarkerSpec m : mp.markers) {
+            ij.macro.Interpreter.batchMode = true;
             progress.step("Prep: " + m.name);
             ImagePlus ch = ImageOps.extractChannel(max, m.channel);
             ImagePlus segInput = (scaleFactor == 1.0)
@@ -164,36 +164,39 @@ public class NeuronsMultiPipeline {
             progress.pulse("Segment: " + m.name);
             ImagePlus markerLabels;
             if (m.customRoisZip != null && m.customRoisZip.isFile()) {
-                // ---- Use user-supplied ROI ZIP instead of StarDist ----
-                RoiManager tmp = new RoiManager(false);
+
+                RmHandle rmh2 = ensureGlobalRM();
+                RoiManager tmp = rmh2.rm;
                 tmp.reset();
+                tmp.setVisible(false);
                 tmp.runCommand("Open", m.customRoisZip.getAbsolutePath());
-
-                // If you have helpers:
-                //   bin = Features.Core.PluginCalls.roisToBinary(max, tmp);
-                //   markerLabels = Features.Core.PluginCalls.binaryToLabels(bin);
-
-                // Minimal fallback (if you don't have roisToBinary):
-                ij.process.ByteProcessor bp = new ij.process.ByteProcessor(max.getWidth(), max.getHeight());
-                bp.setValue(255);
-                for (ij.gui.Roi r : tmp.getRoisAsArray()) {
-                    bp.setRoi(r);
-                    bp.fill(); // fill ROI area
+                if (tmp.getCount() == 0) {
+                    throw new IllegalArgumentException("ROI zip '" + m.customRoisZip.getName() + "' contains no ROIs.");
                 }
-                ImagePlus bin = new ImagePlus("bin", bp);
-                markerLabels = Features.Core.PluginCalls.binaryToLabels(bin);
-                bin.close();
 
-                tmp.reset(); tmp.close();
+                // 2) ROI Manager macro commands need batch mode OFF so the mask has a canvas
+                boolean prevBatch = ij.macro.Interpreter.batchMode;
+                ij.macro.Interpreter.batchMode = false;
+                try {
+                    // Paint ROIs -> binary -> labels (your original helpers)
+                    ImagePlus bin = Features.Core.PluginCalls.roisToBinary(max, tmp);
+                    ImagePlus lab = Features.Core.PluginCalls.binaryToLabels(bin);
+                    lab.setCalibration(max.getCalibration());
 
-            } else {
-                // ---- StarDist path (your original code) ----
+                    // tidy
+                    bin.changes = false; bin.close();
+                    markerLabels = lab;
+                } finally {
+                    ij.macro.Interpreter.batchMode = prevBatch;
+                    tmp.reset();
+                    tmp.setVisible(false);
+                }} else {
+
                 double prob = (m.prob != null) ? m.prob : mp.multiProb;
                 double nms  = (m.nms  != null) ? m.nms  : mp.multiNms;
 
                 markerLabels = Features.Core.PluginCalls.runStarDist2DLabel(segInput, mp.subtypeModelZip, prob, nms);
                 markerLabels = Features.Core.PluginCalls.removeBorderLabels(markerLabels);
-                if (subtypeMinPx > 0) markerLabels = Features.Core.PluginCalls.labelMinSizeFilterPx(markerLabels, subtypeMinPx);
             }
 
 
@@ -213,10 +216,9 @@ public class NeuronsMultiPipeline {
 
 
             // Seed RM with current Hu-gated labels
-            RoiManager rmRev = RoiManager.getInstance2();
-            if (rmRev == null) rmRev = new RoiManager(false);
-            rmRev.reset();
+            rm.reset();
             Features.Core.PluginCalls.labelsToRois(filteredLabels);
+            syncToSingleton(new RoiManager[]{ rm });
 
             //Build our backdrop
             ImagePlus backdrop = ch.duplicate();
@@ -228,7 +230,7 @@ public class NeuronsMultiPipeline {
             ij.macro.Interpreter.batchMode = false;
             ImagePlus reviewed = ReviewUI.reviewAndRebuildLabels(
                     backdrop,
-                    rmRev,
+                    rm,
                     m.name + " (Hu-gated)",
                     max.getCalibration(),
                     filteredLabels
@@ -240,16 +242,18 @@ public class NeuronsMultiPipeline {
             int markerTotal = countLabels(reviewed);
             totals.put(m.name, markerTotal);
 
-            RoiManager rm = RoiManager.getInstance2();
-            if (rm == null) rm = new RoiManager(false);
+
+
             rm.reset();
             Features.Core.PluginCalls.labelsToRois(reviewed);
+            syncToSingleton(new RoiManager[]{ rm });
             if (rm.getCount() > 0) {
                 OutputIO.saveRois(rm, new File(outDir, m.name + "_ROIs_" + baseName + ".zip"));
                 if (mp.base.saveFlattenedOverlay)
                     OutputIO.saveFlattenedOverlay(max, rm, new File(outDir, "MAX_" + baseName + "_" + m.name + "_overlay.tif"));
             }
             rm.reset();
+            rm.setVisible(false);
 
             // Per-ganglion counts if available
             if (hu.gangliaLabels != null) {
@@ -279,16 +283,16 @@ public class NeuronsMultiPipeline {
                     perGanglia.put(comboName, rc.countsPerGanglion);
                 }
                 progress.step("Save combo: " + comboName);
-                RoiManager rm = RoiManager.getInstance2();
-                if (rm == null) rm = new RoiManager(false);
                 rm.reset();
                 Features.Core.PluginCalls.labelsToRois(lab);
+                syncToSingleton(new RoiManager[]{ rm });
                 if (rm.getCount() > 0) {
                     OutputIO.saveRois(rm, new File(outDir, comboName + "_ROIs_" + baseName + ".zip"));
                     if (mp.base.saveFlattenedOverlay)
                         OutputIO.saveFlattenedOverlay(max, rm, new File(outDir, "MAX_" + baseName + "_" + comboName + "_overlay.tif"));
                 }
                 rm.reset();
+                rm.setVisible(false);
                 lab.close();
             }
         }
@@ -311,6 +315,13 @@ public class NeuronsMultiPipeline {
                 nGanglia, gangliaArea, hu.gangliaLabels,
                 totals, perGanglia
         );
+
+        RoiManager rmRev = rmh.rm;
+        rmRev.setVisible(false);
+        rmRev.reset();
+        maybeCloseRM(rmh);
+
+
         SwingUtilities.invokeLater(() -> UI.panes.Results.ResultsMultiUI.promptAndMaybeShow(mr));
     }
 

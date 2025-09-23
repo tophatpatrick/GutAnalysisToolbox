@@ -10,7 +10,10 @@ import javax.swing.*;
 import javax.swing.border.TitledBorder;
 import java.awt.*;
 import java.io.File;
-
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
+import java.util.Locale;
+import java.util.Objects;
 
 /**
  * Neuron Workflow pane with Basic & Advanced tabs.
@@ -21,7 +24,6 @@ import java.io.File;
 public class NeuronWorkflowPane extends JPanel {
     public static final String Name = "Neuron Workflow";
 
-    private final Navigator navigator;
     private final Window owner;
 
     // Basic tab fields
@@ -33,6 +35,14 @@ public class NeuronWorkflowPane extends JPanel {
 
     private JTextField tfModelZip;
     private JButton    btnBrowseModel;
+
+    private JPanel pnlGangliaModel;
+    private JPanel pnlCustomZipBasic;
+
+    private JTextField tfCustomGangliaZip;
+    private JButton btnBrowseCustomRoiZip;
+
+    private JButton runBtn;
 
     private JCheckBox  cbRescaleToTrainingPx;
     private JSpinner   spTrainingPixelSizeUm;   // double
@@ -64,7 +74,6 @@ public class NeuronWorkflowPane extends JPanel {
 
     public NeuronWorkflowPane(Navigator navigator, Window owner) {
         super(new BorderLayout(10,10));
-        this.navigator = navigator;
         this.owner     = owner;
         setBorder(BorderFactory.createEmptyBorder(16,16,16,16));
 
@@ -80,6 +89,21 @@ public class NeuronWorkflowPane extends JPanel {
         add(actions, BorderLayout.SOUTH);
 
         loadDefaults();
+
+
+        cbGangliaMode.addActionListener(e -> { updateGangliaUI(); updateRunButtonEnabled(); });
+        cbGangliaAnalysis.addActionListener(e -> { updateGangliaUI(); updateRunButtonEnabled(); });
+
+        if (tfCustomGangliaZip != null) {
+            tfCustomGangliaZip.getDocument().addDocumentListener(new DocumentListener() {
+                @Override public void insertUpdate(DocumentEvent e) { updateRunButtonEnabled(); }
+                @Override public void removeUpdate(DocumentEvent e) { updateRunButtonEnabled(); }
+                @Override public void changedUpdate(DocumentEvent e) { updateRunButtonEnabled(); }
+            });
+        }
+
+        updateGangliaUI();
+        updateRunButtonEnabled();
     }
 
     // ---------------- UI builders ----------------
@@ -125,6 +149,15 @@ public class NeuronWorkflowPane extends JPanel {
         )));
 
         p.add(Box.createVerticalGlue());
+
+        tfCustomGangliaZip = new JTextField(28);
+        btnBrowseCustomRoiZip = new JButton("Browse…");
+        btnBrowseCustomRoiZip.addActionListener(e -> chooseFile(tfCustomGangliaZip, JFileChooser.FILES_ONLY));
+
+        // Keep a handle so we can show/hide from updateGangliaUI()
+        pnlCustomZipBasic = boxWith("Import ganglia ROIs (.zip)",
+                row(tfCustomGangliaZip, btnBrowseCustomRoiZip));
+        p.add(pnlCustomZipBasic);
         return p;
     }
 
@@ -172,9 +205,9 @@ public class NeuronWorkflowPane extends JPanel {
         btnBrowseGangliaModelFolder = new JButton("Browse…");
         btnBrowseGangliaModelFolder.addActionListener(e -> chooseFolderName(tfGangliaModelFolder));
 
-        p.add(boxWith("Ganglia model", column(
-                row(new JLabel(""), tfGangliaModelFolder, btnBrowseGangliaModelFolder)
-        )));
+        pnlGangliaModel = boxWith("Ganglia model",
+                row(new JLabel(""), tfGangliaModelFolder, btnBrowseGangliaModelFolder));
+        p.add(pnlGangliaModel);
 
         spHuDilationMicron       = new JSpinner(new SpinnerNumberModel(12.0, 0.0, 1000.0, 0.5));
         spGangliaProbThresh01    = new JSpinner(new SpinnerNumberModel(0.35, 0.0, 1.0, 0.01));
@@ -208,12 +241,28 @@ public class NeuronWorkflowPane extends JPanel {
     private void onRun(JButton runBtn) {
         runBtn.setEnabled(false);
 
-        if (!InputValidation.validateImageOrShow(this, tfImagePath.getText()) ||
-                !InputValidation.validateZipOrShow(this, tfModelZip.getText(), "StarDist model") ||
-                !InputValidation.validateOutputDirOrShow(this, tfOutputDir.getText()) ||
-                (cbGangliaAnalysis.isSelected() &&
-                        !InputValidation.validateModelsFolderOrShow(this, tfGangliaModelFolder.getText()))
-        ) {
+        Params.GangliaMode mode = (Params.GangliaMode) cbGangliaMode.getSelectedItem();
+
+        boolean ok =
+                InputValidation.validateImageOrShow(this, tfImagePath.getText()) &&
+                        InputValidation.validateZipOrShow(this, tfModelZip.getText(), "StarDist model") &&
+                        InputValidation.validateOutputDirOrShow(this, tfOutputDir.getText());
+
+        if (ok && cbGangliaAnalysis.isSelected()) {
+            switch (Objects.requireNonNull(mode)) {
+                case DEEPIMAGEJ:
+                    ok = InputValidation.validateModelsFolderOrShow(this, tfGangliaModelFolder.getText());
+                    break;
+                case IMPORT_ROI:
+                    ok = InputValidation.validateZipOrShow(this, tfCustomGangliaZip.getText(), "Ganglia ROI zip");
+                    break;
+                case DEFINE_FROM_HU:
+                case MANUAL:
+                    break;
+            }
+        }
+
+        if (!ok) {
             runBtn.setEnabled(true);
             return;
         }
@@ -222,6 +271,11 @@ public class NeuronWorkflowPane extends JPanel {
             @Override protected Void doInBackground() {
                 try {
                     Params p = buildParamsFromUI();
+                    if (p.gangliaMode == Params.GangliaMode.IMPORT_ROI) {
+                        p.customGangliaRoiZip = emptyToNull(tfCustomGangliaZip.getText());
+                    } else {
+                        p.customGangliaRoiZip = null;
+                    }
                     new NeuronsHuPipeline().run(p,false);
                 } catch (Throwable ex) {
                     SwingUtilities.invokeLater(() -> JOptionPane.showMessageDialog(
@@ -309,6 +363,7 @@ public class NeuronWorkflowPane extends JPanel {
 
     private void loadDefaults() {
         // Fill with your known-good defaults (same as your working run)
+        if (tfCustomGangliaZip != null) tfCustomGangliaZip.setText("");
         tfImagePath.setText("/path/to/image");
         spHuChannel.setValue(3);
 
@@ -422,4 +477,41 @@ public class NeuronWorkflowPane extends JPanel {
             target.setText(name);
         }
     }
+
+    private void updateGangliaUI() {
+        boolean gangliaOn = cbGangliaAnalysis.isSelected();
+        Params.GangliaMode mode = (Params.GangliaMode) cbGangliaMode.getSelectedItem();
+
+        if (pnlGangliaModel != null) {
+            pnlGangliaModel.setVisible(gangliaOn && mode == Params.GangliaMode.DEEPIMAGEJ);
+        }
+        if (pnlCustomZipBasic != null) {
+            pnlCustomZipBasic.setVisible(gangliaOn && mode == Params.GangliaMode.IMPORT_ROI);
+        }
+        revalidate();
+        repaint();
+    }
+
+    private void updateRunButtonEnabled() {
+        if (runBtn == null) return;
+
+        boolean enable = true;
+
+        if (cbGangliaAnalysis.isSelected() &&
+                cbGangliaMode.getSelectedItem() == Params.GangliaMode.IMPORT_ROI) {
+
+            String path = (tfCustomGangliaZip != null) ? tfCustomGangliaZip.getText().trim() : "";
+            enable = isValidZipPath(path); // silent gating for the button
+        }
+
+        runBtn.setEnabled(enable);
+    }
+
+    private static boolean isValidZipPath(String path) {
+        if (path == null || path.isEmpty()) return false;
+        File f = new File(path);
+        String name = f.getName().toLowerCase(Locale.ROOT);
+        return f.isFile() && name.endsWith(".zip");
+    }
+
 }

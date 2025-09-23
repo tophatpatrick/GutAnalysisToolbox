@@ -17,6 +17,7 @@ import Features.Tools.ProgressUI;
 
 import javax.swing.*;
 import java.io.File;
+import static Features.Tools.RoiManagerHelper.*;
 
 public class NeuronsHuPipeline {
 
@@ -103,6 +104,9 @@ public class NeuronsHuPipeline {
                 : imp.duplicate();
         max.setTitle("MAX_" + baseName);
 
+        //create our global roi manager
+        RmHandle rmh = ensureGlobalRM();
+
         progress.step("Extracting Hu Channel");
         // 4) Extract Hu channel (1-based)
         ImagePlus hu = ImageOps.extractChannel(max, p.huChannel);
@@ -147,13 +151,12 @@ public class NeuronsHuPipeline {
         }
         progress.step("Converting Labels to ROI's");
         // ==== 9) Labels -> ROIs ====
-        RoiManager rm = RoiManager.getInstance2();
-        if (rm == null) rm = new RoiManager();
+        RoiManager rm = rmh.rm;
         rm.reset();
 
 // push labels into RM (silent)
         PluginCalls.labelsToRois(labels);
-
+        syncToSingleton(new RoiManager[]{ rm });
         ij.macro.Interpreter.batchMode = false;
 
         progress.step("Show Hu review");
@@ -226,7 +229,7 @@ public class NeuronsHuPipeline {
 
 
         rm.reset();
-        rm.close();
+        rm.setVisible(false);
 
         labels.setTitle("Neuron_label_MAX_" + baseName);
         OutputIO.saveTiff(labels, new File(outDir, labels.getTitle() + ".tif"));
@@ -275,15 +278,16 @@ public class NeuronsHuPipeline {
 
             progress.step("Converting Ganglia to ROI's");
             // E) Convert to ROIs and save (matches macro’s ROI export stage)
-            RoiManager rmG = RoiManager.getInstance2();
-            if (rmG == null) {
-                // create it without popping UI
-                rmG = new RoiManager(false);
-            }
+            RoiManager rmG = rmh.rm;
             rmG.reset();
             PluginCalls.labelsToRois(gangliaLabels);
-            rmG = RoiManager.getInstance2();
+            syncToSingleton(new RoiManager[]{ rmG });
             int nG = rmG.getCount();
+
+            //save ganglia roi's
+            if (nG > 0) {
+                OutputIO.saveRois(rmG, new File(outDir, "Ganglia_ROIs_" + baseName + ".zip"));
+            }
 
             progress.step("Saving Image Overlay's");
             if (p.saveFlattenedOverlay && rmG.getCount() > 0) {
@@ -305,7 +309,6 @@ public class NeuronsHuPipeline {
 
             rmG.setVisible(false);
             rmG.reset();
-            rmG.close();
 
             if (huReturn){
                 return new HuResult(outDir, baseName, max, labels, nHu, gangliaLabels, r.countsPerGanglion, r.areaUm2, nG);
@@ -334,7 +337,7 @@ public class NeuronsHuPipeline {
         if (ownProgress) progress.close();
 
 
-
+        maybeCloseRM(rmh);
         if (huReturn){
             return new HuResult(outDir, baseName, max, labels, nHu, null,null,null,null);
         }else {
@@ -342,13 +345,14 @@ public class NeuronsHuPipeline {
                     outDir, baseName, max, labels, nHu,
                     null,null,null,null
             );
-
+            maybeCloseRM(rmh);
             SwingUtilities.invokeLater(() -> ResultsUI.promptAndMaybeShow(result));
             return null;
         }
 
 
     }
+
 
 
 

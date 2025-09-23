@@ -4,10 +4,11 @@ import Features.Core.Params;
 import Features.Core.PluginCalls;
 import ij.IJ;
 import ij.ImagePlus;
+import ij.gui.WaitForUserDialog;
 import ij.plugin.frame.RoiManager;
 
 import static Features.Core.PluginCalls.clearThreshold;
-
+import static Features.Tools.RoiManagerHelper.*;
 
 public final class GangliaOps {
     private GangliaOps(){}
@@ -20,7 +21,7 @@ public final class GangliaOps {
             case IMPORT_ROI:
                 return importRoiToLabels(p, maxProjection);
             case MANUAL:
-                return manualDrawToLabels(maxProjection);
+                return manualDrawToLabels(p,maxProjection);
             case DEEPIMAGEJ:
             default:
                 return deepImageJ(p, maxProjection);
@@ -77,8 +78,11 @@ public final class GangliaOps {
     // ---------- methods (reuse PluginCalls everywhere possible) ----------
 
     private static ImagePlus deepImageJ(Params p, ImagePlus maxProjection) {
+        int fibresCh = (p.gangliaChannel > 0) ? p.gangliaChannel : 1;
+        int cellCh   = (p.gangliaCellChannel != null && p.gangliaCellChannel > 0) ? p.gangliaCellChannel : p.huChannel;
+        double minArea = (p.gangliaMinAreaUm2 != null) ? p.gangliaMinAreaUm2 : 200.0;
         ImagePlus bin = PluginCalls.runDeepImageJForGanglia(
-                maxProjection, p.gangliaChannel, p.huChannel, p.gangliaModelFolder, 200.0, p);
+                maxProjection, fibresCh, cellCh, p.gangliaModelFolder, minArea, p);
 
 
         ImagePlus labels = PluginCalls.binaryToLabels(bin);
@@ -114,8 +118,10 @@ public final class GangliaOps {
     private static ImagePlus importRoiToLabels(Params p, ImagePlus ref) {
         if (p.customGangliaRoiZip == null || p.customGangliaRoiZip.isEmpty())
             throw new IllegalArgumentException("Custom ROI zip path is empty.");
-        RoiManager rm = RoiManager.getInstance2();
+        RmHandle rmh = ensureGlobalRM();
+        RoiManager rm = rmh.rm;
         rm.reset();
+        rm.setVisible(false);
         rm.runCommand("Open", p.customGangliaRoiZip);
         ImagePlus bin = PluginCalls.roisToBinary(ref, rm);
         rm.reset();
@@ -142,18 +148,46 @@ public final class GangliaOps {
     }
 
 
-    private static ImagePlus manualDrawToLabels(ImagePlus ref) {
-        ref.show();
-        RoiManager rm = RoiManager.getInstance2();
+    private static ImagePlus manualDrawToLabels(Params p, ImagePlus ref) {
+        // Use shared RM; caller/pipeline will close via maybeCloseRM(...)
+        RmHandle rmh = ensureGlobalRM();
+        RoiManager rm = rmh.rm;
         rm.reset();
+        rm.setVisible(true);
+
+        ImagePlus review;
+        try {
+            review = PluginCalls.buildGangliaRgbForOverlay(ref, p.gangliaChannel, p.huChannel);
+        } catch (Throwable t) {
+            review = ref.duplicate();
+        }
+        ij.macro.Interpreter.batchMode = false;
+        review.setTitle("Draw ganglia ROIs (press T to add)");
+        IJ.resetMinAndMax(review);
+        review.show();
+        rm.runCommand("Show All with labels");
+
+
         IJ.setTool("freehand");
-        IJ.showMessage("Ganglia outline",
-                "Draw each ganglion with the Freehand tool and press 'T' to add to ROI Manager.\nClick OK when done.");
-        ImagePlus bin = PluginCalls.roisToBinary(ref, rm);
-        rm.reset();
+        new WaitForUserDialog(
+                "Ganglia outline",
+                "Draw each ganglion (Freehand/Polygon) and press 'T' to add to ROI Manager.\n" +
+                        "Delete to remove.\n" +
+                        "Click OK when done."
+        ).show();
+
+        ij.macro.Interpreter.batchMode = true;
+
+        ImagePlus bin = PluginCalls.roisToBinary(review, rm);
         ImagePlus lab = PluginCalls.binaryToLabels(bin);
         lab.setCalibration(ref.getCalibration());
-        if (lab != bin) bin.close();
+
+
+        rm.reset();
+        rm.setVisible(false);
+        bin.changes = false; bin.close();
+        review.changes = false; review.close();
+
         return lab;
     }
 

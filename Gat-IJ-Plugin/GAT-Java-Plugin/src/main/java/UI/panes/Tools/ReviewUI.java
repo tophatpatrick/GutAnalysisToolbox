@@ -29,7 +29,6 @@ public final class ReviewUI {
 
         rm.setVisible(true);
         // make sure overlay is bound to THIS window and labels are shown
-        rm.runCommand(show, "Show None");
         rm.runCommand(show, "Show All with labels");
 
         IJ.setTool("polygon");
