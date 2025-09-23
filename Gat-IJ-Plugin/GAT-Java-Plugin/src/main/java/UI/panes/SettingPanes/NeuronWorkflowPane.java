@@ -39,10 +39,15 @@ public class NeuronWorkflowPane extends JPanel {
     private JPanel pnlGangliaModel;
     private JPanel pnlCustomZipBasic;
 
+    private JButton runBtn;
+
     private JTextField tfCustomGangliaZip;
     private JButton btnBrowseCustomRoiZip;
 
-    private JButton runBtn;
+    private JCheckBox cbDoSpatial;
+    private JSpinner  spSpatialExpansionUm;
+    private JCheckBox cbSpatialSaveParam;
+
 
     private JCheckBox  cbRescaleToTrainingPx;
     private JSpinner   spTrainingPixelSizeUm;   // double
@@ -149,6 +154,17 @@ public class NeuronWorkflowPane extends JPanel {
         )));
 
         p.add(Box.createVerticalGlue());
+
+        // in buildAdvanced()
+        cbDoSpatial = new JCheckBox("Perform spatial analysis (Hu neighbours)");
+        spSpatialExpansionUm = new JSpinner(new SpinnerNumberModel(6.5, 1.0, 50.0, 0.5));
+        cbSpatialSaveParam = new JCheckBox("Save parametric image");
+
+        p.add(boxWith("Spatial analysis", column(
+                cbDoSpatial,
+                row(new JLabel("Expansion (µm):"), spSpatialExpansionUm),
+                cbSpatialSaveParam
+        )));
 
         tfCustomGangliaZip = new JTextField(28);
         btnBrowseCustomRoiZip = new JButton("Browse…");
@@ -297,6 +313,11 @@ public class NeuronWorkflowPane extends JPanel {
 
         p.imagePath = emptyToNull(tfImagePath.getText());
         p.outputDir = emptyToNull(tfOutputDir.getText());
+
+        p.doSpatialAnalysis     = cbDoSpatial.isSelected();
+        p.spatialExpansionUm    = ((Number) spSpatialExpansionUm.getValue()).doubleValue();
+        p.spatialSaveParametric = cbSpatialSaveParam.isSelected();
+        p.spatialCellTypeName   = "Hu";
 
         p.huChannel = (int) spHuChannel.getValue();
 

@@ -75,7 +75,12 @@ public class Params {
     public int     gangliaOpenIterations   = 3;
     public boolean gangliaInteractiveReview = true;
 
-   public Window uiAnchor;
+    public Boolean doSpatialAnalysis = false;
+    public Double  spatialExpansionUm = 6.5;     // microns
+    public Boolean spatialSaveParametric = false;
+    public String  spatialCellTypeName = "Hu";
+
+    public Window uiAnchor;
 }
 
 
