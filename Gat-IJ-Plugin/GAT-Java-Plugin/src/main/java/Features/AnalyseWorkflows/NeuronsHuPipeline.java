@@ -284,6 +284,11 @@ public class NeuronsHuPipeline {
             syncToSingleton(new RoiManager[]{ rmG });
             int nG = rmG.getCount();
 
+            //save ganglia roi's
+            if (nG > 0) {
+                OutputIO.saveRois(rmG, new File(outDir, "Ganglia_ROIs_" + baseName + ".zip"));
+            }
+
             progress.step("Saving Image Overlay's");
             if (p.saveFlattenedOverlay && rmG.getCount() > 0) {
                 OutputIO.saveFlattenedOverlay(max, rmG, new File(outDir, "MAX_" + baseName + "_ganglia_overlay.tif"));
