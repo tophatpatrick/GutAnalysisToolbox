@@ -165,6 +165,7 @@ public final class GangliaOps {
         review.setTitle("Draw ganglia ROIs (press T to add)");
         IJ.resetMinAndMax(review);
         review.show();
+        rm.runCommand("Show All with labels");
 
 
         IJ.setTool("freehand");

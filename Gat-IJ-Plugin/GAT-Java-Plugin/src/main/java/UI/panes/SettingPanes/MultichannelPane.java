@@ -627,7 +627,6 @@ public class MultichannelPane extends JPanel {
         }
         if (pnlGangliaModelRow != null) {
             pnlGangliaModelRow.setVisible(showDIJ);
-            if (!showDIJ && tfGangliaModelFolder != null) tfGangliaModelFolder.setText("");
         }
         revalidate();
         repaint();
