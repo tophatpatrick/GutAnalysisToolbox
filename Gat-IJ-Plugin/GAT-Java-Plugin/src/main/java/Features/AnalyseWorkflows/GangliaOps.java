@@ -96,7 +96,6 @@ public final class GangliaOps {
 
     private static ImagePlus defineFromHu(Params p, ImagePlus neuronLabels, ImagePlus ref) {
         // labels -> binary (inline)
-        ij.macro.Interpreter.batchMode = false;
         ImagePlus bin = neuronLabels.duplicate();
         bin.show();
         IJ.run(bin, "Select None", "");
@@ -113,7 +112,6 @@ public final class GangliaOps {
         ImagePlus labels = PluginCalls.binaryToLabels(bin);
         labels.setCalibration(ref.getCalibration());
         if (labels != bin) { bin.changes = false; bin.close(); }
-        ij.macro.Interpreter.batchMode = true;
         return labels;
     }
 

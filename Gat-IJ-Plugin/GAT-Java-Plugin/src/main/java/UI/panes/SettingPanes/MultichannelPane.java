@@ -11,6 +11,7 @@ import java.awt.*;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 public class MultichannelPane extends JPanel {
     public static final String Name = "Multiplex Workflow";
@@ -25,6 +26,14 @@ public class MultichannelPane extends JPanel {
     private JSpinner spHuChannel;
     private JTextField tfHuModelZip;
 
+
+    private JTextField tfGangliaRoiZip;
+    private JButton btnBrowseGangliaRoi;
+
+    private JPanel pnlGangliaModelRow;
+    private JTextField tfGangliaModelFolder;
+    private JButton btnBrowseGangliaModel;
+
     // Subtype model + overlap
     private JTextField tfSubtypeModelZip;
     private JSpinner spOverlapFrac, spSubtypeProb, spSubtypeNms;
@@ -33,6 +42,7 @@ public class MultichannelPane extends JPanel {
     private JCheckBox cbGangliaAnalysis;
     private JComboBox<Params.GangliaMode> cbGangliaMode;
     private JSpinner spGangliaChannel;
+    private JPanel pnlCustomRoiBox;
 
     //Build marker params
     private JPanel  markersPanel;
@@ -200,12 +210,11 @@ public class MultichannelPane extends JPanel {
                 String z = tfRoiZip.getText().trim();
                 if (z.isEmpty()) throw new IllegalArgumentException(
                         "Custom ROI selected for '"+nm+"' but no zip chosen.");
-                // If your MarkerSpec supports it:
-                // spec.withCustomRois(new File(z));
-                // If not yet implemented in the pipeline, throw to avoid silent ignore:
-                throw new IllegalStateException(
-                        "Custom ROI zip selected, but NeuronsMultiPipeline.MarkerSpec has no withCustomRois(File). " +
-                                "Add it (and handle it in run()), or disable 'Custom ROI zip'.");
+                File f = new File(z);
+                if (!f.isFile() || !z.toLowerCase(java.util.Locale.ROOT).endsWith(".zip")) {
+                    throw new IllegalArgumentException("Custom ROI for '"+nm+"' must be a .zip on disk.");
+                }
+                spec.withCustomRois(f);
             }
             return spec;
         }
@@ -246,6 +255,8 @@ public class MultichannelPane extends JPanel {
 
         cbGangliaAnalysis = new JCheckBox("Run ganglia analysis");
         cbGangliaMode = new JComboBox<>(Params.GangliaMode.values());
+        cbGangliaAnalysis.addActionListener(e -> updateGangliaVisibility());
+        cbGangliaMode.addActionListener(e -> updateGangliaVisibility());
         spGangliaChannel = new JSpinner(new SpinnerNumberModel(2,1,32,1));
         p.add(box("Ganglia", column(
                 cbGangliaAnalysis,
@@ -254,6 +265,15 @@ public class MultichannelPane extends JPanel {
         )));
 
         p.add(Box.createVerticalGlue());
+
+        tfGangliaRoiZip = new JTextField(28);
+        btnBrowseGangliaRoi = new JButton("Browse…");
+        btnBrowseGangliaRoi.addActionListener(e -> chooseFile(tfGangliaRoiZip, JFileChooser.FILES_ONLY));
+
+
+        pnlCustomRoiBox = box("Import ganglia ROIs (.zip)",
+                row(new JLabel("Zip file:"), tfGangliaRoiZip, btnBrowseGangliaRoi));
+        p.add(pnlCustomRoiBox);
 
         JScrollPane scroll = new JScrollPane(
                 p,
@@ -288,6 +308,14 @@ public class MultichannelPane extends JPanel {
                 new JLabel("Subtype min size (µm):"),   spNeuronSegMinUm,
                 new JLabel(""), cbRequireMicronUnits
         )));
+
+        tfGangliaModelFolder = new JTextField(28);
+        btnBrowseGangliaModel = new JButton("Pick folder…");
+        btnBrowseGangliaModel.addActionListener(e -> chooseFolderName(tfGangliaModelFolder));
+        pnlGangliaModelRow = box("Ganglia model (DeepImageJ)",
+                row(new JLabel("Folder (under <Fiji>/models):"), tfGangliaModelFolder, btnBrowseGangliaModel)
+        );
+        p.add(pnlGangliaModelRow);
 
         spSubtypeProb = new JSpinner(new SpinnerNumberModel(0.50, 0.0, 1.0, 0.05));
         spSubtypeNms  = new JSpinner(new SpinnerNumberModel(0.30, 0.0, 1.0, 0.05));
@@ -343,15 +371,41 @@ public class MultichannelPane extends JPanel {
     private void onRun(JButton runBtn) {
         runBtn.setEnabled(false);
 
+        if (markerRows.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Please add at least one marker in the Markers tab.",
+                    "No markers", JOptionPane.ERROR_MESSAGE);
+            runBtn.setEnabled(true);
+            return;
+        }
+
+        // Base validations
         if (!InputValidation.validateImageOrShow(this, tfImagePath.getText()) ||
                 !InputValidation.validateZipOrShow(this, tfHuModelZip.getText(), "Hu StarDist model") ||
                 !InputValidation.validateZipOrShow(this, tfSubtypeModelZip.getText(), "Subtype StarDist model") ||
-                !InputValidation.validateOutputDirOrShow(this, tfOutputDir.getText()) ||
-                (cbGangliaAnalysis.isSelected() &&
-                        !InputValidation.validateModelsFolderOrShow(this, "2D_Ganglia_RGB_v3.bioimage.io.model"))
-        ) {
+                !InputValidation.validateOutputDirOrShow(this, tfOutputDir.getText())) {
             runBtn.setEnabled(true);
             return;
+        }
+
+        // Mode-aware ganglia validations
+        if (cbGangliaAnalysis.isSelected()) {
+            Params.GangliaMode mode = (Params.GangliaMode) cbGangliaMode.getSelectedItem();
+            switch (Objects.requireNonNull(mode)) {
+                case DEEPIMAGEJ:
+                    if (!InputValidation.validateModelsFolderOrShow(this, tfGangliaModelFolder.getText())) {
+                        runBtn.setEnabled(true);
+                        return;
+                    }
+                    break;
+                case IMPORT_ROI:
+                    if (!InputValidation.validateZipOrShow(this, tfGangliaRoiZip.getText(), "Ganglia ROI zip")) {
+                        runBtn.setEnabled(true);
+                        return;
+                    }
+                    break;
+                default:
+                    break;
+            }
         }
 
 
@@ -395,7 +449,22 @@ public class MultichannelPane extends JPanel {
         p.cellCountsPerGanglia = cbGangliaAnalysis.isSelected();
         p.gangliaMode          = (Params.GangliaMode) cbGangliaMode.getSelectedItem();
         p.gangliaChannel       = ((Number)spGangliaChannel.getValue()).intValue();
-        p.gangliaModelFolder = "2D_Ganglia_RGB_v3.bioimage.io.model";
+
+        if (p.cellCountsPerGanglia) {
+            if (p.gangliaMode == Params.GangliaMode.DEEPIMAGEJ) {
+                p.gangliaModelFolder = emptyToNull(tfGangliaModelFolder.getText()); // folder name under <Fiji>/models
+                p.customGangliaRoiZip = null;
+            } else if (p.gangliaMode == Params.GangliaMode.IMPORT_ROI) {
+                p.customGangliaRoiZip = emptyToNull(tfGangliaRoiZip.getText());
+                p.gangliaModelFolder = null;
+            } else {
+                p.gangliaModelFolder = null;
+                p.customGangliaRoiZip = null;
+            }
+        } else {
+            p.gangliaModelFolder = null;
+            p.customGangliaRoiZip = null;
+        }
 
         return p;
     }
@@ -448,6 +517,16 @@ public class MultichannelPane extends JPanel {
 
         addMarkerRow("nNOS", 2, false, null);
         addMarkerRow("ChAT", 1,  false, null);
+
+        // Defaults for new ganglia UI
+        if (tfGangliaRoiZip == null) tfGangliaRoiZip = new JTextField(28);
+        tfGangliaRoiZip.setText("");                        // empty by default
+
+        if (tfGangliaModelFolder == null) tfGangliaModelFolder = new JTextField(28);
+        tfGangliaModelFolder.setText("2D_Ganglia_RGB_v3.bioimage.io.model");
+
+        // Make the visibility correct on first render
+        updateGangliaVisibility();
 
         cbSaveOverlay.setSelected(true);
         cbRescaleToTrainingPx.setSelected(true);
@@ -524,6 +603,36 @@ public class MultichannelPane extends JPanel {
             }
         }.execute();
     }
+
+    private void chooseFolderName(JTextField target) {
+        File models = new File(IJ.getDirectory("imagej"), "models");
+        JFileChooser ch = new JFileChooser(models);
+        ch.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
+        int rv = ch.showOpenDialog(this);
+        if (rv == JFileChooser.APPROVE_OPTION) {
+            target.setText(ch.getSelectedFile().getName()); // store only folder name
+        }
+    }
+
+    private void updateGangliaVisibility() {
+        boolean runGanglia = cbGangliaAnalysis.isSelected();
+        Params.GangliaMode mode = (Params.GangliaMode) cbGangliaMode.getSelectedItem();
+
+        boolean showCustom = runGanglia && mode == Params.GangliaMode.IMPORT_ROI;
+        boolean showDIJ    = runGanglia && mode == Params.GangliaMode.DEEPIMAGEJ;
+
+        if (pnlCustomRoiBox != null) {
+            pnlCustomRoiBox.setVisible(showCustom);
+            if (!showCustom && tfGangliaRoiZip != null) tfGangliaRoiZip.setText("");
+        }
+        if (pnlGangliaModelRow != null) {
+            pnlGangliaModelRow.setVisible(showDIJ);
+            if (!showDIJ && tfGangliaModelFolder != null) tfGangliaModelFolder.setText("");
+        }
+        revalidate();
+        repaint();
+    }
+
 
 
 

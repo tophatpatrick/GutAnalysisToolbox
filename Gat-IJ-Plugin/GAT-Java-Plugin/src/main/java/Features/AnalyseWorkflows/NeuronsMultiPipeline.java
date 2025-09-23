@@ -164,36 +164,39 @@ public class NeuronsMultiPipeline {
             progress.pulse("Segment: " + m.name);
             ImagePlus markerLabels;
             if (m.customRoisZip != null && m.customRoisZip.isFile()) {
-                // ---- Use user-supplied ROI ZIP instead of StarDist ----
-                RoiManager tmp = rmh.rm;
+
+                RmHandle rmh2 = ensureGlobalRM();
+                RoiManager tmp = rmh2.rm;
                 tmp.reset();
+                tmp.setVisible(false);
                 tmp.runCommand("Open", m.customRoisZip.getAbsolutePath());
-
-                // If you have helpers:
-                //   bin = Features.Core.PluginCalls.roisToBinary(max, tmp);
-                //   markerLabels = Features.Core.PluginCalls.binaryToLabels(bin);
-
-                // Minimal fallback (if you don't have roisToBinary):
-                ij.process.ByteProcessor bp = new ij.process.ByteProcessor(max.getWidth(), max.getHeight());
-                bp.setValue(255);
-                for (ij.gui.Roi r : tmp.getRoisAsArray()) {
-                    bp.setRoi(r);
-                    bp.fill(); // fill ROI area
+                if (tmp.getCount() == 0) {
+                    throw new IllegalArgumentException("ROI zip '" + m.customRoisZip.getName() + "' contains no ROIs.");
                 }
-                ImagePlus bin = new ImagePlus("bin", bp);
-                markerLabels = Features.Core.PluginCalls.binaryToLabels(bin);
-                bin.close();
 
-                tmp.reset(); tmp.close();
+                // 2) ROI Manager macro commands need batch mode OFF so the mask has a canvas
+                boolean prevBatch = ij.macro.Interpreter.batchMode;
+                ij.macro.Interpreter.batchMode = false;
+                try {
+                    // Paint ROIs -> binary -> labels (your original helpers)
+                    ImagePlus bin = Features.Core.PluginCalls.roisToBinary(max, tmp);
+                    ImagePlus lab = Features.Core.PluginCalls.binaryToLabels(bin);
+                    lab.setCalibration(max.getCalibration());
 
-            } else {
-                // ---- StarDist path (your original code) ----
+                    // tidy
+                    bin.changes = false; bin.close();
+                    markerLabels = lab;
+                } finally {
+                    ij.macro.Interpreter.batchMode = prevBatch;
+                    tmp.reset();
+                    tmp.setVisible(false);
+                }} else {
+
                 double prob = (m.prob != null) ? m.prob : mp.multiProb;
                 double nms  = (m.nms  != null) ? m.nms  : mp.multiNms;
 
                 markerLabels = Features.Core.PluginCalls.runStarDist2DLabel(segInput, mp.subtypeModelZip, prob, nms);
                 markerLabels = Features.Core.PluginCalls.removeBorderLabels(markerLabels);
-                if (subtypeMinPx > 0) markerLabels = Features.Core.PluginCalls.labelMinSizeFilterPx(markerLabels, subtypeMinPx);
             }
 
 
