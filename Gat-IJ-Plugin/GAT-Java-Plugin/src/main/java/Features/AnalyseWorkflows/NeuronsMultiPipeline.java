@@ -401,36 +401,52 @@ public class NeuronsMultiPipeline {
         if (mr == null || p == null) return;
 
         String maxPath = new File(mr.outDir, "MAX_" + mr.baseName + ".tif").getAbsolutePath();
-        String gangliaZip = (mr.nGanglia != null && mr.nGanglia.intValue() > 0)
+        String gangliaZip = (mr.nGanglia != null && mr.nGanglia > 0)
                 ? new File(mr.outDir, "Ganglia_ROIs_" + mr.baseName + ".zip").getAbsolutePath()
                 : "NA";
         String outDir = mr.outDir.getAbsolutePath();
 
-        double expansionUm = (p.base.spatialExpansionUm != null) ? p.base.spatialExpansionUm.doubleValue() : 6.5;
-        boolean saveParametric = (p.base.spatialSaveParametric != null) && p.base.spatialSaveParametric.booleanValue();
+        double expansionUm = (p.base.spatialExpansionUm != null) ? p.base.spatialExpansionUm : 6.5;
+        boolean saveParametric = (p.base.spatialSaveParametric != null) && p.base.spatialSaveParametric;
 
-        for (int i = 0; i < p.markers.size(); i++) {
-            MarkerSpec m = p.markers.get(i);
-            String roiZip = new File(mr.outDir, m.name + "_ROIs_" + mr.baseName + ".zip").getAbsolutePath();
-            if (!new File(roiZip).isFile()) {
-                IJ.log("Spatial single: missing ROI zip for " + m.name);
+        // include Hu + all subtype markers
+        java.util.List<String> names = new java.util.ArrayList<>();
+        names.add("Hu");
+        for (MarkerSpec m : p.markers) names.add(m.name);
+
+        for (String name : names) {
+            // Hu uses the pre-existing Neuron_ROIs_<baseName>.zip
+            File roiZipFile = name.equals("Hu")
+                    ? new File(mr.outDir, "Neuron_ROIs_" + mr.baseName + ".zip")
+                    : new File(mr.outDir, name + "_ROIs_" + mr.baseName + ".zip");
+
+            // fallback if someone saved Hu under a different scheme
+            if (!roiZipFile.isFile() && name.equals("Hu")) {
+                File alt = new File(mr.outDir, "Hu_ROIs_" + mr.baseName + ".zip");
+                if (alt.isFile()) roiZipFile = alt;
+            }
+
+            if (!roiZipFile.isFile()) {
+                IJ.log("Spatial single: missing ROI zip for " + name + " (" + roiZipFile.getName() + ")");
                 continue;
             }
+
             try {
                 new Analysis.SingleCellTypeAnalysis(
                         maxPath,
-                        roiZip,
-                        gangliaZip,         // your single analysis accepts "NA" too
+                        roiZipFile.getAbsolutePath(),
+                        null,
                         outDir,
-                        m.name,
+                        name,
                         expansionUm,
                         saveParametric
                 ).execute();
             } catch (Exception ex) {
-                IJ.log("Spatial single (" + m.name + ") failed: " + ex.getMessage());
+                IJ.log("Spatial single (" + name + ") failed: " + ex.getMessage());
             }
         }
     }
+
 
 
 

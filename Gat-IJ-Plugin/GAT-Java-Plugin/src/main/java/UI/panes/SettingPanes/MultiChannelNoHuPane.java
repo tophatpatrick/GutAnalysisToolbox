@@ -25,6 +25,8 @@ public class MultiChannelNoHuPane extends JPanel {
     private JButton    btnBrowseImage;
     private JButton    btnPreviewImage;
 
+    private JCheckBox cbDoSpatial;
+
     private JTextField tfSubtypeModelZip;
     private JButton    btnBrowseSubtypeModel;
 
@@ -144,6 +146,12 @@ public class MultiChannelNoHuPane extends JPanel {
         pnlCustomRoiBox = boxWith("Import ganglia ROIs (.zip)",
                 row(new JLabel("Zip file:"), tfGangliaRoiZip, btnBrowseGangliaRoi));
         p.add(pnlCustomRoiBox);
+
+        cbDoSpatial = new JCheckBox("Perform spatial analysis");
+
+        p.add(boxWith("Spatial analysis", column(
+                cbDoSpatial
+        )));
 
         JScrollPane scroll = new JScrollPane(
                 p,
@@ -410,6 +418,9 @@ public class MultiChannelNoHuPane extends JPanel {
         Params base = new Params();
         base.imagePath = emptyToNull(tfImagePath.getText());
         base.outputDir = emptyToNull(tfOutputDir.getText());
+
+        base.doSpatialAnalysis     = cbDoSpatial.isSelected();
+        base.spatialCellTypeName   = "Hu";
 
         base.rescaleToTrainingPx   = cbRescaleToTrainingPx.isSelected();
         base.trainingPixelSizeUm   = ((Number) spTrainingPixelSizeUm.getValue()).doubleValue();
