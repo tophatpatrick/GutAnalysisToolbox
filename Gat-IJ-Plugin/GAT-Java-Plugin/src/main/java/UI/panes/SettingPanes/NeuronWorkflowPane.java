@@ -45,8 +45,6 @@ public class NeuronWorkflowPane extends JPanel {
     private JButton btnBrowseCustomRoiZip;
 
     private JCheckBox cbDoSpatial;
-    private JSpinner  spSpatialExpansionUm;
-    private JCheckBox cbSpatialSaveParam;
 
 
     private JCheckBox  cbRescaleToTrainingPx;
@@ -155,15 +153,11 @@ public class NeuronWorkflowPane extends JPanel {
 
         p.add(Box.createVerticalGlue());
 
-        // in buildAdvanced()
-        cbDoSpatial = new JCheckBox("Perform spatial analysis (Hu neighbours)");
-        spSpatialExpansionUm = new JSpinner(new SpinnerNumberModel(6.5, 1.0, 50.0, 0.5));
-        cbSpatialSaveParam = new JCheckBox("Save parametric image");
+
+        cbDoSpatial = new JCheckBox("Perform spatial analysis");
 
         p.add(boxWith("Spatial analysis", column(
-                cbDoSpatial,
-                row(new JLabel("Expansion (µm):"), spSpatialExpansionUm),
-                cbSpatialSaveParam
+                cbDoSpatial
         )));
 
         tfCustomGangliaZip = new JTextField(28);
@@ -315,8 +309,6 @@ public class NeuronWorkflowPane extends JPanel {
         p.outputDir = emptyToNull(tfOutputDir.getText());
 
         p.doSpatialAnalysis     = cbDoSpatial.isSelected();
-        p.spatialExpansionUm    = ((Number) spSpatialExpansionUm.getValue()).doubleValue();
-        p.spatialSaveParametric = cbSpatialSaveParam.isSelected();
         p.spatialCellTypeName   = "Hu";
 
         p.huChannel = (int) spHuChannel.getValue();
@@ -358,10 +350,10 @@ public class NeuronWorkflowPane extends JPanel {
             @Override protected Void doInBackground() {
                 try {
                     if (path.isEmpty()) {
-                        // Show the standard ImageJ file chooser (File ▸ Open…)
+
                         IJ.open();
                     } else {
-                        // Open exactly the way ImageJ would from File ▸ Open…
+
                         IJ.open(path);
                     }
                 } catch (Throwable ex) {
