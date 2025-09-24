@@ -26,6 +26,7 @@ public class MultichannelPane extends JPanel {
     private JSpinner spHuChannel;
     private JTextField tfHuModelZip;
 
+    private JCheckBox cbDoSpatial;
 
     private JTextField tfGangliaRoiZip;
     private JButton btnBrowseGangliaRoi;
@@ -275,6 +276,12 @@ public class MultichannelPane extends JPanel {
                 row(new JLabel("Zip file:"), tfGangliaRoiZip, btnBrowseGangliaRoi));
         p.add(pnlCustomRoiBox);
 
+        cbDoSpatial = new JCheckBox("Perform spatial analysis");
+
+        p.add(box("Spatial analysis", column(
+                cbDoSpatial
+        )));
+
         JScrollPane scroll = new JScrollPane(
                 p,
                 ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED,
@@ -442,6 +449,9 @@ public class MultichannelPane extends JPanel {
 
         p.saveFlattenedOverlay = cbSaveOverlay.isSelected();
 
+        p.doSpatialAnalysis     = cbDoSpatial.isSelected();
+        p.spatialCellTypeName   = "Hu";
+
         p.requireMicronUnits     = cbRequireMicronUnits.isSelected();
         p.neuronSegLowerLimitUm  = ((Number)spNeuronSegLowerUm.getValue()).doubleValue();
         p.neuronSegMinMicron     = ((Number)spNeuronSegMinUm.getValue()).doubleValue();
@@ -508,6 +518,8 @@ public class MultichannelPane extends JPanel {
         tfImagePath = ensure(tfImagePath);
         tfImagePath.setText("/path/to/your/composite.tif");
         tfOutputDir.setText("");
+
+
 
         spHuChannel.setValue(3);
         tfHuModelZip.setText(new File(new File(IJ.getDirectory("imagej"), "models"), "2D_enteric_neuron_v4_1.zip").getAbsolutePath());

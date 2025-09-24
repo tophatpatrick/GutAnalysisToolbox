@@ -1,10 +1,13 @@
 package Features.AnalyseWorkflows;
 
+import Analysis.SpatialSingleCellType;
+import Analysis.SpatialTwoCellType;
 import Features.Core.Params;
 import Features.Tools.*;
 import UI.panes.Tools.ReviewUI;
 import ij.IJ;
 import ij.ImagePlus;
+import ij.WindowManager;
 import ij.gui.Roi;
 import ij.plugin.frame.RoiManager;
 import static Features.Tools.RoiManagerHelper.*;
@@ -222,7 +225,7 @@ public class NeuronsMultiPipeline {
 
             //Build our backdrop
             ImagePlus backdrop = ch.duplicate();
-            IJ.run(backdrop, "Green", "");
+            IJ.run(backdrop, "Red", "");
             IJ.resetMinAndMax(backdrop);
 
             progress.step("Review: " + m.name);
@@ -297,6 +300,7 @@ public class NeuronsMultiPipeline {
             }
         }
 
+
         // 6) Write the macro-style multi CSV
         OutputIO.writeMultiCsv(
                 new File(outDir, "Analysis_Hu_" + baseName + "_cell_counts_multi.csv"),
@@ -321,6 +325,10 @@ public class NeuronsMultiPipeline {
         rmRev.reset();
         maybeCloseRM(rmh);
 
+        if (mp.base.doSpatialAnalysis) {
+            runSpatialFromHu(mr, mp);
+            runSingleSpatialPerMarker(mr, mp);
+        }
 
         SwingUtilities.invokeLater(() -> UI.panes.Results.ResultsMultiUI.promptAndMaybeShow(mr));
     }
@@ -335,6 +343,96 @@ public class NeuronsMultiPipeline {
         }
         return out;
     }
+
+    // In NeuronsMultiPipeline (Java 8)
+
+    private void runSpatialFromHu(MultiResult mr, MultiParams p) {
+        if (mr == null || p == null) return;
+
+        // if you gate this with a checkbox:
+        // if (!Boolean.TRUE.equals(p.base.doSpatialAnalysis)) return;
+
+        if (p.markers.size() < 2) {
+            IJ.log("Spatial analysis skipped (need ≥ 2 markers).");
+            return;
+        }
+
+        // Same inputs the Spatial pane expects
+        String maxPath = new File(mr.outDir, "MAX_" + mr.baseName + ".tif").getAbsolutePath();
+        String gangliaZip = (mr.nGanglia != null && mr.nGanglia > 0)
+                ? new File(mr.outDir, "Ganglia_ROIs_" + mr.baseName + ".zip").getAbsolutePath()
+                : "NA";
+        String outDir = mr.outDir.getAbsolutePath();
+
+        double expansionUm = (p.base.spatialExpansionUm != null) ? p.base.spatialExpansionUm : 6.5;
+        boolean saveParametric = (p.base.spatialSaveParametric != null) && p.base.spatialSaveParametric;
+
+        for (int i = 0; i < p.markers.size(); i++) {
+            for (int j = i + 1; j < p.markers.size(); j++) {
+                MarkerSpec a = p.markers.get(i);
+                MarkerSpec b = p.markers.get(j);
+
+                String roiA = new File(mr.outDir, a.name + "_ROIs_" + mr.baseName + ".zip").getAbsolutePath();
+                String roiB = new File(mr.outDir, b.name + "_ROIs_" + mr.baseName + ".zip").getAbsolutePath();
+
+                if (!new File(roiA).isFile() || !new File(roiB).isFile()) {
+                    IJ.log("Spatial: missing ROI zips for " + a.name + " or " + b.name);
+                    continue;
+                }
+
+                try {
+                    new Analysis.TwoCellTypeAnalysis(
+                            maxPath,
+                            a.name, roiA,
+                            b.name, roiB,
+                            null,
+                            outDir,
+                            expansionUm,
+                            saveParametric
+                    ).execute();
+                } catch (Exception ex) {
+                    IJ.log("Spatial (" + a.name + " vs " + b.name + ") failed: " + ex.getMessage());
+                }
+            }
+        }
+    }
+
+    private void runSingleSpatialPerMarker(MultiResult mr, MultiParams p) {
+        if (mr == null || p == null) return;
+
+        String maxPath = new File(mr.outDir, "MAX_" + mr.baseName + ".tif").getAbsolutePath();
+        String gangliaZip = (mr.nGanglia != null && mr.nGanglia.intValue() > 0)
+                ? new File(mr.outDir, "Ganglia_ROIs_" + mr.baseName + ".zip").getAbsolutePath()
+                : "NA";
+        String outDir = mr.outDir.getAbsolutePath();
+
+        double expansionUm = (p.base.spatialExpansionUm != null) ? p.base.spatialExpansionUm.doubleValue() : 6.5;
+        boolean saveParametric = (p.base.spatialSaveParametric != null) && p.base.spatialSaveParametric.booleanValue();
+
+        for (int i = 0; i < p.markers.size(); i++) {
+            MarkerSpec m = p.markers.get(i);
+            String roiZip = new File(mr.outDir, m.name + "_ROIs_" + mr.baseName + ".zip").getAbsolutePath();
+            if (!new File(roiZip).isFile()) {
+                IJ.log("Spatial single: missing ROI zip for " + m.name);
+                continue;
+            }
+            try {
+                new Analysis.SingleCellTypeAnalysis(
+                        maxPath,
+                        roiZip,
+                        gangliaZip,         // your single analysis accepts "NA" too
+                        outDir,
+                        m.name,
+                        expansionUm,
+                        saveParametric
+                ).execute();
+            } catch (Exception ex) {
+                IJ.log("Spatial single (" + m.name + ") failed: " + ex.getMessage());
+            }
+        }
+    }
+
+
 
 
 

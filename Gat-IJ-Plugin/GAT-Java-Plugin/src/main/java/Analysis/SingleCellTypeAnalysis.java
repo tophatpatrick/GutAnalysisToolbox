@@ -31,7 +31,6 @@ public class SingleCellTypeAnalysis {
     public void execute() throws Exception {
         // Clear previous results
         IJ.run("Clear Results");
-        IJ.log("\\Clear");
         IJ.run("Close All");
 
         // Open the maximum projection image
@@ -52,9 +51,6 @@ public class SingleCellTypeAnalysis {
         // Get pixel size
         double pixelWidth = maxProjImage.getCalibration().pixelWidth;
         String unit = maxProjImage.getCalibration().getUnit();
-        if (!unit.equals("microns")) {
-            IJ.log("Image is not calibrated in microns. Output may be in pixels");
-        }
 
         // Reset ROI Manager
         RoiManager roiManager = RoiManager.getInstance();
@@ -103,11 +99,8 @@ public class SingleCellTypeAnalysis {
                 labelDilation, saveParametricImage, pixelWidth, roiPath);
 
         Thread.sleep(5);
-        IJ.log("Files saved at " + savePath);
 
         // Close all images
         IJ.run("Close All");
-
-        IJ.log("Neighbour Analysis complete");
     }
 }
