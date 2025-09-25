@@ -153,7 +153,7 @@ public class NeuronsMultiNoHuPipeline {
         if (mp.base.cellCountsPerGanglia) {
             progress.pulse("Ganglia: segment (" + mp.base.gangliaMode + ")");
             // No Hu labels in this pipeline → pass null for neuronLabels
-            ImagePlus gangliaOut = GangliaOps.segment(mp.base, max, /*neuronLabels=*/null);
+            ImagePlus gangliaOut = GangliaOps.segment(mp.base, max, /*neuronLabels=*/null,progress);
             progress.stopPulse("Ganglia: segmentation done");
 
             progress.step("Ganglia: label/export/areas");

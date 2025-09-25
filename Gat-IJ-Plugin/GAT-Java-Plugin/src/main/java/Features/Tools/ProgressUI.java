@@ -72,4 +72,8 @@ public final class ProgressUI implements AutoCloseable {
         ij.IJ.showProgress(1.0);
         ij.IJ.showStatus("");
     }
+
+    public void setVisible(boolean visible) {
+        SwingUtilities.invokeLater(() -> dialog.setVisible(visible));
+    }
 }

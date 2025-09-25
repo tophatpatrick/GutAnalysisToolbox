@@ -4,6 +4,7 @@ import Features.AnalyseWorkflows.NeuronsHuPipeline;
 import Features.Core.Params;
 import UI.panes.SettingPanes.*;
 import UI.panes.Tools.*;
+import UI.util.GatWindows;
 import ij.IJ;
 import ij.plugin.PlugIn;
 import mdlaf.MaterialLookAndFeel;
@@ -49,9 +50,9 @@ public class GatPluginUI implements PlugIn {
                 "GAT Plugin",
                 false
         );
+        GatWindows.install(dialog);
         dialog.setDefaultCloseOperation(WindowConstants.DISPOSE_ON_CLOSE);
         dialog.setLayout(new BorderLayout(8,8));
-//        dialog.setPreferredSize(new Dimension(900,550));
         Dimension fixedSize = new Dimension(950, 650);
         dialog.setPreferredSize(fixedSize);
         dialog.setMinimumSize(fixedSize);

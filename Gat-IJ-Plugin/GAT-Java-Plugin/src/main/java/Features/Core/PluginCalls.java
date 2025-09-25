@@ -1,14 +1,14 @@
 package Features.Core;
 
+import Features.Tools.ProgressUI;
 import Features.Tools.SilentRun;
 import ij.IJ;
 import ij.ImagePlus;
 import ij.ImageStack;
-import ij.plugin.RGBStackMerge;
 import ij.plugin.frame.RoiManager;
-import ij.process.FloatProcessor;
-import ij.process.ImageProcessor;
 
+import javax.swing.*;
+import java.awt.*;
 import java.io.File;
 import java.text.DecimalFormat;
 
@@ -276,7 +276,7 @@ public final class PluginCalls {
     // full macro-faithful path for ganglia (RGB + im_preprocessing + DIJ + post)
     public static ImagePlus runDeepImageJForGanglia(
             ImagePlus maxProj, int gangliaCh1, int huCh1,
-            String modelFolderName, double minAreaUm2, Params p) {
+            String modelFolderName, double minAreaUm2, Params p, ProgressUI progress) {
 
         GangliaPrep prep = prepareGangliaInputs(maxProj, gangliaCh1, huCh1);
         ImagePlus in3C = prep.dijInput3C;        // feed DIJ
@@ -316,6 +316,7 @@ public final class PluginCalls {
         // --- Interactive review ---
         if (p != null && p.gangliaInteractiveReview) {
             ij.macro.Interpreter.batchMode = false;
+            progress.setVisible(false);
 
             out.setTitle("ganglia_mask");
 
@@ -334,19 +335,18 @@ public final class PluginCalls {
 
             // set brush tool robustly (Toolbar API + string fallback)
 
-            IJ.setTool("brush");
+            IJ.setTool("Paintbrush Tool");
 
             // ensure FG/BG are correct for painting; X will toggle them
             IJ.setForegroundColor(255, 255, 255);   // WHITE = add
             IJ.setBackgroundColor(0, 0, 0);         // BLACK = remove
 
             // the caption you liked before
-            new ij.gui.WaitForUserDialog(
+            showPaintPalette(
+                    out.getWindow(),                       // owner; use GatWindows.owner() if you prefer
                     "Ganglia overlay",
-                    "Paint on the window titled 'ganglia_mask'.\n" +
-                            "WHITE adds ganglia, BLACK removes (press 'X' to toggle).\n" +
-                            "Click OK when done."
-            ).show();
+                    "Paint on 'ganglia_mask'. WHITE adds, BLACK removes."
+            );
 
             // clean up + hide the review window so it doesn't reappear later
             IJ.run(out, "Select None", "");
@@ -354,6 +354,7 @@ public final class PluginCalls {
             if (out.getWindow() != null) out.hide();
 
             ij.macro.Interpreter.batchMode = true;
+            progress.setVisible(true);
 
             // optional tidy
             rgbColor.changes = false; rgbColor.close();
@@ -421,6 +422,66 @@ public final class PluginCalls {
         rm.runCommand(mask, "Fill");
         return mask;
     }
+
+    // --- keep these tiny helpers (or add them if you don't have them) ---
+    private static void setAddMode() { ij.IJ.setForegroundColor(255,255,255); ij.IJ.setBackgroundColor(0,0,0); }
+    private static void setEraseMode(){ ij.IJ.setForegroundColor(0,0,0);     ij.IJ.setBackgroundColor(255,255,255); }
+
+    /** Modeless palette: user can paint on the image while it's open.
+     *  Blocks the calling (pipeline) thread until "Done" is pressed (uses a latch).
+     */
+    public static void showPaintPalette(java.awt.Window owner, String title, String helpLine) {
+        // start in ADD mode by default
+        setAddMode();
+
+        final java.util.concurrent.CountDownLatch latch = new java.util.concurrent.CountDownLatch(1);
+
+        final JDialog dlg = new JDialog(owner, title, Dialog.ModalityType.MODELESS);
+        dlg.setAlwaysOnTop(true);
+        dlg.setDefaultCloseOperation(WindowConstants.DISPOSE_ON_CLOSE);
+
+        JPanel root = new JPanel(new BorderLayout(8,8));
+        root.setBorder(BorderFactory.createEmptyBorder(10,10,10,10));
+
+        if (helpLine != null && !helpLine.isEmpty()) {
+            JLabel tip = new JLabel("<html>" + helpLine + "<br/>Tip: press <b>X</b> in ImageJ to swap.</html>");
+            root.add(tip, BorderLayout.NORTH);
+        }
+
+        JPanel row = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
+        JToggleButton mode = new JToggleButton("Add (white)");
+        JButton done = new JButton("Done");
+
+        mode.addActionListener(e -> {
+            if (mode.isSelected()) { setEraseMode(); mode.setText("Erase (black)"); }
+            else                   { setAddMode();   mode.setText("Add (white)");   }
+        });
+        done.addActionListener(e -> { dlg.dispose(); latch.countDown(); });
+
+        row.add(mode); row.add(done);
+        root.add(row, BorderLayout.CENTER);
+
+        dlg.setContentPane(root);
+        dlg.pack();
+        dlg.setResizable(false);
+        dlg.setLocationRelativeTo(owner);
+        dlg.setVisible(true);
+
+        // Give focus back to the image window/canvas right after showing the palette
+        if (owner != null) {
+            SwingUtilities.invokeLater(() -> {
+                owner.toFront();
+                owner.requestFocus();
+            });
+        }
+
+        // Block ONLY the calling thread (not the EDT). Your pipeline should be off the EDT.
+        if (!SwingUtilities.isEventDispatchThread()) {
+            try { latch.await(); } catch (InterruptedException ie) { Thread.currentThread().interrupt(); }
+        }
+    }
+
+
 
 
 

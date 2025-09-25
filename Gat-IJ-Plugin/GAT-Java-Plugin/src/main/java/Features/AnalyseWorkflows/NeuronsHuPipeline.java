@@ -2,9 +2,11 @@ package Features.AnalyseWorkflows;
 
 import Analysis.SpatialSingleCellType;
 import UI.panes.Results.ResultsUI;
+import UI.util.GatWindows;
 import ij.IJ;
 import ij.ImagePlus;
 import ij.WindowManager;
+import ij.gui.WaitForUserDialog;
 import ij.measure.Calibration;
 import ij.plugin.filter.EDM;
 import ij.plugin.frame.RoiManager;
@@ -171,12 +173,15 @@ public class NeuronsHuPipeline {
 
 // show RM overlay on top of Hu
         huReview.show();
+        GatWindows.nudgeFront(huReview.getWindow());
+        GatWindows.nudgeFront(rm);
         rm.setVisible(true);
         rm.runCommand(huReview, "Show All with labels");
+        progress.setVisible(false);
 
 // let user edit: draw new ROIs (Polygon/Freehand) + press 'T' to add; select + Delete to remove
         IJ.setTool("polygon");
-        new ij.gui.WaitForUserDialog(
+        new WaitForUserDialog(
                 "Neuron ROIs review",
                 "Review Hu + ROIs.\n" +
                         "• Draw a new ROI and press 'T' to add\n" +
@@ -190,6 +195,7 @@ public class NeuronsHuPipeline {
         rm.runCommand(huReview, "Show All without labels");
 
         ij.macro.Interpreter.batchMode = true;
+        progress.setVisible(true);
 
 
 // paint ROIs → binary → labels, at MAX size
@@ -255,8 +261,10 @@ public class NeuronsHuPipeline {
         if (p.cellCountsPerGanglia) {
             progress.step("Segmenting Ganglia");
             // A) Segment ganglia (raw labels from chosen method)
-            ImagePlus gangliaLabelsRaw = GangliaOps.segment(p, max, labels);
+
+            ImagePlus gangliaLabelsRaw = GangliaOps.segment(p, max, labels,progress);
             gangliaLabelsRaw.setCalibration(max.getCalibration());
+
 
             progress.step("Ganglia: pre-count");
             // B) Count neurons per RAW ganglion (to know which have ≥1 neuron)
