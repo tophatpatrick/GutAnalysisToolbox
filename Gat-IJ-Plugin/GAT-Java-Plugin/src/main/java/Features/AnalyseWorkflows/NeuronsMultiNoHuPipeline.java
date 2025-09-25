@@ -153,7 +153,7 @@ public class NeuronsMultiNoHuPipeline {
         if (mp.base.cellCountsPerGanglia) {
             progress.pulse("Ganglia: segment (" + mp.base.gangliaMode + ")");
             // No Hu labels in this pipeline → pass null for neuronLabels
-            ImagePlus gangliaOut = GangliaOps.segment(mp.base, max, /*neuronLabels=*/null);
+            ImagePlus gangliaOut = GangliaOps.segment(mp.base, max, /*neuronLabels=*/null,progress);
             progress.stopPulse("Ganglia: segmentation done");
 
             progress.step("Ganglia: label/export/areas");
@@ -359,6 +359,9 @@ public class NeuronsMultiNoHuPipeline {
                 (gangliaLabels != null ? Integer.valueOf(nGanglia) : null),
                 gangliaAreaUm2
         );
+        if (mp.base.doSpatialAnalysis) {
+            runSingleSpatialPerMarker(result, mp);
+        }
         maybeCloseRM(rmh);
         SwingUtilities.invokeLater(() ->
                 UI.panes.Results.ResultsMultiNoHuUI.promptAndMaybeShow(result)
@@ -398,5 +401,52 @@ public class NeuronsMultiNoHuPipeline {
         return relabeled;
     }
 
+    private void runSingleSpatialPerMarker(NoHuResult mr, MultiParams p) {
+        if (mr == null || p == null) return;
 
+        String maxPath = new File(mr.outDir, "MAX_" + mr.baseName + ".tif").getAbsolutePath();
+        String gangliaZip = (mr.nGanglia != null && mr.nGanglia > 0)
+                ? new File(mr.outDir, "Ganglia_ROIs_" + mr.baseName + ".zip").getAbsolutePath()
+                : "NA";
+        String outDir = mr.outDir.getAbsolutePath();
+
+        double expansionUm = (p.base.spatialExpansionUm != null) ? p.base.spatialExpansionUm : 6.5;
+        boolean saveParametric = (p.base.spatialSaveParametric != null) && p.base.spatialSaveParametric;
+
+        // include Hu + all subtype markers
+        java.util.List<String> names = new java.util.ArrayList<>();
+        for (MarkerSpec m : p.markers) names.add(m.name);
+
+        for (String name : names) {
+            // Hu uses the pre-existing Neuron_ROIs_<baseName>.zip
+            File roiZipFile = new File(mr.outDir, name + "_ROIs_" + mr.baseName + ".zip");
+
+            // fallback if someone saved Hu under a different scheme
+            if (!roiZipFile.isFile() && name.equals("Hu")) {
+                File alt = new File(mr.outDir, "Hu_ROIs_" + mr.baseName + ".zip");
+                if (alt.isFile()) roiZipFile = alt;
+            }
+
+            if (!roiZipFile.isFile()) {
+                IJ.log("Spatial single: missing ROI zip for " + name + " (" + roiZipFile.getName() + ")");
+                continue;
+            }
+
+            try {
+                new Analysis.SingleCellTypeAnalysis(
+                        maxPath,
+                        roiZipFile.getAbsolutePath(),
+                        null,
+                        outDir,
+                        name,
+                        expansionUm,
+                        saveParametric
+                ).execute();
+            } catch (Exception ex) {
+                IJ.log("Spatial single (" + name + ") failed: " + ex.getMessage());
+            }
+        }
+
+
+    }
 }

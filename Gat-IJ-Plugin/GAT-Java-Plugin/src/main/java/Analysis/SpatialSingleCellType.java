@@ -105,7 +105,6 @@ public class SpatialSingleCellType {
         neighborMap.close();
         neighborImg.close(); // safe to close, never showed
 
-        IJ.log("Saved cell_labels.tif and neighbor counts CSV for " + cellType);
     }
 }
 

@@ -7,13 +7,14 @@ import UI.util.InputValidation;
 import ij.IJ;
 
 import javax.swing.*;
-import javax.swing.border.TitledBorder;
+import static UI.util.FormUI.*;
 import java.awt.*;
 import java.io.File;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 import java.util.Locale;
 import java.util.Objects;
+
 
 /**
  * Neuron Workflow pane with Basic & Advanced tabs.
@@ -39,10 +40,13 @@ public class NeuronWorkflowPane extends JPanel {
     private JPanel pnlGangliaModel;
     private JPanel pnlCustomZipBasic;
 
+    private JButton runBtn;
+
     private JTextField tfCustomGangliaZip;
     private JButton btnBrowseCustomRoiZip;
 
-    private JButton runBtn;
+    private JCheckBox cbDoSpatial;
+
 
     private JCheckBox  cbRescaleToTrainingPx;
     private JSpinner   spTrainingPixelSizeUm;   // double
@@ -82,6 +86,9 @@ public class NeuronWorkflowPane extends JPanel {
         tabs.addTab("Advanced", buildAdvancedTab());
         add(tabs, BorderLayout.CENTER);
 
+        ToolTipManager.sharedInstance().setInitialDelay(200);
+        ToolTipManager.sharedInstance().setDismissDelay(15000);
+
         JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT));
         JButton runBtn = new JButton("Run Analysis");
         runBtn.addActionListener(e -> onRun(runBtn));
@@ -109,6 +116,7 @@ public class NeuronWorkflowPane extends JPanel {
     // ---------------- UI builders ----------------
 
     private JPanel buildBasicTab() {
+        JPanel outer = new JPanel(new BorderLayout());
         JPanel p = new JPanel();
         p.setLayout(new BoxLayout(p, BoxLayout.Y_AXIS));
 
@@ -120,45 +128,115 @@ public class NeuronWorkflowPane extends JPanel {
         btnPreviewImage = new JButton("Preview");
         btnPreviewImage.addActionListener(e -> previewImage());
 
-        p.add(boxWith("Input image (.tif, .lif, etc.)", row(tfImagePath, btnBrowseImage, btnPreviewImage)));
+        String imgHelp =
+                "<b>What to select:</b> image to analyse (must be Hu-Stained).<br/>"
+                        + "<b>Tip:</b> click <i>Preview</i> one you have selected an image to view it.";
+
+        p.add(boxWithHelp(
+                "Input image (.tif, .lif, etc.)",
+                row(tfImagePath, btnBrowseImage, btnPreviewImage),
+                imgHelp
+        ));
 
 
         // Hu channel
-        spGangliaChannel     = new JSpinner(new SpinnerNumberModel(2, 1, 16, 1));
         spHuChannel = new JSpinner(new SpinnerNumberModel(3, 1, 16, 1));
-        p.add(boxWith("Image Channels", grid2(
-                new JLabel("Hu Channel:"),      spHuChannel,
-                new JLabel("Ganglia Channel"),  spGangliaChannel
-        )));
+
+        String channelHelp =
+                "<b>Hu Channel:</b> Select the channel number which corresponds to the hu-stained channel.<br/>";
+
+        p.add(boxWithHelp(
+                "Channel Selection",
+                leftWrap(grid2(
+                        new JLabel("Hu Channel:"),     spHuChannel
+                )),
+                channelHelp
+        ));
 
         // Output dir
         tfOutputDir = new JTextField(36);
         btnBrowseOutput = new JButton("Browse…");
         btnBrowseOutput.addActionListener(e -> chooseFile(tfOutputDir, JFileChooser.DIRECTORIES_ONLY));
-        p.add(boxWith("Output directory (optional; default: Analysis/<basename>)", row(tfOutputDir, btnBrowseOutput)));
-
-
-        // EDF / overlay / ganglia toggle
         cbSaveFlattenedOverlay = new JCheckBox("Save flattened overlay");
+
+        String outputHelp =
+                "<b>Output:</b> Choose where you want your images to be saved to (optional; default: Analysis/<basename> at your image location) , and optionally choose to save a flattened image.<br/>";
+
+        p.add(boxWithHelp(
+                "Output Location",
+                column(row(tfOutputDir, btnBrowseOutput),cbSaveFlattenedOverlay),
+                outputHelp
+        ));
+
+
+        // Ganglia settings
+        spGangliaChannel     = new JSpinner(new SpinnerNumberModel(2, 1, 16, 1));
         cbGangliaAnalysis = new JCheckBox("Run ganglia analysis");
         cbGangliaMode = new JComboBox<>(Params.GangliaMode.values());
-        p.add(boxWith("Options", column(
-                cbSaveFlattenedOverlay,
-                row(new JLabel("Ganglia mode:"), cbGangliaMode),
-                cbGangliaAnalysis
-        )));
 
-        p.add(Box.createVerticalGlue());
+
+        String gangliaHelp =
+                "<b>Ganglia options:</b> Detect and measure ganglia when you have a Hu-stained channel. "
+                        + "These settings apply only if <i>Run ganglia analysis</i> is checked.<br/><br/>"
+
+                        + "<b>Channels (1-based):</b>"
+                        + "<ul style='margin-top:4px'>"
+                        + "<li><b>Ganglia channel</b> – the channel that best highlights ganglia structures "
+                        + "(e.g., perineurial/glial signal or a counterstain used by the detector).</li>"
+                        + "</ul>"
+
+                        + "<b>Ganglia mode:</b>"
+                        + "<ul style='margin-top:4px'>"
+                        + "<li><b>DEEPIMAGEJ</b> – runs a trained model to propose ganglia ROIs. "
+                        + "</li>"
+                        + "<li><b>IMPORT ROI</b> – reuse ganglia from an existing <code>.zip</code> of ROIs "
+                        + "(e.g., from a previous run).</li>"
+                        + "<li><b>DEFINE FROM HU</b> – derives ganglia regions from the Hu channel by clustering "
+                        + "Hu-positive cells and linking nearby clusters.</li>"
+                        + "<li><b>MANUAL</b> – draw the ganglia regions yourself.</li>"
+                        + "</ul>";
+
+        p.add(boxWithHelp("Ganglia Options",
+                column(
+                       leftWrap( grid2Compact(
+                                new JLabel("Ganglia Channel:"), limitWidth(spGangliaChannel, 56),
+                                new JLabel("Ganglia mode:"),    limitWidth(cbGangliaMode, 180)
+                        )),
+                        cbGangliaAnalysis
+                ),
+                gangliaHelp));
+
+
+        cbDoSpatial = new JCheckBox("Perform spatial analysis");
+
+
 
         tfCustomGangliaZip = new JTextField(28);
         btnBrowseCustomRoiZip = new JButton("Browse…");
         btnBrowseCustomRoiZip.addActionListener(e -> chooseFile(tfCustomGangliaZip, JFileChooser.FILES_ONLY));
 
         // Keep a handle so we can show/hide from updateGangliaUI()
-        pnlCustomZipBasic = boxWith("Import ganglia ROIs (.zip)",
+        pnlCustomZipBasic = box("Import ganglia ROIs (.zip)",
                 row(tfCustomGangliaZip, btnBrowseCustomRoiZip));
         p.add(pnlCustomZipBasic);
-        return p;
+
+        String spatialHelp =
+                "<b>Spatial Analysis:</b> Save a CSV with spatial analysis data of neurons.<br/>";
+
+        p.add(boxWithHelp("Spatial analysis",
+                leftWrap(column(cbDoSpatial)),
+                spatialHelp
+        ));
+
+        JScrollPane scroll = new JScrollPane(
+                p,
+                ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED,
+                ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER
+        );
+        scroll.getVerticalScrollBar().setUnitIncrement(16);
+
+        outer.add(scroll, BorderLayout.CENTER);
+        return outer;
     }
 
     private JPanel buildAdvancedTab() {
@@ -173,7 +251,7 @@ public class NeuronWorkflowPane extends JPanel {
         spNeuronSegMinMicron     = new JSpinner(new SpinnerNumberModel(70.0, 0.0, 10000.0, 1.0));
         spTrainingRescaleFactor  = new JSpinner(new SpinnerNumberModel(1.0, 0.01, 100.0, 0.01));
 
-        p.add(boxWith("Calibration & size filtering", column(
+        p.add(box("Calibration & size filtering", column(
                 cbRequireMicronUnits,
                 grid2(new JLabel("Neuron seg lower limit (µm):"), spNeuronSegLowerLimitUm,
                         new JLabel("Neuron seg min (µm)       :"),   spNeuronSegMinMicron,
@@ -184,12 +262,12 @@ public class NeuronWorkflowPane extends JPanel {
         tfModelZip = new JTextField(36);
         btnBrowseModel = new JButton("Browse…");
         btnBrowseModel.addActionListener(e -> chooseFile(tfModelZip, JFileChooser.FILES_ONLY));
-        p.add(boxWith("StarDist model (.zip)", row(tfModelZip, btnBrowseModel)));
+        p.add(box("StarDist model (.zip)", row(tfModelZip, btnBrowseModel)));
 
         // StarDist thresholds
         spProbThresh = new JSpinner(new SpinnerNumberModel(0.5, 0.0, 1.0, 0.05));
         spNmsThresh  = new JSpinner(new SpinnerNumberModel(0.3, 0.0, 1.0, 0.05));
-        p.add(boxWith("StarDist thresholds", grid2(
+        p.add(box("StarDist thresholds", grid2(
                 new JLabel("Probability:"), spProbThresh,
                 new JLabel("NMS:"),         spNmsThresh
         )));
@@ -198,14 +276,14 @@ public class NeuronWorkflowPane extends JPanel {
         // Rescale + training px size
         cbRescaleToTrainingPx = new JCheckBox("Rescale to training pixel size");
         spTrainingPixelSizeUm = new JSpinner(new SpinnerNumberModel(0.568, 0.01, 100.0, 0.001));
-        p.add(boxWith("Rescaling", column(cbRescaleToTrainingPx, row(new JLabel("Training pixel size (µm):"), spTrainingPixelSizeUm))));
+        p.add(box("Rescaling", column(cbRescaleToTrainingPx, row(new JLabel("Training pixel size (µm):"), spTrainingPixelSizeUm))));
 
 
         tfGangliaModelFolder = new JTextField(28);
         btnBrowseGangliaModelFolder = new JButton("Browse…");
         btnBrowseGangliaModelFolder.addActionListener(e -> chooseFolderName(tfGangliaModelFolder));
 
-        pnlGangliaModel = boxWith("Ganglia model",
+        pnlGangliaModel = box("Ganglia model",
                 row(new JLabel(""), tfGangliaModelFolder, btnBrowseGangliaModelFolder));
         p.add(pnlGangliaModel);
 
@@ -215,13 +293,13 @@ public class NeuronWorkflowPane extends JPanel {
         spGangliaOpenIterations  = new JSpinner(new SpinnerNumberModel(3, 0, 50, 1));
         cbGangliaInteractiveReview = new JCheckBox("Interactive review overlay");
 
-        p.add(boxWith("Ganglia post-processing", grid2(
+        p.add(box("Ganglia post-processing", grid2(
                 new JLabel("Hu dilation (µm):"),      spHuDilationMicron,
                 new JLabel("Prob threshold (0–1):"),  spGangliaProbThresh01,
                 new JLabel("Min area (µm²):"),        spGangliaMinAreaUm2,
                 new JLabel("Open iterations:"),       spGangliaOpenIterations
         )));
-        p.add(boxWith("Review", cbGangliaInteractiveReview));
+        p.add(box("Review", cbGangliaInteractiveReview));
 
         p.add(Box.createVerticalStrut(8));
 
@@ -298,6 +376,9 @@ public class NeuronWorkflowPane extends JPanel {
         p.imagePath = emptyToNull(tfImagePath.getText());
         p.outputDir = emptyToNull(tfOutputDir.getText());
 
+        p.doSpatialAnalysis     = cbDoSpatial.isSelected();
+        p.spatialCellTypeName   = "Hu";
+
         p.huChannel = (int) spHuChannel.getValue();
 
         p.stardistModelZip = tfModelZip.getText();
@@ -337,10 +418,10 @@ public class NeuronWorkflowPane extends JPanel {
             @Override protected Void doInBackground() {
                 try {
                     if (path.isEmpty()) {
-                        // Show the standard ImageJ file chooser (File ▸ Open…)
+
                         IJ.open();
                     } else {
-                        // Open exactly the way ImageJ would from File ▸ Open…
+
                         IJ.open(path);
                     }
                 } catch (Throwable ex) {
@@ -402,18 +483,7 @@ public class NeuronWorkflowPane extends JPanel {
         return s.isEmpty() ? null : s;
     }
 
-    private static JPanel boxWith(String title, Component content) {
-        JPanel box = new JPanel(new BorderLayout());
-        box.setBorder(BorderFactory.createTitledBorder(
-                BorderFactory.createEtchedBorder(),
-                title,
-                TitledBorder.LEFT,
-                TitledBorder.TOP
-        ));
-        box.add(content, BorderLayout.CENTER);
-        box.setAlignmentX(Component.LEFT_ALIGNMENT);
-        return box;
-    }
+
 
     private static JPanel column(JComponent... comps) {
         JPanel col = new JPanel();
@@ -431,21 +501,6 @@ public class NeuronWorkflowPane extends JPanel {
         for (JComponent c : comps) r.add(c);
         r.setAlignmentX(Component.LEFT_ALIGNMENT);
         return r;
-    }
-
-    private static JPanel grid2(Component... kvPairs) {
-        JPanel g = new JPanel(new GridBagLayout());
-        GridBagConstraints lc = new GridBagConstraints();
-        GridBagConstraints rc = new GridBagConstraints();
-        lc.gridx = 0; lc.gridy = 0; lc.anchor = GridBagConstraints.WEST; lc.insets = new Insets(3,3,3,3);
-        rc.gridx = 1; rc.gridy = 0; rc.weightx = 1; rc.fill = GridBagConstraints.HORIZONTAL; rc.insets = new Insets(3,3,3,3);
-        for (int i = 0; i < kvPairs.length; i += 2) {
-            g.add(kvPairs[i], lc);
-            g.add(kvPairs[i+1], rc);
-            lc.gridy++; rc.gridy++;
-        }
-        g.setAlignmentX(Component.LEFT_ALIGNMENT);
-        return g;
     }
 
     private void chooseFile(JTextField target, int mode) {
@@ -513,5 +568,6 @@ public class NeuronWorkflowPane extends JPanel {
         String name = f.getName().toLowerCase(Locale.ROOT);
         return f.isFile() && name.endsWith(".zip");
     }
+
 
 }

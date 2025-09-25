@@ -1,8 +1,12 @@
 package Features.AnalyseWorkflows;
 
+import Analysis.SpatialSingleCellType;
 import UI.panes.Results.ResultsUI;
+import UI.util.GatWindows;
 import ij.IJ;
 import ij.ImagePlus;
+import ij.WindowManager;
+import ij.gui.WaitForUserDialog;
 import ij.measure.Calibration;
 import ij.plugin.filter.EDM;
 import ij.plugin.frame.RoiManager;
@@ -169,12 +173,15 @@ public class NeuronsHuPipeline {
 
 // show RM overlay on top of Hu
         huReview.show();
+        GatWindows.nudgeFront(huReview.getWindow());
+        GatWindows.nudgeFront(rm);
         rm.setVisible(true);
         rm.runCommand(huReview, "Show All with labels");
+        progress.setVisible(false);
 
 // let user edit: draw new ROIs (Polygon/Freehand) + press 'T' to add; select + Delete to remove
         IJ.setTool("polygon");
-        new ij.gui.WaitForUserDialog(
+        new WaitForUserDialog(
                 "Neuron ROIs review",
                 "Review Hu + ROIs.\n" +
                         "• Draw a new ROI and press 'T' to add\n" +
@@ -188,6 +195,7 @@ public class NeuronsHuPipeline {
         rm.runCommand(huReview, "Show All without labels");
 
         ij.macro.Interpreter.batchMode = true;
+        progress.setVisible(true);
 
 
 // paint ROIs → binary → labels, at MAX size
@@ -253,8 +261,10 @@ public class NeuronsHuPipeline {
         if (p.cellCountsPerGanglia) {
             progress.step("Segmenting Ganglia");
             // A) Segment ganglia (raw labels from chosen method)
-            ImagePlus gangliaLabelsRaw = GangliaOps.segment(p, max, labels);
+
+            ImagePlus gangliaLabelsRaw = GangliaOps.segment(p, max, labels,progress);
             gangliaLabelsRaw.setCalibration(max.getCalibration());
+
 
             progress.step("Ganglia: pre-count");
             // B) Count neurons per RAW ganglion (to know which have ≥1 neuron)
@@ -324,6 +334,10 @@ public class NeuronsHuPipeline {
                         gangliaLabels, r.countsPerGanglion, r.areaUm2, nG
                 );
 
+                if (p.doSpatialAnalysis) {
+                    runSpatialFromHu(result, p);
+                }
+
                 SwingUtilities.invokeLater(() -> ResultsUI.promptAndMaybeShow(result));
 
                 return null;
@@ -332,6 +346,8 @@ public class NeuronsHuPipeline {
 
 
         }
+
+
 
         ij.macro.Interpreter.batchMode = prevBatch;
         if (ownProgress) progress.close();
@@ -345,6 +361,9 @@ public class NeuronsHuPipeline {
                     outDir, baseName, max, labels, nHu,
                     null,null,null,null
             );
+            if (p.doSpatialAnalysis) {
+                runSpatialFromHu(result, p);
+            }
             maybeCloseRM(rmh);
             SwingUtilities.invokeLater(() -> ResultsUI.promptAndMaybeShow(result));
             return null;
@@ -359,6 +378,36 @@ public class NeuronsHuPipeline {
     private static String stripExt(String name) {
         int dot = name.lastIndexOf('.');
         return dot > 0 ? name.substring(0, dot) : name;
+    }
+
+
+    private void runSpatialFromHu(HuResult hu, Params p) {
+        // 1) Ensure the Hu label map is an open ImageJ window with a known title
+        ImagePlus huLabels = hu.neuronLabels.duplicate();
+        huLabels.setTitle("Cell_labels"); // matches Single pane convention
+        huLabels.show();                  // SpatialSingleCellType looks up by WindowManager title
+
+
+        // 5) Fire your existing spatial code (no ROI zips needed here)
+        try {
+            SpatialSingleCellType.execute(
+                    p.spatialCellTypeName != null ? p.spatialCellTypeName : "Hu",
+                    huLabels.getTitle(),   // title of the shown Hu label image
+                    "NA",                  // gangliaBinary not used
+                    hu.outDir.getAbsolutePath(),
+                    p.spatialExpansionUm != null ? p.spatialExpansionUm : 6.5,
+                    Boolean.TRUE.equals(p.spatialSaveParametric),
+                    (hu.max.getCalibration() != null && hu.max.getCalibration().pixelWidth > 0)
+                            ? hu.max.getCalibration().pixelWidth : 1.0,
+                    "NA"                   // roiPath not used
+            );
+        } catch (Exception ex) {
+            IJ.log("Spatial analysis failed: " + ex.getMessage());
+        } finally {
+            // tidy the transient windows we created
+            ImagePlus c = WindowManager.getImage(huLabels.getTitle());
+            if (c != null) { c.changes = false; c.close(); }
+        }
     }
 
     public static void applyWatershedInPlace(ImagePlus bin) {

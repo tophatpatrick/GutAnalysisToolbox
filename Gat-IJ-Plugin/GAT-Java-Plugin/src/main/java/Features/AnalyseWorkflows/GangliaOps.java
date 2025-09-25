@@ -2,6 +2,7 @@ package Features.AnalyseWorkflows;
 
 import Features.Core.Params;
 import Features.Core.PluginCalls;
+import Features.Tools.ProgressUI;
 import ij.IJ;
 import ij.ImagePlus;
 import ij.gui.WaitForUserDialog;
@@ -14,7 +15,7 @@ public final class GangliaOps {
     private GangliaOps(){}
 
     /** Main entry: produce a ganglia LABEL image from the chosen method. */
-    public static ImagePlus segment(Params p, ImagePlus maxProjection, ImagePlus neuronLabels) {
+    public static ImagePlus segment(Params p, ImagePlus maxProjection, ImagePlus neuronLabels, ProgressUI progress) {
         switch (p.gangliaMode) {
             case DEFINE_FROM_HU:
                 return defineFromHu(p, neuronLabels, maxProjection);
@@ -24,7 +25,7 @@ public final class GangliaOps {
                 return manualDrawToLabels(p,maxProjection);
             case DEEPIMAGEJ:
             default:
-                return deepImageJ(p, maxProjection);
+                return deepImageJ(p, maxProjection, progress);
         }
     }
 
@@ -77,12 +78,12 @@ public final class GangliaOps {
 
     // ---------- methods (reuse PluginCalls everywhere possible) ----------
 
-    private static ImagePlus deepImageJ(Params p, ImagePlus maxProjection) {
+    private static ImagePlus deepImageJ(Params p, ImagePlus maxProjection, ProgressUI progress) {
         int fibresCh = (p.gangliaChannel > 0) ? p.gangliaChannel : 1;
         int cellCh   = (p.gangliaCellChannel != null && p.gangliaCellChannel > 0) ? p.gangliaCellChannel : p.huChannel;
         double minArea = (p.gangliaMinAreaUm2 != null) ? p.gangliaMinAreaUm2 : 200.0;
         ImagePlus bin = PluginCalls.runDeepImageJForGanglia(
-                maxProjection, fibresCh, cellCh, p.gangliaModelFolder, minArea, p);
+                maxProjection, fibresCh, cellCh, p.gangliaModelFolder, minArea, p, progress);
 
 
         ImagePlus labels = PluginCalls.binaryToLabels(bin);

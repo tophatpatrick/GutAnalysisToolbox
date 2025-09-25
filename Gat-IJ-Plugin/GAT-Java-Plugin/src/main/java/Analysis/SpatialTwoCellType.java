@@ -106,7 +106,6 @@ public class SpatialTwoCellType {
             createParametricImage(clij2, cellImg2, countsCell1AroundCell2, cellType1 + "_around_" + cellType2, spatialSavePath);
         }
 
-        IJ.log("Saved neighbor counts CSV and parametric images for " + cellType1 + " and " + cellType2);
     }
 
     private static int[] countNeighboursAroundRef(CLIJ2 clij2, ImagePlus refImg, ImagePlus markerImg,
@@ -275,41 +274,29 @@ public class SpatialTwoCellType {
         paramImg.close();
     }
 
-    private static String[] getRoiLabels(String roiPath, String cellImage) {
-        RoiManager roiManager = RoiManager.getInstance();
-        if (roiManager == null) {
-            roiManager = new RoiManager();
-        }
-        roiManager.reset();
+    private static String[] getRoiLabels(String roiZipPath, String cellImage) {
+        RoiManager rm = RoiManager.getInstance();
+        if (rm == null) rm = new RoiManager();
+        rm.reset();
+        rm.runCommand("Open", roiZipPath);
 
-        roiManager.runCommand("Open", roiPath);
+        ij.gui.Roi[] rois = rm.getRoisAsArray();
+        String[] labels = new String[rois.length];
 
-        ImagePlus img = WindowManager.getImage(cellImage);
-        if (img != null) {
-            img.show();
-            IJ.run("Set Measurements...", "centroid display redirect=None decimal=3");
-            roiManager.runCommand("Deselect");
-            roiManager.runCommand("Measure");
-
-            // Process ROI names
-            ResultsTable results = ResultsTable.getResultsTable();
-            String[] labels = new String[results.size()];
-
-            for (int i = 0; i < results.size(); i++) {
-                String label = results.getLabel(i);
-                if (label != null && label.contains(":")) {
-                    int colonIndex = label.indexOf(":");
-                    labels[i] = label.substring(colonIndex + 1);
-                } else {
-                    labels[i] = String.valueOf(i + 1);
-                }
+        for (int i = 0; i < rois.length; i++) {
+            String name = (rois[i] != null) ? rois[i].getName() : null;
+            if (name == null || name.isEmpty()) {
+                labels[i] = String.valueOf(i + 1);
+            } else {
+                int colon = name.indexOf(':'); // strip "Label: 17" → "17"
+                labels[i] = (colon >= 0 && colon < name.length() - 1)
+                        ? name.substring(colon + 1)
+                        : name;
             }
-
-            IJ.run("Clear Results");
-            return labels;
         }
 
-        return new String[0];
+        rm.reset();
+        return labels;
     }
 }
 

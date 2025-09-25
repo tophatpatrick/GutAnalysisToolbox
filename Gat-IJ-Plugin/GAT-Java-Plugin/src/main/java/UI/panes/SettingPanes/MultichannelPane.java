@@ -8,6 +8,7 @@ import ij.IJ;
 import javax.swing.*;
 import javax.swing.border.TitledBorder;
 import java.awt.*;
+import static UI.util.FormUI.*;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
@@ -26,6 +27,7 @@ public class MultichannelPane extends JPanel {
     private JSpinner spHuChannel;
     private JTextField tfHuModelZip;
 
+    private JCheckBox cbDoSpatial;
 
     private JTextField tfGangliaRoiZip;
     private JButton btnBrowseGangliaRoi;
@@ -237,13 +239,29 @@ public class MultichannelPane extends JPanel {
         btnBrowseImage.addActionListener(e -> chooseFile(tfImagePath, JFileChooser.FILES_ONLY));
         btnPreviewImage = new JButton("Preview");
         btnPreviewImage.addActionListener(e -> previewImage());
-        p.add(box("Input image (.tif, .lif, etc.)", row(tfImagePath, btnBrowseImage,btnPreviewImage)));
+
+        String imgHelp =
+                "<b>What to select:</b> image to analyse (must be Hu-Stained).<br/>"
+                        + "<b>Tip:</b> click <i>Preview</i> one you have selected an image to view it.";
+
+        p.add(boxWithHelp(
+                "Input image (.tif, .lif, etc.)",
+                row(tfImagePath, btnBrowseImage, btnPreviewImage),
+                imgHelp
+        ));
 
         spHuChannel = new JSpinner(new SpinnerNumberModel(3,1,32,1));
 
-        p.add(box("Hu channel & model", grid2(
-                new JLabel("Hu channel:"), spHuChannel
-        )));
+        String channelHelp =
+                "<b>Hu Channel:</b> Select the channel number which corresponds to the hu-stained channel.<br/>";
+
+        p.add(boxWithHelp(
+                "Channel Selection",
+                leftWrap(grid2(
+                        new JLabel("Hu Channel:"),     spHuChannel
+                )),
+                channelHelp
+        ));
 
 
 
@@ -251,29 +269,77 @@ public class MultichannelPane extends JPanel {
         btnBrowseOutput = new JButton("Browse…");
         btnBrowseOutput.addActionListener(e -> chooseFile(tfOutputDir, JFileChooser.DIRECTORIES_ONLY));
         cbSaveOverlay = new JCheckBox("Save flattened overlays");
-        p.add(box("Output", column(row(tfOutputDir, btnBrowseOutput), cbSaveOverlay)));
+
+
+        String outputHelp =
+                "<b>Output:</b> Choose where you want your images to be saved to (optional; default: Analysis/<basename> at your image location) , and optionally choose to save a flattened image.<br/>";
+
+        p.add(boxWithHelp(
+                "Output Location",
+                column(row(tfOutputDir, btnBrowseOutput),cbSaveOverlay),
+                outputHelp
+        ));
 
         cbGangliaAnalysis = new JCheckBox("Run ganglia analysis");
         cbGangliaMode = new JComboBox<>(Params.GangliaMode.values());
         cbGangliaAnalysis.addActionListener(e -> updateGangliaVisibility());
         cbGangliaMode.addActionListener(e -> updateGangliaVisibility());
         spGangliaChannel = new JSpinner(new SpinnerNumberModel(2,1,32,1));
-        p.add(box("Ganglia", column(
-                cbGangliaAnalysis,
-                row(new JLabel("Mode:"), cbGangliaMode),
-                row(new JLabel("Ganglia channel:"), spGangliaChannel)
-        )));
 
-        p.add(Box.createVerticalGlue());
+
+        String gangliaHelp =
+                "<b>Ganglia options:</b> Detect and measure ganglia when you have a Hu-stained channel. "
+                        + "These settings apply only if <i>Run ganglia analysis</i> is checked.<br/><br/>"
+
+                        + "<b>Channels (1-based):</b>"
+                        + "<ul style='margin-top:4px'>"
+                        + "<li><b>Ganglia channel</b> – the channel that best highlights ganglia structures "
+                        + "(e.g., perineurial/glial signal or a counterstain used by the detector).</li>"
+                        + "</ul>"
+
+                        + "<b>Ganglia mode:</b>"
+                        + "<ul style='margin-top:4px'>"
+                        + "<li><b>DEEPIMAGEJ</b> – runs a trained model to propose ganglia ROIs. "
+                        + "</li>"
+                        + "<li><b>IMPORT ROI</b> – reuse ganglia from an existing <code>.zip</code> of ROIs "
+                        + "(e.g., from a previous run).</li>"
+                        + "<li><b>DEFINE FROM HU</b> – derives ganglia regions from the Hu channel by clustering "
+                        + "Hu-positive cells and linking nearby clusters.</li>"
+                        + "<li><b>MANUAL</b> – draw the ganglia regions yourself.</li>"
+                        + "</ul>";
+
+        p.add(boxWithHelp("Ganglia Options",
+                column(
+                        leftWrap( grid2Compact(
+                                new JLabel("Ganglia Channel:"), limitWidth(spGangliaChannel, 56),
+                                new JLabel("Ganglia mode:"),    limitWidth(cbGangliaMode, 180)
+                        )),
+                        cbGangliaAnalysis
+                ),
+                gangliaHelp));
+
+        cbDoSpatial = new JCheckBox("Perform spatial analysis");
+
+        String spatialHelp =
+                "<b>Spatial Analysis:</b> Save a CSV with spatial analysis data of neurons.<br/>";
+
+        p.add(boxWithHelp("Spatial analysis",
+                leftWrap(column(cbDoSpatial)),
+                spatialHelp
+        ));
 
         tfGangliaRoiZip = new JTextField(28);
         btnBrowseGangliaRoi = new JButton("Browse…");
         btnBrowseGangliaRoi.addActionListener(e -> chooseFile(tfGangliaRoiZip, JFileChooser.FILES_ONLY));
 
 
+
+
         pnlCustomRoiBox = box("Import ganglia ROIs (.zip)",
                 row(new JLabel("Zip file:"), tfGangliaRoiZip, btnBrowseGangliaRoi));
         p.add(pnlCustomRoiBox);
+
+
 
         JScrollPane scroll = new JScrollPane(
                 p,
@@ -442,6 +508,9 @@ public class MultichannelPane extends JPanel {
 
         p.saveFlattenedOverlay = cbSaveOverlay.isSelected();
 
+        p.doSpatialAnalysis     = cbDoSpatial.isSelected();
+        p.spatialCellTypeName   = "Hu";
+
         p.requireMicronUnits     = cbRequireMicronUnits.isSelected();
         p.neuronSegLowerLimitUm  = ((Number)spNeuronSegLowerUm.getValue()).doubleValue();
         p.neuronSegMinMicron     = ((Number)spNeuronSegMinUm.getValue()).doubleValue();
@@ -506,8 +575,10 @@ public class MultichannelPane extends JPanel {
 
     private void loadDefaults() {
         tfImagePath = ensure(tfImagePath);
-        tfImagePath.setText("/path/to/your/composite.tif");
+        tfImagePath.setText("/path/to/your/image");
         tfOutputDir.setText("");
+
+
 
         spHuChannel.setValue(3);
         tfHuModelZip.setText(new File(new File(IJ.getDirectory("imagej"), "models"), "2D_enteric_neuron_v4_1.zip").getAbsolutePath());
@@ -540,37 +611,6 @@ public class MultichannelPane extends JPanel {
         cbGangliaAnalysis.setSelected(true);
         cbGangliaMode.setSelectedItem(Params.GangliaMode.DEEPIMAGEJ);
         spGangliaChannel.setValue(4);
-    }
-
-    // small UI helpers
-    private static JPanel box(String title, Component c) {
-        JPanel b = new JPanel(new BorderLayout());
-        b.setBorder(BorderFactory.createTitledBorder(
-                BorderFactory.createEtchedBorder(), title, TitledBorder.LEFT, TitledBorder.TOP));
-        b.add(c, BorderLayout.CENTER);
-        b.setAlignmentX(Component.LEFT_ALIGNMENT);
-        return b;
-    }
-    private static JPanel row(JComponent... comps) {
-        JPanel r = new JPanel(new FlowLayout(FlowLayout.LEFT, 8,4));
-        for (JComponent c: comps) r.add(c);
-        r.setAlignmentX(Component.LEFT_ALIGNMENT);
-        return r;
-    }
-    private static JPanel column(JComponent... comps) {
-        JPanel col = new JPanel();
-        col.setLayout(new BoxLayout(col, BoxLayout.Y_AXIS));
-        for (JComponent c: comps) { c.setAlignmentX(Component.LEFT_ALIGNMENT); col.add(c); col.add(Box.createVerticalStrut(6)); }
-        return col;
-    }
-    private static JPanel grid2(Component... kv) {
-        JPanel g = new JPanel(new GridBagLayout());
-        GridBagConstraints lc = new GridBagConstraints(), rc = new GridBagConstraints();
-        lc.gridx=0; lc.gridy=0; lc.anchor=GridBagConstraints.WEST; lc.insets = new Insets(3,3,3,3);
-        rc.gridx=1; rc.gridy=0; rc.weightx=1; rc.fill=GridBagConstraints.HORIZONTAL; rc.insets = new Insets(3,3,3,3);
-        for (int i=0; i<kv.length; i+=2) { g.add(kv[i], lc); g.add(kv[i+1], rc); lc.gridy++; rc.gridy++; }
-        g.setAlignmentX(Component.LEFT_ALIGNMENT);
-        return g;
     }
 
 
@@ -631,8 +671,6 @@ public class MultichannelPane extends JPanel {
         revalidate();
         repaint();
     }
-
-
 
 
 
