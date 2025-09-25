@@ -7,17 +7,16 @@ import UI.util.InputValidation;
 import ij.IJ;
 
 import javax.swing.*;
-import javax.swing.border.EmptyBorder;
-import javax.swing.border.TitledBorder;
+
+import static UI.panes.SettingPanes.MultiChannelNoHuPane.boxWith;
+import static UI.util.FormUI.*;
 import java.awt.*;
-import java.awt.image.BufferedImage;
 import java.io.File;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 import java.util.Locale;
 import java.util.Objects;
-import javax.swing.border.CompoundBorder;
-import javax.swing.border.MatteBorder;
+
 
 /**
  * Neuron Workflow pane with Basic & Advanced tabs.
@@ -471,19 +470,7 @@ public class NeuronWorkflowPane extends JPanel {
         return s.isEmpty() ? null : s;
     }
 
-    private static JPanel boxWith(String title, Component content) {
-        JPanel box = new JPanel(new BorderLayout());
-        box.setBorder(BorderFactory.createTitledBorder(
-                BorderFactory.createEtchedBorder(),
-                title,
-                TitledBorder.LEFT,
-                TitledBorder.TOP
-        ));
-        box.add(content, BorderLayout.CENTER);
-        box.setAlignmentX(Component.LEFT_ALIGNMENT);
-        normalizeSectionWidth(box);
-        return box;
-    }
+
 
     private static JPanel column(JComponent... comps) {
         JPanel col = new JPanel();
@@ -501,21 +488,6 @@ public class NeuronWorkflowPane extends JPanel {
         for (JComponent c : comps) r.add(c);
         r.setAlignmentX(Component.LEFT_ALIGNMENT);
         return r;
-    }
-
-    private static JPanel grid2(Component... kvPairs) {
-        JPanel g = new JPanel(new GridBagLayout());
-        GridBagConstraints lc = new GridBagConstraints();
-        GridBagConstraints rc = new GridBagConstraints();
-        lc.gridx = 0; lc.gridy = 0; lc.anchor = GridBagConstraints.WEST; lc.insets = new Insets(3,3,3,3);
-        rc.gridx = 1; rc.gridy = 0; rc.weightx = 1; rc.fill = GridBagConstraints.HORIZONTAL; rc.insets = new Insets(3,3,3,3);
-        for (int i = 0; i < kvPairs.length; i += 2) {
-            g.add(kvPairs[i], lc);
-            g.add(kvPairs[i+1], rc);
-            lc.gridy++; rc.gridy++;
-        }
-        g.setAlignmentX(Component.LEFT_ALIGNMENT);
-        return g;
     }
 
     private void chooseFile(JTextField target, int mode) {
@@ -583,142 +555,6 @@ public class NeuronWorkflowPane extends JPanel {
         String name = f.getName().toLowerCase(Locale.ROOT);
         return f.isFile() && name.endsWith(".zip");
     }
-
-
-    // Small, borderless info button
-    static final class MiniInfoIcon implements javax.swing.Icon {
-        private final int sz;
-        MiniInfoIcon(int size) { this.sz = size; }
-        public int getIconWidth()  { return sz; }
-        public int getIconHeight() { return sz; }
-        public void paintIcon(Component c, Graphics g, int x, int y) {
-            Graphics2D g2 = (Graphics2D) g.create();
-            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-
-            Color fg = UIManager.getColor("Label.foreground");
-            if (fg == null) fg = new Color(190, 200, 210);
-
-            int d = sz - 1;
-            g2.setStroke(new BasicStroke(1f));
-            g2.setColor(new Color(fg.getRed(), fg.getGreen(), fg.getBlue(), 180));
-            g2.drawOval(x, y, d, d);                 // circle
-            int cx = x + sz / 2;
-            g2.drawLine(cx, y + (int)(sz * 0.38),    // stem
-                    cx, y + (int)(sz * 0.78));
-            g2.fillOval(cx - 1, y + (int)(sz * 0.25), 2, 2);  // dot
-            g2.dispose();
-        }
-    }
-
-    // Lightweight, modern section box with a header row
-    // Lightweight, modern section box with an info badge aligned with the content row
-    private JPanel boxWithHelp(String title, JComponent content, String helpHtml) {
-        // Titled outer box
-        JPanel outer = new JPanel(new BorderLayout());
-        outer.setBorder(BorderFactory.createTitledBorder(
-                BorderFactory.createEtchedBorder(), title,
-                TitledBorder.LEFT, TitledBorder.TOP));
-
-        // Inner layout: content in CENTER, badge docked EAST (same row)
-        JPanel inner = new JPanel(new BorderLayout());
-        inner.setOpaque(false);
-        inner.add(content, BorderLayout.CENTER);
-
-        // Right dock with the info badge, pinned to the top
-        JLabel info = createInfoBadge(helpHtml);
-        JPanel east = new JPanel(new GridBagLayout());
-        east.setOpaque(false);
-        GridBagConstraints gc = new GridBagConstraints();
-        gc.gridx = 0; gc.gridy = 0;
-        gc.anchor = GridBagConstraints.NORTH;     // stick to the top
-        gc.insets = new Insets(2, 6, 0, 0);       // nudge down a hair; add a bit of left gap
-        east.add(info, gc);
-
-        inner.add(east, BorderLayout.EAST);
-        outer.add(inner, BorderLayout.CENTER);
-
-        // Compact padding inside the titled border
-        outer.setBorder(BorderFactory.createCompoundBorder(
-                outer.getBorder(),
-                BorderFactory.createEmptyBorder(8, 10, 10, 10)
-        ));
-        normalizeSectionWidth(outer);
-        return outer;
-    }
-
-
-
-
-
-    // --- tiny info badge ---------------------------------------------------------
-    private static JLabel createInfoBadge(String helpHtml) {
-        JLabel b = new JLabel(getInfoIcon(14));      // 14px info icon
-        b.setText(null);                             // icon only
-        b.setOpaque(false);
-        b.setBorder(BorderFactory.createEmptyBorder(0, 6, 0, 0)); // a little space from the title
-        b.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        b.setToolTipText(wrapTooltip(helpHtml, 360)); // nicely wrapped tooltip
-        b.getAccessibleContext().setAccessibleName("More info");
-        return b;
-    }
-
-
-    private static Icon getInfoIcon(int sizePx) {
-        Icon ui = UIManager.getIcon("OptionPane.informationIcon");
-        if (ui instanceof ImageIcon) {
-            Image img = ((ImageIcon) ui).getImage();
-            Image scaled = img.getScaledInstance(sizePx, sizePx, Image.SCALE_SMOOTH);
-            return new ImageIcon(scaled);
-        } else if (ui != null) {
-            BufferedImage bi = new BufferedImage(ui.getIconWidth(), ui.getIconHeight(), BufferedImage.TYPE_INT_ARGB);
-            Graphics2D g2 = bi.createGraphics();
-            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-            ui.paintIcon(null, g2, 0, 0);
-            g2.dispose();
-            Image scaled = bi.getScaledInstance(sizePx, sizePx, Image.SCALE_SMOOTH);
-            return new ImageIcon(scaled);
-        }
-        return new MiniInfoIcon(sizePx); // fallback vector icon
-    }
-
-
-    // Wrap HTML so Swing tooltips line-wrap instead of one long line.
-    private static String wrapTooltip(String innerHtml, int widthPx) {
-        return "<html><body style='width:" + widthPx + "px; padding:6px;'>" + innerHtml + "</body></html>";
-    }
-
-    private static void normalizeSectionWidth(JComponent c) {
-        c.setAlignmentX(Component.LEFT_ALIGNMENT);                // don’t center
-        Dimension pref = c.getPreferredSize();
-        c.setMaximumSize(new Dimension(Integer.MAX_VALUE, pref.height)); // fill width
-    }
-
-    private static JPanel grid2Compact(Component... kv) {
-        JPanel g = new JPanel(new GridBagLayout());
-        GridBagConstraints l = new GridBagConstraints();
-        GridBagConstraints r = new GridBagConstraints();
-        l.gridx=0; l.gridy=0; l.anchor=GridBagConstraints.WEST; l.insets=new Insets(3,3,3,6);
-        r.gridx=1; r.gridy=0; r.anchor=GridBagConstraints.WEST; r.insets=new Insets(3,0,3,3);
-        r.weightx=0; r.fill=GridBagConstraints.NONE; // <- no stretch
-        for (int i=0; i<kv.length; i+=2) { g.add(kv[i], l); g.add(kv[i+1], r); l.gridy++; r.gridy++; }
-        g.setAlignmentX(Component.LEFT_ALIGNMENT);
-        return g;
-    }
-    private static JComponent limitWidth(JComponent c, int w) {
-        Dimension d = c.getPreferredSize(); d = new Dimension(Math.min(d.width, w), d.height);
-        c.setPreferredSize(d); c.setMinimumSize(d); c.setMaximumSize(d);
-        JPanel p = new JPanel(new FlowLayout(FlowLayout.LEFT,0,0)); p.setOpaque(false); p.add(c);
-        return p;
-    }
-
-    private static JComponent leftWrap(JComponent c) {
-        JPanel p = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
-        p.setOpaque(false);
-        p.add(c);
-        p.setAlignmentX(Component.LEFT_ALIGNMENT);
-        return p;
-    }
-
 
 
 }
