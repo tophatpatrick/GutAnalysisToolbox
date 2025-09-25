@@ -1,6 +1,8 @@
 package UI.panes.Tools;
 
 import UI.Handlers.Navigator;
+import services.multiplex.config.MultiplexConfig;
+import services.multiplex.core.MultiplexRegistrationService;
 
 import javax.swing.*;
 import java.awt.*;
@@ -9,6 +11,10 @@ import java.util.Objects;
 
 public class MultiplexPane extends JPanel {
     public static final String Name = "Multiplex";
+
+    // ---- Layout tuning ----
+    // Width of the left label column (pixels) — labels will wrap at this width
+    private static final int LABEL_COL_PX = 280;
 
     // Controls
     private final JTextField immunoFolderTf = new JTextField();
@@ -43,7 +49,12 @@ public class MultiplexPane extends JPanel {
         gc.insets = new Insets(10, 8, 10, 8);
         gc.fill = GridBagConstraints.HORIZONTAL;
         gc.anchor = GridBagConstraints.EAST;
-        gc.weightx = 0;
+
+        // Wider text fields by default (they'll still grow with layout)
+        immunoFolderTf.setColumns(36);
+        saveFolderTf.setColumns(36);
+        huTf.setColumns(24);
+        batchTf.setColumns(24);
 
         // 1) Select folder with immuno files
         immunoFolderTf.setEditable(false);
@@ -56,7 +67,7 @@ public class MultiplexPane extends JPanel {
         // 3) Rounds
         addLabeled(form, gc, 2, "Enter number of rounds of multiplexing", roundsSp);
 
-        // 4) Batch label
+        // 4) Batch label (long — will wrap neatly)
         addLabeled(form, gc, 3, "Enter name that distinguishes each batch (Layer/Round)", batchTf);
 
         // 5) Choose_Save_Folder + conditional save path
@@ -78,7 +89,9 @@ public class MultiplexPane extends JPanel {
         JPanel leftWrap = new JPanel(new BorderLayout());
         leftWrap.add(form, BorderLayout.NORTH);
         leftWrap.add(actions, BorderLayout.SOUTH);
-        add(leftWrap, BorderLayout.WEST);
+
+        // IMPORTANT: put in CENTER so the form can expand horizontally
+        add(leftWrap, BorderLayout.CENTER);
 
         // Behavior
         browseImmuno.addActionListener(e -> chooseDirInto(immunoFolderTf));
@@ -87,6 +100,7 @@ public class MultiplexPane extends JPanel {
         chooseSaveCb.addActionListener(e -> {
             saveRow.setVisible(chooseSaveCb.isSelected());
             revalidate();
+            repaint();
         });
 
         resetBtn.addActionListener(e -> resetFields());
@@ -119,43 +133,79 @@ public class MultiplexPane extends JPanel {
         runBtn.setEnabled(false);
         setCursor(Cursor.getPredefinedCursor(Cursor.WAIT_CURSOR));
 
-        // TODO: replace with your real call (SwingWorker recommended if long-running)
-        try {
-            // MultiplexService.runRegistration(immuno, hu, rounds, batch, save, finetune);
-            JOptionPane.showMessageDialog(this,
-                    "Multiplex Registration started\n\n"
-                            + "Immuno folder: " + immuno + "\n"
-                            + "Marker (Hu): " + hu + "\n"
-                            + "Rounds: " + rounds + "\n"
-                            + "Batch label: " + batch + "\n"
-                            + "Save folder: " + (save != null ? save : "(default)") + "\n"
-                            + "Finetune: " + (finetune ? "Yes" : "No"),
-                    "Started", JOptionPane.INFORMATION_MESSAGE);
-        } finally {
-            runBtn.setEnabled(true);
-            setCursor(Cursor.getDefaultCursor());
-        }
+        // Java 8 compatible generics
+        SwingWorker<Void, Void> worker = new SwingWorker<Void, Void>() {
+            @Override
+            protected Void doInBackground() {
+                try {
+                    MultiplexConfig cfg = new MultiplexConfig.Builder()
+                            .imageFolder(immuno.toFile())
+                            .commonMarker(hu)
+                            .multiplexRounds(rounds)
+                            .layerKeyword(batch)
+                            .saveFolder(save != null ? save.toFile() : immuno.toFile())
+                            .fineTuneParams(finetune)
+                            .build();
+
+                    new MultiplexRegistrationService(cfg).run();
+
+                } catch (Exception ex) {
+                    ex.printStackTrace();
+                    SwingUtilities.invokeLater(() ->
+                            JOptionPane.showMessageDialog(MultiplexPane.this,
+                                    "Error during registration:\n" + ex.getMessage(),
+                                    "Error", JOptionPane.ERROR_MESSAGE));
+                }
+                return null;
+            }
+
+            @Override
+            protected void done() {
+                runBtn.setEnabled(true);
+                setCursor(Cursor.getDefaultCursor());
+            }
+        };
+        worker.execute();
     }
 
     private void resetFields() {
         immunoFolderTf.setText("");
+        immunoFolderTf.setToolTipText(null);
+        saveFolderTf.setText("");
+        saveFolderTf.setToolTipText(null);
         huTf.setText("");
         roundsSp.setValue(2);
         batchTf.setText("");
         chooseSaveCb.setSelected(false);
-        saveFolderTf.setText("");
         finetuneCb.setSelected(false);
     }
 
     // ---- UI helpers ----
 
-    private static void addLabeled(JPanel panel, GridBagConstraints gc, int row, String label, JComponent field) {
+    private void addLabeled(JPanel panel, GridBagConstraints gc, int row, String label, JComponent field) {
+        // Label column (fixed width + HTML wrapping)
         gc.gridx = 0; gc.gridy = row; gc.weightx = 0; gc.fill = GridBagConstraints.NONE; gc.anchor = GridBagConstraints.EAST;
-        if (!Objects.equals(label, "")) panel.add(new JLabel(label), gc);
-        else panel.add(Box.createHorizontalStrut(1), gc); // spacer for empty label rows
 
+        if (!Objects.equals(label, "")) {
+            JLabel jl = wrapLabel(label, LABEL_COL_PX);
+            panel.add(jl, gc);
+        } else {
+            panel.add(Box.createHorizontalStrut(1), gc); // spacer for empty label rows
+        }
+
+        // Field column (grows)
         gc.gridx = 1; gc.weightx = 1; gc.fill = GridBagConstraints.HORIZONTAL; gc.anchor = GridBagConstraints.WEST;
         panel.add(field, gc);
+    }
+
+    /** Create a wrapping label using basic HTML and constrain its width. */
+    private static JLabel wrapLabel(String text, int widthPx) {
+        // Use HTML with a fixed width div to allow natural wrap; keeps LAF fonts/styles
+        String html = "<html><div style='width:" + widthPx + "px'>" + text + "</div></html>";
+        JLabel jl = new JLabel(html);
+        // Align right so it behaves like a classic form label
+        jl.setHorizontalAlignment(SwingConstants.RIGHT);
+        return jl;
     }
 
     private static JPanel rowWithBrowse(JTextField tf, JButton browseBtn) {
@@ -175,7 +225,11 @@ public class MultiplexPane extends JPanel {
         chooser.setMultiSelectionEnabled(false);
         int ret = chooser.showOpenDialog(this);
         if (ret == JFileChooser.APPROVE_OPTION) {
-            tf.setText(chooser.getSelectedFile().getAbsolutePath());
+            String path = chooser.getSelectedFile().getAbsolutePath();
+            tf.setText(path);
+            tf.setToolTipText(path); // show full path on hover
+            // show the end of the long path
+            tf.setCaretPosition(tf.getText().length());
         }
     }
 
