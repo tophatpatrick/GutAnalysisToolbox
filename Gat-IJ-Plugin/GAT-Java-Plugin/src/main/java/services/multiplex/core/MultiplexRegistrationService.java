@@ -212,8 +212,8 @@ public class MultiplexRegistrationService {
 
         // Save final composite
         IJ.selectWindow(finalStack.getTitle());
-        IJ.run("Stack to Hyperstack...", "order=xyczt channels=" +
-                finalStack.getStackSize() + " slices=1 frames=1 display=Grayscale");
+        IJ.run(finalStack, "Stack to Hyperstack...", 
+       "order=xyzct channels=" + finalStack.getStackSize() + " slices=1 frames=1 display=Grayscale");
         IJ.saveAs(finalStack, "Tiff", new File(resultsDir, "Aligned_Stack.tif").getAbsolutePath());
 
         // Save ROI correspondences
