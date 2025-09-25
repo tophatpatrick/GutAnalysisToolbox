@@ -171,9 +171,9 @@ public class HomePane extends JPanel {
     private JComponent tipOfDay() {
         String[] tips = new String[]{
                 "Use <b>Preview</b> in Neuron workflow to verify channel order before a long run.",
-                "Try <b>Ganglia ▸ DEEPIMAGEJ</b> first, then lock regions with <b>IMPORT ROI</b>.",
+                "Try <b>Ganglia ▸ DEEPIMAGEJ</b> first, then analyse further with <b>IMPORT ROI</b>.",
                 "Enable <b>Require microns calibration</b> to avoid mis-scaled size filters.",
-                "Keep models under <code>&lt;Fiji&gt;/models</code> so every pane can find them."
+                "Keep models under Fiji/Models so every pane can find them."
         };
         int idx = java.time.LocalDate.now().getDayOfYear() % tips.length;
         JLabel tip = new JLabel("<html><body style='width:100%; padding:2px 0;'>" + tips[idx] + "</body></html>");
