@@ -288,10 +288,25 @@ public class MultichannelPane extends JPanel {
 
 
         String gangliaHelp =
-                "<b>Ganglia options:</b> Choose if you wish to run ganglia analysis, and the channel " +
-                        "which corresponds to ganglia staining. DeepImageJ will run a model to find ganglia; " +
-                        "Manual lets you draw regions; Import reuses a previous zip; Define from Hu derives " +
-                        "regions from Hu-stained data.";
+                "<b>Ganglia options:</b> Detect and measure ganglia when you have a Hu-stained channel. "
+                        + "These settings apply only if <i>Run ganglia analysis</i> is checked.<br/><br/>"
+
+                        + "<b>Channels (1-based):</b>"
+                        + "<ul style='margin-top:4px'>"
+                        + "<li><b>Ganglia channel</b> – the channel that best highlights ganglia structures "
+                        + "(e.g., perineurial/glial signal or a counterstain used by the detector).</li>"
+                        + "</ul>"
+
+                        + "<b>Ganglia mode:</b>"
+                        + "<ul style='margin-top:4px'>"
+                        + "<li><b>DEEPIMAGEJ</b> – runs a trained model to propose ganglia ROIs. "
+                        + "</li>"
+                        + "<li><b>IMPORT ROI</b> – reuse ganglia from an existing <code>.zip</code> of ROIs "
+                        + "(e.g., from a previous run).</li>"
+                        + "<li><b>DEFINE FROM HU</b> – derives ganglia regions from the Hu channel by clustering "
+                        + "Hu-positive cells and linking nearby clusters.</li>"
+                        + "<li><b>MANUAL</b> – draw the ganglia regions yourself.</li>"
+                        + "</ul>";
 
         p.add(boxWithHelp("Ganglia Options",
                 column(

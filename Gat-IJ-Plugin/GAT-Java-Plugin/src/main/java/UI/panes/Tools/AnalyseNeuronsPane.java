@@ -34,8 +34,8 @@ public class AnalyseNeuronsPane extends JPanel {
                 MultiChannelNoHuPane.Name
         );
         OptionPanel multi = new OptionPanel(
-                "Multichannel",
-                "Run full multiplex pipeline",
+                "Multichannel - With Hu",
+                "Run full multichannel pipeline",
                 MultichannelPane.Name
         );
 

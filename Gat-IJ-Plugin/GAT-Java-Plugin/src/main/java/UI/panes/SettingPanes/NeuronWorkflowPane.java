@@ -7,8 +7,6 @@ import UI.util.InputValidation;
 import ij.IJ;
 
 import javax.swing.*;
-
-import static UI.panes.SettingPanes.MultiChannelNoHuPane.boxWith;
 import static UI.util.FormUI.*;
 import java.awt.*;
 import java.io.File;
@@ -178,10 +176,25 @@ public class NeuronWorkflowPane extends JPanel {
 
 
         String gangliaHelp =
-                "<b>Ganglia options:</b> Choose if you wish to run ganglia analysis, and the channel " +
-                        "which corresponds to ganglia staining. DeepImageJ will run a model to find ganglia; " +
-                        "Manual lets you draw regions; Import reuses a previous zip; Define from Hu derives " +
-                        "regions from Hu-stained data.";
+                "<b>Ganglia options:</b> Detect and measure ganglia when you have a Hu-stained channel. "
+                        + "These settings apply only if <i>Run ganglia analysis</i> is checked.<br/><br/>"
+
+                        + "<b>Channels (1-based):</b>"
+                        + "<ul style='margin-top:4px'>"
+                        + "<li><b>Ganglia channel</b> – the channel that best highlights ganglia structures "
+                        + "(e.g., perineurial/glial signal or a counterstain used by the detector).</li>"
+                        + "</ul>"
+
+                        + "<b>Ganglia mode:</b>"
+                        + "<ul style='margin-top:4px'>"
+                        + "<li><b>DEEPIMAGEJ</b> – runs a trained model to propose ganglia ROIs. "
+                        + "</li>"
+                        + "<li><b>IMPORT ROI</b> – reuse ganglia from an existing <code>.zip</code> of ROIs "
+                        + "(e.g., from a previous run).</li>"
+                        + "<li><b>DEFINE FROM HU</b> – derives ganglia regions from the Hu channel by clustering "
+                        + "Hu-positive cells and linking nearby clusters.</li>"
+                        + "<li><b>MANUAL</b> – draw the ganglia regions yourself.</li>"
+                        + "</ul>";
 
         p.add(boxWithHelp("Ganglia Options",
                 column(
@@ -203,7 +216,7 @@ public class NeuronWorkflowPane extends JPanel {
         btnBrowseCustomRoiZip.addActionListener(e -> chooseFile(tfCustomGangliaZip, JFileChooser.FILES_ONLY));
 
         // Keep a handle so we can show/hide from updateGangliaUI()
-        pnlCustomZipBasic = boxWith("Import ganglia ROIs (.zip)",
+        pnlCustomZipBasic = box("Import ganglia ROIs (.zip)",
                 row(tfCustomGangliaZip, btnBrowseCustomRoiZip));
         p.add(pnlCustomZipBasic);
 
@@ -238,7 +251,7 @@ public class NeuronWorkflowPane extends JPanel {
         spNeuronSegMinMicron     = new JSpinner(new SpinnerNumberModel(70.0, 0.0, 10000.0, 1.0));
         spTrainingRescaleFactor  = new JSpinner(new SpinnerNumberModel(1.0, 0.01, 100.0, 0.01));
 
-        p.add(boxWith("Calibration & size filtering", column(
+        p.add(box("Calibration & size filtering", column(
                 cbRequireMicronUnits,
                 grid2(new JLabel("Neuron seg lower limit (µm):"), spNeuronSegLowerLimitUm,
                         new JLabel("Neuron seg min (µm)       :"),   spNeuronSegMinMicron,
@@ -249,12 +262,12 @@ public class NeuronWorkflowPane extends JPanel {
         tfModelZip = new JTextField(36);
         btnBrowseModel = new JButton("Browse…");
         btnBrowseModel.addActionListener(e -> chooseFile(tfModelZip, JFileChooser.FILES_ONLY));
-        p.add(boxWith("StarDist model (.zip)", row(tfModelZip, btnBrowseModel)));
+        p.add(box("StarDist model (.zip)", row(tfModelZip, btnBrowseModel)));
 
         // StarDist thresholds
         spProbThresh = new JSpinner(new SpinnerNumberModel(0.5, 0.0, 1.0, 0.05));
         spNmsThresh  = new JSpinner(new SpinnerNumberModel(0.3, 0.0, 1.0, 0.05));
-        p.add(boxWith("StarDist thresholds", grid2(
+        p.add(box("StarDist thresholds", grid2(
                 new JLabel("Probability:"), spProbThresh,
                 new JLabel("NMS:"),         spNmsThresh
         )));
@@ -263,14 +276,14 @@ public class NeuronWorkflowPane extends JPanel {
         // Rescale + training px size
         cbRescaleToTrainingPx = new JCheckBox("Rescale to training pixel size");
         spTrainingPixelSizeUm = new JSpinner(new SpinnerNumberModel(0.568, 0.01, 100.0, 0.001));
-        p.add(boxWith("Rescaling", column(cbRescaleToTrainingPx, row(new JLabel("Training pixel size (µm):"), spTrainingPixelSizeUm))));
+        p.add(box("Rescaling", column(cbRescaleToTrainingPx, row(new JLabel("Training pixel size (µm):"), spTrainingPixelSizeUm))));
 
 
         tfGangliaModelFolder = new JTextField(28);
         btnBrowseGangliaModelFolder = new JButton("Browse…");
         btnBrowseGangliaModelFolder.addActionListener(e -> chooseFolderName(tfGangliaModelFolder));
 
-        pnlGangliaModel = boxWith("Ganglia model",
+        pnlGangliaModel = box("Ganglia model",
                 row(new JLabel(""), tfGangliaModelFolder, btnBrowseGangliaModelFolder));
         p.add(pnlGangliaModel);
 
@@ -280,13 +293,13 @@ public class NeuronWorkflowPane extends JPanel {
         spGangliaOpenIterations  = new JSpinner(new SpinnerNumberModel(3, 0, 50, 1));
         cbGangliaInteractiveReview = new JCheckBox("Interactive review overlay");
 
-        p.add(boxWith("Ganglia post-processing", grid2(
+        p.add(box("Ganglia post-processing", grid2(
                 new JLabel("Hu dilation (µm):"),      spHuDilationMicron,
                 new JLabel("Prob threshold (0–1):"),  spGangliaProbThresh01,
                 new JLabel("Min area (µm²):"),        spGangliaMinAreaUm2,
                 new JLabel("Open iterations:"),       spGangliaOpenIterations
         )));
-        p.add(boxWith("Review", cbGangliaInteractiveReview));
+        p.add(box("Review", cbGangliaInteractiveReview));
 
         p.add(Box.createVerticalStrut(8));
 

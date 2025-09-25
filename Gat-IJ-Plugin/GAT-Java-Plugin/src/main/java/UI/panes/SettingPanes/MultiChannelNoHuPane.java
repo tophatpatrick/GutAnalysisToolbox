@@ -3,6 +3,7 @@ package UI.panes.SettingPanes;
 import Features.AnalyseWorkflows.NeuronsMultiNoHuPipeline;
 import Features.Core.Params;
 import UI.Handlers.Navigator;
+import static UI.util.FormUI.*;
 import UI.util.InputValidation;
 import ij.IJ;
 
@@ -102,7 +103,16 @@ public class MultiChannelNoHuPane extends JPanel {
         btnBrowseImage.addActionListener(e -> chooseFile(tfImagePath, JFileChooser.FILES_ONLY));
         btnPreviewImage = new JButton("Preview");
         btnPreviewImage.addActionListener(e-> previewImage());
-        p.add(boxWith("Input image (.tif, .lif, .czi)", row(tfImagePath, btnBrowseImage,btnPreviewImage)));
+
+        String imgHelp =
+                "<b>What to select:</b> image to analyse (must be Hu-Stained).<br/>"
+                        + "<b>Tip:</b> click <i>Preview</i> one you have selected an image to view it.";
+
+        p.add(boxWithHelp(
+                "Input image (.tif, .lif, etc.)",
+                row(tfImagePath, btnBrowseImage, btnPreviewImage),
+                imgHelp
+        ));
 
 
 
@@ -110,7 +120,17 @@ public class MultiChannelNoHuPane extends JPanel {
         tfOutputDir = new JTextField(36);
         btnBrowseOutput = new JButton("Browse…");
         btnBrowseOutput.addActionListener(e -> chooseFile(tfOutputDir, JFileChooser.DIRECTORIES_ONLY));
-        p.add(boxWith("Output directory (optional; default: Analysis/<basename>)", row(tfOutputDir, btnBrowseOutput)));
+        cbSaveFlattenedOverlay = new JCheckBox("Save flattened overlays");
+
+
+        String outputHelp =
+                "<b>Output:</b> Choose where you want your images to be saved to (optional; default: Analysis/<basename> at your image location) , and optionally choose to save a flattened image.<br/>";
+
+        p.add(boxWithHelp(
+                "Output Location",
+                column(row(tfOutputDir, btnBrowseOutput),cbSaveFlattenedOverlay),
+                outputHelp
+        ));
 
 
         cbGangliaAnalysis = new JCheckBox("Run ganglia analysis");
@@ -126,32 +146,62 @@ public class MultiChannelNoHuPane extends JPanel {
         spCellBodyChannel  = new JSpinner(new SpinnerNumberModel(1, 1, 64, 1)); // NEW: cell-body
         tfGangliaModelFolder = new JTextField(28);
 
-        p.add(boxWith("Ganglia", column(
-                cbGangliaAnalysis,
-                row(new JLabel("Fibres / neurites channel (1-based):"), spGangliaChannel),
-                row(new JLabel("Cell-body (‘most cells’) channel (1-based):"), spCellBodyChannel),
-                row(new JLabel("Ganglia mode:"), cbGangliaMode)
-        )));
+        String gangliaHelp =
+                "<b>Ganglia (no-Hu) options:</b> Identify and measure ganglia without a Hu channel. "
+                        + "These settings are used only if <i>Run ganglia analysis</i> is checked.<br/><br/>"
 
-        cbSaveFlattenedOverlay = new JCheckBox("Save flattened overlays");
+                        + "<b>Channels (1-based):</b>"
+                        + "<ul style='margin-top:4px'>"
+                        + "<li><b>Fibres / neurites channel</b> – choose the channel where neurite bundles are most visible "
+                        + "(a pan-neuronal fibres marker). Used to trace/connect tissue between cells.</li>"
+                        + "<li><b>Cell-body channel</b> – choose the channel where neuronal somas are best visible "
+                        + "(the marker expressed by most cells). Used to seed/anchor ganglia in dense regions.</li>"
+                        + "</ul>"
 
-        p.add(boxWith("Options", column(cbSaveFlattenedOverlay)));
+                        + "<b>Ganglia mode:</b>"
+                        + "<ul style='margin-top:4px'>"
+                        + "<li><b>DEEPIMAGEJ</b> – runs a trained model to propose ganglia ROIs. "
+                        + "</li>"
+                        + "<li><b>IMPORT ROI</b> – reuse ganglia from an existing <code>.zip</code> of ROIs "
+                        + "(e.g. from a previous run). No model is used.</li>"
+                        + "<li><b>MANUAL</b> – draw the ganglia regions yourself.</li>"
+                        + "</ul>";
+
+        p.add(boxWithHelp("Ganglia Options",
+                column(
+                        leftWrap( grid2Compact(
+                                new JLabel("Ganglia mode:"),    limitWidth(cbGangliaMode, 180),
+                                new JLabel("Fibres / neurites channel (1-based):"), limitWidth(spGangliaChannel,60),
+                                new JLabel("Cell-body (‘most cells’) channel (1-based):"), limitWidth(spCellBodyChannel,60)
+                        )),
+                        cbGangliaAnalysis
+                ),
+                gangliaHelp));
+
+
+
 
         p.add(Box.createVerticalStrut(8));
+
+        cbDoSpatial = new JCheckBox("Perform spatial analysis");
+
+        String spatialHelp =
+                "<b>Spatial Analysis:</b> Save a CSV with spatial analysis data of neurons.<br/>";
+
+        p.add(boxWithHelp("Spatial analysis",
+                leftWrap(column(cbDoSpatial)),
+                spatialHelp
+        ));
 
         tfGangliaRoiZip = new JTextField(28);
         btnBrowseGangliaRoi = new JButton("Browse…");
         btnBrowseGangliaRoi.addActionListener(e -> chooseFile(tfGangliaRoiZip, JFileChooser.FILES_ONLY));
 
-        pnlCustomRoiBox = boxWith("Import ganglia ROIs (.zip)",
+        pnlCustomRoiBox = box("Import ganglia ROIs (.zip)",
                 row(new JLabel("Zip file:"), tfGangliaRoiZip, btnBrowseGangliaRoi));
         p.add(pnlCustomRoiBox);
 
-        cbDoSpatial = new JCheckBox("Perform spatial analysis");
 
-        p.add(boxWith("Spatial analysis", column(
-                cbDoSpatial
-        )));
 
         JScrollPane scroll = new JScrollPane(
                 p,
@@ -202,7 +252,7 @@ public class MultiChannelNoHuPane extends JPanel {
         tfSubtypeModelZip = new JTextField(36);
         btnBrowseSubtypeModel = new JButton("Browse…");
         btnBrowseSubtypeModel.addActionListener(e -> chooseFile(tfSubtypeModelZip, JFileChooser.FILES_ONLY));
-        p.add(boxWith("Subtype StarDist model (.zip)", row(tfSubtypeModelZip, btnBrowseSubtypeModel)));
+        p.add(box("Subtype StarDist model (.zip)", row(tfSubtypeModelZip, btnBrowseSubtypeModel)));
 
         // Thresholds
         spDefaultProb = new JSpinner(new SpinnerNumberModel(0.50, 0.0, 1.0, 0.05));
@@ -210,7 +260,7 @@ public class MultiChannelNoHuPane extends JPanel {
         spOverlapFrac = new JSpinner(new SpinnerNumberModel(0.40, 0.0, 1.0, 0.05));
         spMinMarkerSizeUm = new JSpinner(new SpinnerNumberModel(160.0, 0.0, 10000.0, 1.0));
 
-        p.add(boxWith("Detection", grid2(
+        p.add(box("Detection", grid2(
                 new JLabel("Default probability:"), spDefaultProb,
                 new JLabel("Default NMS:"),         spDefaultNms,
                 new JLabel("Min marker size (µm):"), spMinMarkerSizeUm,
@@ -222,7 +272,7 @@ public class MultiChannelNoHuPane extends JPanel {
         spTrainingPixelSizeUm = new JSpinner(new SpinnerNumberModel(0.568, 0.01, 100.0, 0.001));
         spTrainingRescaleFactor = new JSpinner(new SpinnerNumberModel(1.0, 0.01, 100.0, 0.01));
 
-        p.add(boxWith("Projection & Rescaling", column(
+        p.add(box("Projection & Rescaling", column(
                 row(new JLabel("Training pixel size (µm):"), spTrainingPixelSizeUm),
                 row(new JLabel("Training rescale factor:"),   spTrainingRescaleFactor),
                 cbRescaleToTrainingPx
@@ -232,7 +282,7 @@ public class MultiChannelNoHuPane extends JPanel {
         btnBrowseGangliaModelFolder = new JButton("Browse…");
         btnBrowseGangliaModelFolder.addActionListener(e -> chooseFolderName(tfGangliaModelFolder));
 
-        pnlGangliaModelRow = boxWith("Ganglia model (DeepImageJ)",
+        pnlGangliaModelRow = box("Ganglia model (DeepImageJ)",
                 row(new JLabel("Folder (under <Fiji>/models):"), tfGangliaModelFolder, btnBrowseGangliaModelFolder));
         p.add(pnlGangliaModelRow);
 
@@ -472,52 +522,6 @@ public class MultiChannelNoHuPane extends JPanel {
         if (s == null) return null;
         s = s.trim();
         return s.isEmpty() ? null : s;
-    }
-
-    private static JPanel boxWith(String title, Component content) {
-        JPanel box = new JPanel(new BorderLayout());
-        box.setBorder(BorderFactory.createTitledBorder(
-                BorderFactory.createEtchedBorder(),
-                title,
-                TitledBorder.LEFT,
-                TitledBorder.TOP
-        ));
-        box.add(content, BorderLayout.CENTER);
-        box.setAlignmentX(Component.LEFT_ALIGNMENT);
-        return box;
-    }
-
-    private static JPanel column(JComponent... comps) {
-        JPanel col = new JPanel();
-        col.setLayout(new BoxLayout(col, BoxLayout.Y_AXIS));
-        for (JComponent c : comps) {
-            c.setAlignmentX(Component.LEFT_ALIGNMENT);
-            col.add(c);
-            col.add(Box.createVerticalStrut(6));
-        }
-        return col;
-    }
-
-    private static JPanel row(JComponent... comps) {
-        JPanel r = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 4));
-        for (JComponent c : comps) r.add(c);
-        r.setAlignmentX(Component.LEFT_ALIGNMENT);
-        return r;
-    }
-
-    private static JPanel grid2(Component... kvPairs) {
-        JPanel g = new JPanel(new GridBagLayout());
-        GridBagConstraints lc = new GridBagConstraints();
-        GridBagConstraints rc = new GridBagConstraints();
-        lc.gridx = 0; lc.gridy = 0; lc.anchor = GridBagConstraints.WEST; lc.insets = new Insets(3,3,3,3);
-        rc.gridx = 1; rc.gridy = 0; rc.weightx = 1; rc.fill = GridBagConstraints.HORIZONTAL; rc.insets = new Insets(3,3,3,3);
-        for (int i = 0; i < kvPairs.length; i += 2) {
-            g.add(kvPairs[i], lc);
-            g.add(kvPairs[i+1], rc);
-            lc.gridy++; rc.gridy++;
-        }
-        g.setAlignmentX(Component.LEFT_ALIGNMENT);
-        return g;
     }
 
     private void chooseFile(JTextField target, int mode) {
