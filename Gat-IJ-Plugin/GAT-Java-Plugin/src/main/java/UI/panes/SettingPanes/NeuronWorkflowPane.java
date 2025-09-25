@@ -7,13 +7,17 @@ import UI.util.InputValidation;
 import ij.IJ;
 
 import javax.swing.*;
+import javax.swing.border.EmptyBorder;
 import javax.swing.border.TitledBorder;
 import java.awt.*;
+import java.awt.image.BufferedImage;
 import java.io.File;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 import java.util.Locale;
 import java.util.Objects;
+import javax.swing.border.CompoundBorder;
+import javax.swing.border.MatteBorder;
 
 /**
  * Neuron Workflow pane with Basic & Advanced tabs.
@@ -85,6 +89,9 @@ public class NeuronWorkflowPane extends JPanel {
         tabs.addTab("Advanced", buildAdvancedTab());
         add(tabs, BorderLayout.CENTER);
 
+        ToolTipManager.sharedInstance().setInitialDelay(200);
+        ToolTipManager.sharedInstance().setDismissDelay(15000);
+
         JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT));
         JButton runBtn = new JButton("Run Analysis");
         runBtn.addActionListener(e -> onRun(runBtn));
@@ -112,6 +119,7 @@ public class NeuronWorkflowPane extends JPanel {
     // ---------------- UI builders ----------------
 
     private JPanel buildBasicTab() {
+        JPanel outer = new JPanel(new BorderLayout());
         JPanel p = new JPanel();
         p.setLayout(new BoxLayout(p, BoxLayout.Y_AXIS));
 
@@ -123,42 +131,73 @@ public class NeuronWorkflowPane extends JPanel {
         btnPreviewImage = new JButton("Preview");
         btnPreviewImage.addActionListener(e -> previewImage());
 
-        p.add(boxWith("Input image (.tif, .lif, etc.)", row(tfImagePath, btnBrowseImage, btnPreviewImage)));
+        String imgHelp =
+                "<b>What to select:</b> image to analyse (must be Hu-Stained).<br/>"
+                        + "<b>Tip:</b> click <i>Preview</i> one you have selected an image to view it.";
+
+        p.add(boxWithHelp(
+                "Input image (.tif, .lif, etc.)",
+                row(tfImagePath, btnBrowseImage, btnPreviewImage),
+                imgHelp
+        ));
 
 
         // Hu channel
-        spGangliaChannel     = new JSpinner(new SpinnerNumberModel(2, 1, 16, 1));
         spHuChannel = new JSpinner(new SpinnerNumberModel(3, 1, 16, 1));
-        p.add(boxWith("Image Channels", grid2(
-                new JLabel("Hu Channel:"),      spHuChannel,
-                new JLabel("Ganglia Channel"),  spGangliaChannel
-        )));
+
+        String channelHelp =
+                "<b>Hu Channel:</b> Select the channel number which corresponds to the hu-stained channel.<br/>";
+
+        p.add(boxWithHelp(
+                "Channel Selection",
+                leftWrap(grid2(
+                        new JLabel("Hu Channel:"),     spHuChannel
+                )),
+                channelHelp
+        ));
 
         // Output dir
         tfOutputDir = new JTextField(36);
         btnBrowseOutput = new JButton("Browse…");
         btnBrowseOutput.addActionListener(e -> chooseFile(tfOutputDir, JFileChooser.DIRECTORIES_ONLY));
-        p.add(boxWith("Output directory (optional; default: Analysis/<basename>)", row(tfOutputDir, btnBrowseOutput)));
-
-
-        // EDF / overlay / ganglia toggle
         cbSaveFlattenedOverlay = new JCheckBox("Save flattened overlay");
+
+        String outputHelp =
+                "<b>Output:</b> Choose where you want your images to be saved to (optional; default: Analysis/<basename> at your image location) , and optionally choose to save a flattened image.<br/>";
+
+        p.add(boxWithHelp(
+                "Output Location",
+                column(row(tfOutputDir, btnBrowseOutput),cbSaveFlattenedOverlay),
+                outputHelp
+        ));
+
+
+        // Ganglia settings
+        spGangliaChannel     = new JSpinner(new SpinnerNumberModel(2, 1, 16, 1));
         cbGangliaAnalysis = new JCheckBox("Run ganglia analysis");
         cbGangliaMode = new JComboBox<>(Params.GangliaMode.values());
-        p.add(boxWith("Options", column(
-                cbSaveFlattenedOverlay,
-                row(new JLabel("Ganglia mode:"), cbGangliaMode),
-                cbGangliaAnalysis
-        )));
 
-        p.add(Box.createVerticalGlue());
+
+        String gangliaHelp =
+                "<b>Ganglia options:</b> Choose if you wish to run ganglia analysis, and the channel " +
+                        "which corresponds to ganglia staining. DeepImageJ will run a model to find ganglia; " +
+                        "Manual lets you draw regions; Import reuses a previous zip; Define from Hu derives " +
+                        "regions from Hu-stained data.";
+
+        p.add(boxWithHelp("Ganglia Options",
+                column(
+                       leftWrap( grid2Compact(
+                                new JLabel("Ganglia Channel:"), limitWidth(spGangliaChannel, 56),
+                                new JLabel("Ganglia mode:"),    limitWidth(cbGangliaMode, 180)
+                        )),
+                        cbGangliaAnalysis
+                ),
+                gangliaHelp));
 
 
         cbDoSpatial = new JCheckBox("Perform spatial analysis");
 
-        p.add(boxWith("Spatial analysis", column(
-                cbDoSpatial
-        )));
+
 
         tfCustomGangliaZip = new JTextField(28);
         btnBrowseCustomRoiZip = new JButton("Browse…");
@@ -168,7 +207,24 @@ public class NeuronWorkflowPane extends JPanel {
         pnlCustomZipBasic = boxWith("Import ganglia ROIs (.zip)",
                 row(tfCustomGangliaZip, btnBrowseCustomRoiZip));
         p.add(pnlCustomZipBasic);
-        return p;
+
+        String spatialHelp =
+                "<b>Spatial Analysis:</b> Save a CSV with spatial analysis data of neurons.<br/>";
+
+        p.add(boxWithHelp("Spatial analysis",
+                leftWrap(column(cbDoSpatial)),
+                spatialHelp
+        ));
+
+        JScrollPane scroll = new JScrollPane(
+                p,
+                ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED,
+                ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER
+        );
+        scroll.getVerticalScrollBar().setUnitIncrement(16);
+
+        outer.add(scroll, BorderLayout.CENTER);
+        return outer;
     }
 
     private JPanel buildAdvancedTab() {
@@ -425,6 +481,7 @@ public class NeuronWorkflowPane extends JPanel {
         ));
         box.add(content, BorderLayout.CENTER);
         box.setAlignmentX(Component.LEFT_ALIGNMENT);
+        normalizeSectionWidth(box);
         return box;
     }
 
@@ -526,5 +583,142 @@ public class NeuronWorkflowPane extends JPanel {
         String name = f.getName().toLowerCase(Locale.ROOT);
         return f.isFile() && name.endsWith(".zip");
     }
+
+
+    // Small, borderless info button
+    static final class MiniInfoIcon implements javax.swing.Icon {
+        private final int sz;
+        MiniInfoIcon(int size) { this.sz = size; }
+        public int getIconWidth()  { return sz; }
+        public int getIconHeight() { return sz; }
+        public void paintIcon(Component c, Graphics g, int x, int y) {
+            Graphics2D g2 = (Graphics2D) g.create();
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+            Color fg = UIManager.getColor("Label.foreground");
+            if (fg == null) fg = new Color(190, 200, 210);
+
+            int d = sz - 1;
+            g2.setStroke(new BasicStroke(1f));
+            g2.setColor(new Color(fg.getRed(), fg.getGreen(), fg.getBlue(), 180));
+            g2.drawOval(x, y, d, d);                 // circle
+            int cx = x + sz / 2;
+            g2.drawLine(cx, y + (int)(sz * 0.38),    // stem
+                    cx, y + (int)(sz * 0.78));
+            g2.fillOval(cx - 1, y + (int)(sz * 0.25), 2, 2);  // dot
+            g2.dispose();
+        }
+    }
+
+    // Lightweight, modern section box with a header row
+    // Lightweight, modern section box with an info badge aligned with the content row
+    private JPanel boxWithHelp(String title, JComponent content, String helpHtml) {
+        // Titled outer box
+        JPanel outer = new JPanel(new BorderLayout());
+        outer.setBorder(BorderFactory.createTitledBorder(
+                BorderFactory.createEtchedBorder(), title,
+                TitledBorder.LEFT, TitledBorder.TOP));
+
+        // Inner layout: content in CENTER, badge docked EAST (same row)
+        JPanel inner = new JPanel(new BorderLayout());
+        inner.setOpaque(false);
+        inner.add(content, BorderLayout.CENTER);
+
+        // Right dock with the info badge, pinned to the top
+        JLabel info = createInfoBadge(helpHtml);
+        JPanel east = new JPanel(new GridBagLayout());
+        east.setOpaque(false);
+        GridBagConstraints gc = new GridBagConstraints();
+        gc.gridx = 0; gc.gridy = 0;
+        gc.anchor = GridBagConstraints.NORTH;     // stick to the top
+        gc.insets = new Insets(2, 6, 0, 0);       // nudge down a hair; add a bit of left gap
+        east.add(info, gc);
+
+        inner.add(east, BorderLayout.EAST);
+        outer.add(inner, BorderLayout.CENTER);
+
+        // Compact padding inside the titled border
+        outer.setBorder(BorderFactory.createCompoundBorder(
+                outer.getBorder(),
+                BorderFactory.createEmptyBorder(8, 10, 10, 10)
+        ));
+        normalizeSectionWidth(outer);
+        return outer;
+    }
+
+
+
+
+
+    // --- tiny info badge ---------------------------------------------------------
+    private static JLabel createInfoBadge(String helpHtml) {
+        JLabel b = new JLabel(getInfoIcon(14));      // 14px info icon
+        b.setText(null);                             // icon only
+        b.setOpaque(false);
+        b.setBorder(BorderFactory.createEmptyBorder(0, 6, 0, 0)); // a little space from the title
+        b.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        b.setToolTipText(wrapTooltip(helpHtml, 360)); // nicely wrapped tooltip
+        b.getAccessibleContext().setAccessibleName("More info");
+        return b;
+    }
+
+
+    private static Icon getInfoIcon(int sizePx) {
+        Icon ui = UIManager.getIcon("OptionPane.informationIcon");
+        if (ui instanceof ImageIcon) {
+            Image img = ((ImageIcon) ui).getImage();
+            Image scaled = img.getScaledInstance(sizePx, sizePx, Image.SCALE_SMOOTH);
+            return new ImageIcon(scaled);
+        } else if (ui != null) {
+            BufferedImage bi = new BufferedImage(ui.getIconWidth(), ui.getIconHeight(), BufferedImage.TYPE_INT_ARGB);
+            Graphics2D g2 = bi.createGraphics();
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            ui.paintIcon(null, g2, 0, 0);
+            g2.dispose();
+            Image scaled = bi.getScaledInstance(sizePx, sizePx, Image.SCALE_SMOOTH);
+            return new ImageIcon(scaled);
+        }
+        return new MiniInfoIcon(sizePx); // fallback vector icon
+    }
+
+
+    // Wrap HTML so Swing tooltips line-wrap instead of one long line.
+    private static String wrapTooltip(String innerHtml, int widthPx) {
+        return "<html><body style='width:" + widthPx + "px; padding:6px;'>" + innerHtml + "</body></html>";
+    }
+
+    private static void normalizeSectionWidth(JComponent c) {
+        c.setAlignmentX(Component.LEFT_ALIGNMENT);                // don’t center
+        Dimension pref = c.getPreferredSize();
+        c.setMaximumSize(new Dimension(Integer.MAX_VALUE, pref.height)); // fill width
+    }
+
+    private static JPanel grid2Compact(Component... kv) {
+        JPanel g = new JPanel(new GridBagLayout());
+        GridBagConstraints l = new GridBagConstraints();
+        GridBagConstraints r = new GridBagConstraints();
+        l.gridx=0; l.gridy=0; l.anchor=GridBagConstraints.WEST; l.insets=new Insets(3,3,3,6);
+        r.gridx=1; r.gridy=0; r.anchor=GridBagConstraints.WEST; r.insets=new Insets(3,0,3,3);
+        r.weightx=0; r.fill=GridBagConstraints.NONE; // <- no stretch
+        for (int i=0; i<kv.length; i+=2) { g.add(kv[i], l); g.add(kv[i+1], r); l.gridy++; r.gridy++; }
+        g.setAlignmentX(Component.LEFT_ALIGNMENT);
+        return g;
+    }
+    private static JComponent limitWidth(JComponent c, int w) {
+        Dimension d = c.getPreferredSize(); d = new Dimension(Math.min(d.width, w), d.height);
+        c.setPreferredSize(d); c.setMinimumSize(d); c.setMaximumSize(d);
+        JPanel p = new JPanel(new FlowLayout(FlowLayout.LEFT,0,0)); p.setOpaque(false); p.add(c);
+        return p;
+    }
+
+    private static JComponent leftWrap(JComponent c) {
+        JPanel p = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
+        p.setOpaque(false);
+        p.add(c);
+        p.setAlignmentX(Component.LEFT_ALIGNMENT);
+        return p;
+    }
+
+
 
 }
