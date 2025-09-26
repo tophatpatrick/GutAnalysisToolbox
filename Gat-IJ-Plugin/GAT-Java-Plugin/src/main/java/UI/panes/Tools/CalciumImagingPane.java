@@ -1,8 +1,13 @@
 package UI.panes.Tools;
 
 import UI.Handlers.Navigator;
+import ij.IJ;
+import ij.ImageJ;
 
 import javax.swing.*;
+
+import Features.Tools.AlignStack;
+
 import java.awt.*;
 
 public class CalciumImagingPane extends JPanel {
@@ -45,18 +50,29 @@ public class CalciumImagingPane extends JPanel {
         return b;
     }
 
-    // ----- hook these to your macros / pipelines -----
+    // ----- hook to workflows -----
     private void onAlignStack() {
-        // TODO: wire to ImageJ command or your Java pipeline
-        JOptionPane.showMessageDialog(this, "Align stack (not implemented)", "Info", JOptionPane.INFORMATION_MESSAGE);
+        if (IJ.getInstance() == null) {
+            new ImageJ();
+        }
+        AlignStack workflow = new AlignStack();
+        workflow.run("");
     }
 
     private void onAlignStackBatch() {
-        JOptionPane.showMessageDialog(this, "Align stack batch (not implemented)", "Info", JOptionPane.INFORMATION_MESSAGE);
+        if (IJ.getInstance() == null) {
+            new ImageJ();
+        }
+        Features.Tools.AlignStackBatch workflow = new Features.Tools.AlignStackBatch();
+        workflow.run("");
     }
 
     private void onAnalysis() {
-        JOptionPane.showMessageDialog(this, "Calcium imaging analysis (not implemented)", "Info", JOptionPane.INFORMATION_MESSAGE);
+        if (IJ.getInstance() == null) {
+            new ImageJ();
+        }
+        Analysis.CalciumAnalysis workflow = new Analysis.CalciumAnalysis();
+        workflow.run("");
     }
 
     private void onTemporalColourCode() {
