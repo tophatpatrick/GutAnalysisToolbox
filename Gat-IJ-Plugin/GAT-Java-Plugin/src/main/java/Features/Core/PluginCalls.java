@@ -444,7 +444,7 @@ public final class PluginCalls {
         root.setBorder(BorderFactory.createEmptyBorder(10,10,10,10));
 
         if (helpLine != null && !helpLine.isEmpty()) {
-            JLabel tip = new JLabel("<html>" + helpLine + "<br/>Tip: press <b>X</b> in ImageJ to swap.</html>");
+            JLabel tip = new JLabel("<html>" + helpLine + "<br/>Tip: toggle paint on/off with button.</html>");
             root.add(tip, BorderLayout.NORTH);
         }
 

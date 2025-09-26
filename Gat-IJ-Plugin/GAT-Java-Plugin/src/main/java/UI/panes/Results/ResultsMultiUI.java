@@ -111,7 +111,16 @@ public class ResultsMultiUI {
         JTabbedPane tabs = new JTabbedPane();
         tabs.addTab("Markers", makeBoxPlotPanel(r, /*combos=*/false));
         tabs.addTab("Combinations", makeBoxPlotPanel(r, /*combos=*/true));
-        center.add(tabs);
+        if(r.nGanglia != null  && r.nGanglia >0) {
+            center.add(tabs);
+        }
+
+        if (r.doSpatialAnalysis){
+            center.add(Box.createVerticalStrut(10));
+            addSpatialHistogramsSection(center, r);
+        }
+
+
 
         JScrollPane scroller = new JScrollPane(center);
         scroller.setBorder(null);
@@ -407,4 +416,236 @@ public class ResultsMultiUI {
         g.dispose();
         return bi;
     }
+
+    // ===== Spatial histograms (single-cell CSVs) =====
+
+    private static void addSpatialHistogramsSection(JPanel center, MultiResult r) {
+        java.util.List<SpatialDataset> sets = loadAllSpatialDatasets(r.outDir);
+        if (sets.isEmpty()) return;
+
+        center.add(sectionTitle("Spatial histograms"));
+
+        // choose a common bin width across all so axes align visually
+        int globalMax = 0;
+        for (SpatialDataset s : sets)
+            globalMax = Math.max(globalMax, java.util.Arrays.stream(s.counts).max().orElse(0));
+        int binW = Math.max(1, (int)Math.ceil((globalMax + 1) / 15.0)); // ~15 bins target
+
+        // combined first
+        int[] combined = sets.stream()
+                .flatMapToInt(s -> java.util.Arrays.stream(s.counts))
+                .toArray();
+        center.add(makeSpatialCardWithSummary("Combined (Hu + markers)", combined, binW,
+                new File(r.outDir, "Plot_spatial_hist_combined.png")));
+
+        // then one per dataset (Hu first if present)
+        // ensure Hu is first
+        sets.sort((a,b) -> {
+            if ("Hu".equalsIgnoreCase(a.name)) return -1;
+            if ("Hu".equalsIgnoreCase(b.name)) return 1;
+            return a.name.compareToIgnoreCase(b.name);
+        });
+
+        JPanel col = new JPanel();
+        col.setLayout(new BoxLayout(col, BoxLayout.Y_AXIS));
+        col.setBorder(new EmptyBorder(0,0,0,0));
+
+        for (SpatialDataset s : sets) {
+            col.add(makeSpatialCardWithSummary(s.name, s.counts, binW,
+                    new File(r.outDir, "Plot_spatial_hist_" + sanitize(s.name) + ".png")));
+            col.add(Box.createVerticalStrut(8));
+        }
+
+        JPanel wrap = new JPanel(new BorderLayout());
+        wrap.add(col, BorderLayout.NORTH);
+        JScrollPane sp = new JScrollPane(wrap);
+        sp.setBorder(BorderFactory.createEmptyBorder());
+        center.add(sp);
+    }
+
+    private static final class SpatialDataset {
+        final String name; final int[] counts;
+        SpatialDataset(String n, int[] c){ name=n; counts=c; }
+    }
+
+    private static java.util.List<SpatialDataset> loadAllSpatialDatasets(File outDir) {
+        java.util.List<SpatialDataset> list = new java.util.ArrayList<>();
+        File dir = new File(outDir, "spatial_analysis");
+        if (!dir.isDirectory()) return list;
+        File[] files = dir.listFiles(f -> f.getName().startsWith("Neighbour_count_") && f.getName().endsWith(".csv"));
+        if (files == null) return list;
+
+        for (File csv : files) {
+            String name = csv.getName();
+            // Neighbour_count_<cellType>.csv
+            String cellType = name.substring("Neighbour_count_".length(), name.length() - ".csv".length());
+            int[] vals = loadSpatialCountsFromCsv(csv);
+            if (vals.length > 0) list.add(new SpatialDataset(cellType, vals));
+        }
+        return list;
+    }
+
+    private static int[] loadSpatialCountsFromCsv(File csv) {
+        java.util.ArrayList<Integer> vals = new java.util.ArrayList<>();
+        try {
+            java.util.List<String> lines = java.nio.file.Files.readAllLines(csv.toPath());
+            for (String line : lines) {
+                if (line == null) continue;
+                String t = line.trim();
+                if (t.isEmpty()) continue;
+                String[] parts = t.split("[,\t]");
+                if (parts.length < 2) continue;
+                // skip headers / non-numeric first column
+                if (!parts[0].trim().matches("\\d+")) continue;
+                try {
+                    int v = Integer.parseInt(parts[1].trim());
+                    if (v >= 0) vals.add(v);
+                } catch (NumberFormatException ignore) {}
+            }
+        } catch (Exception ex) {
+            IJ.log("Spatial CSV read failed (" + csv.getName() + "): " + ex.getMessage());
+        }
+        return vals.stream().mapToInt(i->i).toArray();
+    }
+
+    private static BufferedImage makeSpatialHistogram(int[] values, int binW) {
+        if (values == null || values.length == 0) return placeholderImage(560,300,"No spatial data");
+        int vmax = java.util.Arrays.stream(values).max().orElse(0);
+        int bins = Math.max(1, (int)Math.ceil((vmax+1)/(double)binW));
+
+        int[] counts = new int[bins];
+        for (int v : values) counts[Math.min(bins-1, v / binW)]++;
+        int peak = java.util.Arrays.stream(counts).max().orElse(1);
+
+        int W=560,H=300,padL=50,padR=20,padT=24,padB=40;
+        BufferedImage bi = new BufferedImage(W,H,BufferedImage.TYPE_INT_RGB);
+        Graphics2D g = bi.createGraphics();
+        g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        g.setColor(Color.WHITE); g.fillRect(0,0,W,H);
+
+        int x0=padL, x1=W-padR, y0=H-padB, y1=padT;
+        // grid + frame
+        g.setColor(new Color(235,235,235));
+        for (int i=0;i<=5;i++){
+            int y = y0 - (int)Math.round(i*(y0-y1)/5.0);
+            g.drawLine(x0,y,x1,y);
+        }
+        g.setColor(new Color(220,220,220)); g.drawRect(x0,y1,(x1-x0),(y0-y1));
+
+        // bars
+        int bw = Math.max(3, (x1-x0- (bins-1)*4) / Math.max(1,bins));
+        int x = x0;
+        g.setColor(new Color(120,150,220));
+        for (int i=0;i<bins;i++){
+            int h = (peak==0) ? 0 : (int)Math.round((counts[i]/(double)peak)*(y0-y1));
+            g.fillRect(x, y0-h, bw, h);
+            x += bw + 4;
+        }
+
+        // axes labels
+        g.setColor(new Color(90,90,90));
+        g.setFont(g.getFont().deriveFont(12f));
+        // y labels
+        for (int i=0;i<=5;i++){
+            int y = y0 - (int)Math.round(i*(y0-y1)/5.0);
+            String lab = String.valueOf((int)Math.round(i*peak/5.0));
+            int tw=g.getFontMetrics().stringWidth(lab);
+            g.drawString(lab, x0 - tw - 6, y + 4);
+        }
+        // x labels (bin ranges)
+        g.setFont(g.getFont().deriveFont(11f));
+        x = x0;
+        for (int i=0;i<bins;i++){
+            int lo = i*binW, hi = Math.min(vmax, (i+1)*binW - 1);
+            String lab = (lo==hi) ? String.valueOf(lo) : (lo + "–" + hi);
+            int tw=g.getFontMetrics().stringWidth(lab);
+            g.drawString(lab, x + (bw - tw)/2, H-10);
+            x += bw + 4;
+        }
+
+        // title inside chart
+        g.setFont(g.getFont().deriveFont(Font.BOLD, 13f));
+        g.setColor(new Color(60,60,60));
+        g.drawString("Histogram of neighbor counts (bin="+binW+")", x0+4, y1-6);
+
+        g.dispose();
+        return bi;
+    }
+
+    // ===== Summary stats (same style as the single-channel results) =====
+    private static final class Stats {
+        final int n, min, max; final double mean, median, stdev;
+        Stats(int n,int min,int max,double mean,double median,double stdev){
+            this.n=n; this.min=min; this.max=max; this.mean=mean; this.median=median; this.stdev=stdev;
+        }
+    }
+    private static Stats stats(int[] a) {
+        if (a == null || a.length == 0) return new Stats(0, 0, 0, 0, 0, 0);
+        int n = a.length;
+        int min = Integer.MAX_VALUE, max = Integer.MIN_VALUE; double sum=0;
+        for (int v : a) { if (v<min) min=v; if (v>max) max=v; sum+=v; }
+        double mean = sum/n;
+        int[] s = java.util.Arrays.copyOf(a, n);
+        java.util.Arrays.sort(s);
+        double median = (n%2==1) ? s[n/2] : (s[n/2-1] + s[n/2]) / 2.0;
+        double ss=0; for (int v : a) { double d=v-mean; ss += d*d; }
+        double stdev = Math.sqrt(ss / Math.max(1, n-1));
+        return new Stats(n,min,max,mean,median,stdev);
+    }
+
+    // ===== Card with summary + histogram + save button =====
+    private static JPanel makeSpatialCardWithSummary(String title, int[] values, int binW, File savePath) {
+        BufferedImage img = makeSpatialHistogram(values, binW);
+        Stats st = stats(values);
+
+        JPanel card = new JPanel(new BorderLayout());
+        card.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(new Color(220,220,220)),
+                new EmptyBorder(6,6,6,6)
+        ));
+
+        JLabel t = new JLabel(title);
+        t.setFont(t.getFont().deriveFont(Font.BOLD));
+        t.setBorder(new EmptyBorder(0,0,6,0));
+        card.add(t, BorderLayout.NORTH);
+
+        // summary grid (2 rows x 3 columns)
+        JPanel summary = new JPanel(new GridLayout(2, 3, 8, 4));
+        summary.setBorder(new EmptyBorder(0,0,6,0));
+        summary.add(new JLabel("n = " + st.n));
+        summary.add(new JLabel(String.format(java.util.Locale.US, "mean = %.2f", st.mean)));
+        summary.add(new JLabel(String.format(java.util.Locale.US, "median = %.1f", st.median)));
+        summary.add(new JLabel("min = " + st.min));
+        summary.add(new JLabel("max = " + st.max));
+        summary.add(new JLabel(String.format(java.util.Locale.US, "stdev = %.2f", st.stdev)));
+
+        JPanel center = new JPanel();
+        center.setLayout(new BoxLayout(center, BoxLayout.Y_AXIS));
+        center.add(summary);
+
+        JLabel chart = new JLabel(new ImageIcon(img));
+        chart.setHorizontalAlignment(SwingConstants.CENTER);
+        center.add(chart);
+
+        card.add(center, BorderLayout.CENTER);
+
+        JPanel row = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
+        JButton save = new JButton("Save histogram…");
+        save.addActionListener(ev -> {
+            try {
+                saveImage(img, savePath);
+                JOptionPane.showMessageDialog(card, "Saved:\n" + savePath.getAbsolutePath(),
+                        "Saved", JOptionPane.INFORMATION_MESSAGE);
+            } catch (Exception ex) {
+                IJ.handleException(ex);
+            }
+        });
+        row.add(save);
+        row.setBorder(new EmptyBorder(6,0,0,0));
+        card.add(row, BorderLayout.SOUTH);
+
+        return card;
+    }
+
+
 }
