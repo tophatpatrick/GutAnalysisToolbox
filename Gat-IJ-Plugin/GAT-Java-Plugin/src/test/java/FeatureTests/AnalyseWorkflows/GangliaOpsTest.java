@@ -69,7 +69,7 @@ public class GangliaOpsTest {
 
             // Check that the number of dilations matches expected iterations
             int expectedIters = 2; // 4 microns / 2 microns per pixel
-            ijMock.verify(times(expectedIters), () -> IJ.run(neuronLabels, "Dilate", ""));
+            ijMock.verify(() -> IJ.run(neuronLabels, "Dilate", ""), times(expectedIters));
 
             // Assert IllegalArgumentException is thrown for negative dilation
             calibration.pixelWidth = -1.0; // Invalid calibration
