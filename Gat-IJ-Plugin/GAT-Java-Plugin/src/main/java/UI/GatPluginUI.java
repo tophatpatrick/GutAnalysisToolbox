@@ -34,11 +34,21 @@ public class GatPluginUI implements PlugIn {
 
     @Override
     public void run(String arg){
+        String expectedNeuronModel  = "2D_enteric_neuron_V4_1.zip"; // e.g.
+        String expectedSubtypeModel = "2D_enteric_neuron_subtype_V4.zip" ;
+
+        // Run preflight; bail out if anything critical is missing.
+        if (!UI.Preflight.runAll(expectedNeuronModel, expectedSubtypeModel)) {
+            return;
+        }
+
         SwingUtilities.invokeLater(this::buildAndShow);
 
     }
 
     private void buildAndShow(){
+
+
 
         //Our main window which will host the plugin
         JDialog dialog = new JDialog(
