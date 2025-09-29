@@ -81,11 +81,12 @@ public class NeuronsMultiNoHuPipeline {
         public final LinkedHashMap<String,int[]>   perGanglia;   // marker or combo -> counts per ganglion (1..G)
         public final Integer nGanglia;                              // null if ganglia not run
         public final double[] gangliaAreaUm2;                       // null if ganglia not run
+        public final Boolean doSpatialAnalysis;
 
         public NoHuResult(File outDir, String baseName, ImagePlus max,
                           LinkedHashMap<String,Integer> totals,
                           LinkedHashMap<String,int[]> perGanglia,
-                          Integer nGanglia, double[] gangliaAreaUm2) {
+                          Integer nGanglia, double[] gangliaAreaUm2, Boolean doSpatialAnalysis) {
             this.outDir = outDir;
             this.baseName = baseName;
             this.max = max;
@@ -93,6 +94,7 @@ public class NeuronsMultiNoHuPipeline {
             this.perGanglia = perGanglia;
             this.nGanglia = nGanglia;
             this.gangliaAreaUm2 = gangliaAreaUm2;
+            this.doSpatialAnalysis = doSpatialAnalysis;
         }
     }
 
@@ -255,8 +257,10 @@ public class NeuronsMultiNoHuPipeline {
             syncToSingleton(new RoiManager[]{ rmRev });
             ImagePlus fallback = markerLabels.duplicate();
             ij.macro.Interpreter.batchMode = false;
+            progress.setVisible(false);
             ImagePlus reviewed = ReviewUI.reviewAndRebuildLabels(
                     ch, rmRev, m.name + " (review)", max.getCalibration(), fallback);
+            progress.setVisible(true);
             ij.macro.Interpreter.batchMode = true;
             rmRev.reset();
             rmRev.setVisible(false);
@@ -357,7 +361,8 @@ public class NeuronsMultiNoHuPipeline {
                 totals,
                 perGanglia,
                 (gangliaLabels != null ? Integer.valueOf(nGanglia) : null),
-                gangliaAreaUm2
+                gangliaAreaUm2,
+                mp.base.doSpatialAnalysis
         );
         if (mp.base.doSpatialAnalysis) {
             runSingleSpatialPerMarker(result, mp);

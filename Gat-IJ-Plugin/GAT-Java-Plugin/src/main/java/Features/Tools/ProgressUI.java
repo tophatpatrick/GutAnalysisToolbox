@@ -12,15 +12,18 @@ public final class ProgressUI implements AutoCloseable {
 
     public ProgressUI(String title) {
         dialog = new JDialog((Frame) null, title, false);
-        Dimension fixedSize = new Dimension(300, 100);
-        dialog.setPreferredSize(fixedSize);
+
         bar = new JProgressBar(0, 100);
         bar.setStringPainted(true);
+        bar.setStringPainted(true);
+        bar.setPreferredSize(new Dimension(300, 22));
         label = new JLabel("Starting...");
         JPanel p = new JPanel(new BorderLayout(10,10));
         p.setBorder(BorderFactory.createEmptyBorder(12,12,12,12));
         p.add(label, BorderLayout.NORTH);
         p.add(bar, BorderLayout.CENTER);
+        Dimension min = new Dimension(360, 100);
+        p.setPreferredSize(min);
         dialog.setContentPane(p);
         dialog.pack();
         dialog.setLocationRelativeTo(null);

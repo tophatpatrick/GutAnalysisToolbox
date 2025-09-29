@@ -1,14 +1,10 @@
 package Features.AnalyseWorkflows;
 
-import Analysis.SpatialSingleCellType;
-import Analysis.SpatialTwoCellType;
 import Features.Core.Params;
 import Features.Tools.*;
 import UI.panes.Tools.ReviewUI;
 import ij.IJ;
 import ij.ImagePlus;
-import ij.WindowManager;
-import ij.gui.Roi;
 import ij.plugin.frame.RoiManager;
 import static Features.Tools.RoiManagerHelper.*;
 
@@ -70,6 +66,7 @@ public class NeuronsMultiPipeline {
 
         // marker or combo name -> neurons-per-ganglion array (1..G)
         public final LinkedHashMap<String,int[]> perGanglia;
+        public final Boolean doSpatialAnalysis;
 
         public MultiResult(File outDir,
                            String baseName,
@@ -79,7 +76,7 @@ public class NeuronsMultiPipeline {
                            double[] gangliaAreaUm2,
                            ImagePlus gangliaLabels,
                            LinkedHashMap<String,Integer> totals,
-                           LinkedHashMap<String,int[]> perGanglia) {
+                           LinkedHashMap<String,int[]> perGanglia, Boolean doSpatialAnalysis) {
             this.outDir = outDir;
             this.baseName = baseName;
             this.max = max;
@@ -89,6 +86,7 @@ public class NeuronsMultiPipeline {
             this.gangliaLabels = gangliaLabels;
             this.totals = totals;
             this.perGanglia = perGanglia;
+            this.doSpatialAnalysis = doSpatialAnalysis;
         }
     }
 
@@ -231,6 +229,7 @@ public class NeuronsMultiPipeline {
             progress.step("Review: " + m.name);
             // Launch review and rebuild labels from edited ROIs
             ij.macro.Interpreter.batchMode = false;
+            progress.setVisible(false);
             ImagePlus reviewed = ReviewUI.reviewAndRebuildLabels(
                     backdrop,
                     rm,
@@ -238,6 +237,7 @@ public class NeuronsMultiPipeline {
                     max.getCalibration(),
                     filteredLabels
             );
+            progress.setVisible(true);
             ij.macro.Interpreter.batchMode = true;
 
             progress.step("Save: " + m.name);
@@ -317,7 +317,7 @@ public class NeuronsMultiPipeline {
         MultiResult mr = new MultiResult(
                 outDir, baseName, max, totalHu,
                 nGanglia, gangliaArea, hu.gangliaLabels,
-                totals, perGanglia
+                totals, perGanglia, mp.base.doSpatialAnalysis
         );
 
         RoiManager rmRev = rmh.rm;

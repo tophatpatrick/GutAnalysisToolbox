@@ -1,10 +1,7 @@
 package UI;
 
-import Features.AnalyseWorkflows.NeuronsHuPipeline;
-import Features.Core.Params;
 import UI.panes.SettingPanes.*;
 import UI.panes.Tools.*;
-import UI.util.GatWindows;
 import ij.IJ;
 import ij.plugin.PlugIn;
 import mdlaf.MaterialLookAndFeel;
@@ -14,7 +11,6 @@ import UI.panes.*;
 import UI.Handlers.*;
 import javax.swing.*;
 import java.awt.*;
-import java.io.File;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -38,11 +34,21 @@ public class GatPluginUI implements PlugIn {
 
     @Override
     public void run(String arg){
+        String expectedNeuronModel  = "2D_enteric_neuron_V4_1.zip"; // e.g.
+        String expectedSubtypeModel = "2D_enteric_neuron_subtype_V4.zip" ;
+
+        // Run preflight; bail out if anything critical is missing.
+        if (!UI.Preflight.runAll(expectedNeuronModel, expectedSubtypeModel)) {
+            return;
+        }
+
         SwingUtilities.invokeLater(this::buildAndShow);
 
     }
 
     private void buildAndShow(){
+
+
 
         //Our main window which will host the plugin
         JDialog dialog = new JDialog(
@@ -50,7 +56,6 @@ public class GatPluginUI implements PlugIn {
                 "GAT Plugin",
                 false
         );
-        GatWindows.install(dialog);
         dialog.setDefaultCloseOperation(WindowConstants.DISPOSE_ON_CLOSE);
         dialog.setLayout(new BorderLayout(8,8));
         Dimension fixedSize = new Dimension(950, 650);

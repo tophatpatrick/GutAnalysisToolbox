@@ -2,7 +2,6 @@ package Features.AnalyseWorkflows;
 
 import Analysis.SpatialSingleCellType;
 import UI.panes.Results.ResultsUI;
-import UI.util.GatWindows;
 import ij.IJ;
 import ij.ImagePlus;
 import ij.WindowManager;
@@ -37,10 +36,11 @@ public class NeuronsHuPipeline {
         public final int[] neuronsPerGanglion;  // 1..G
         public final double[] gangliaAreaUm2;   // 1..G
         public final Integer nGanglia;
+        public final Boolean doSpatialAnalysis;
 
         public HuResult(File outDir, String baseName, ImagePlus max, ImagePlus neuronLabels,
                         int totalNeuronCount, ImagePlus gangliaLabels, int[] neuronsPerGanglion,
-                        double[] gangliaAreaUm2, Integer nGanglia) {
+                        double[] gangliaAreaUm2, Integer nGanglia, Boolean doSpatialAnalysis) {
             this.outDir = outDir;
             this.baseName = baseName;
             this.max = max;
@@ -50,6 +50,7 @@ public class NeuronsHuPipeline {
             this.neuronsPerGanglion = neuronsPerGanglion;
             this.gangliaAreaUm2 = gangliaAreaUm2;
             this.nGanglia = nGanglia;
+            this.doSpatialAnalysis = doSpatialAnalysis;
         }
     }
 
@@ -173,8 +174,6 @@ public class NeuronsHuPipeline {
 
 // show RM overlay on top of Hu
         huReview.show();
-        GatWindows.nudgeFront(huReview.getWindow());
-        GatWindows.nudgeFront(rm);
         rm.setVisible(true);
         rm.runCommand(huReview, "Show All with labels");
         progress.setVisible(false);
@@ -321,7 +320,7 @@ public class NeuronsHuPipeline {
             rmG.reset();
 
             if (huReturn){
-                return new HuResult(outDir, baseName, max, labels, nHu, gangliaLabels, r.countsPerGanglion, r.areaUm2, nG);
+                return new HuResult(outDir, baseName, max, labels, nHu, gangliaLabels, r.countsPerGanglion, r.areaUm2, nG, p.doSpatialAnalysis);
             }else {
 
                 progress.close();
@@ -331,7 +330,7 @@ public class NeuronsHuPipeline {
                 );
                 HuResult result = new HuResult(
                         outDir, baseName, max, labels, nHu,
-                        gangliaLabels, r.countsPerGanglion, r.areaUm2, nG
+                        gangliaLabels, r.countsPerGanglion, r.areaUm2, nG, p.doSpatialAnalysis
                 );
 
                 if (p.doSpatialAnalysis) {
@@ -355,12 +354,12 @@ public class NeuronsHuPipeline {
 
         maybeCloseRM(rmh);
         if (huReturn){
-            return new HuResult(outDir, baseName, max, labels, nHu, null,null,null,null);
+            return new HuResult(outDir, baseName, max, labels, nHu, null,null,null,null, p.doSpatialAnalysis);
         }else {
             HuResult result = new HuResult(
                     outDir, baseName, max, labels, nHu,
-                    null,null,null,null
-            );
+                    null,null,null,null,
+                    p.doSpatialAnalysis);
             if (p.doSpatialAnalysis) {
                 runSpatialFromHu(result, p);
             }

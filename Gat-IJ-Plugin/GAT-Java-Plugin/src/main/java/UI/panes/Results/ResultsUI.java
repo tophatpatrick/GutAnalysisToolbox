@@ -81,7 +81,7 @@ public class ResultsUI {
             JTable table = makeGangliaTable(r);
             JScrollPane tableScroll = new JScrollPane(table);
             tableScroll.setBorder(BorderFactory.createEmptyBorder());
-            tableScroll.setPreferredSize(new Dimension(720, 220));
+            tableScroll.setPreferredSize(new Dimension(750, 220));
             center.add(tableScroll);
 
             center.add(Box.createVerticalStrut(10));
@@ -118,6 +118,10 @@ public class ResultsUI {
 
         }
 
+        if(r.doSpatialAnalysis){
+            addSpatialSectionFromCsv(center, r.outDir, "Hu");
+        }
+
         JScrollPane scroller = new JScrollPane(center);
         scroller.setBorder(null);
         f.add(scroller, BorderLayout.CENTER);
@@ -135,7 +139,7 @@ public class ResultsUI {
         f.pack(); // size to preferred sizes
 // (optional) cap to a reasonable maximum so it never gets too big)
         Dimension scr = Toolkit.getDefaultToolkit().getScreenSize();
-        f.setSize(Math.min(f.getWidth(), 900), Math.min(f.getHeight(), 700));
+        f.setSize(Math.min(f.getWidth(), 900), Math.min(f.getHeight(), 800));
         f.setLocationRelativeTo(null);
         f.setVisible(true);
     }
@@ -355,5 +359,174 @@ public class ResultsUI {
         out.getParentFile().mkdirs();
         javax.imageio.ImageIO.write(img, "PNG", out);
     }
+
+    private static void addSpatialSectionFromCsv(JPanel center, File outDir, String cellType) {
+        File csv = new File(new File(outDir, "spatial_analysis"), "Neighbour_count_" + cellType + ".csv");
+        if (!csv.isFile()) return;
+
+        // parse "Label <sep> No of cells around Hu"
+        java.util.List<String> lines;
+        try { lines = java.nio.file.Files.readAllLines(csv.toPath()); }
+        catch (Exception ex) { IJ.log("Spatial CSV read failed: " + ex.getMessage()); return; }
+
+        java.util.ArrayList<Integer> vals = new java.util.ArrayList<>();
+        for (String line : lines) {
+            if (line == null) continue;
+            String t = line.trim();
+            if (t.isEmpty()) continue;
+            String[] parts = t.split("[,\t]");
+            if (parts.length < 2) continue;
+            // skip header / non-numeric
+            if (!parts[0].trim().matches("\\d+")) continue;
+            try {
+                int v = Integer.parseInt(parts[1].trim());
+                if (v >= 0) vals.add(v);
+            } catch (NumberFormatException ignore) {}
+        }
+        if (vals.isEmpty()) return;
+
+        int[] counts = vals.stream().mapToInt(i -> i).toArray();
+
+        center.add(Box.createVerticalStrut(10));
+        center.add(sectionTitle("Spatial analysis – " + cellType));
+
+        // summary
+        Stats s = stats(counts);
+        JPanel summary = new JPanel(new GridLayout(2, 3, 8, 4));
+        summary.setBorder(new EmptyBorder(2,0,6,0));
+        summary.add(new JLabel("n = " + s.n));
+        summary.add(new JLabel(String.format(java.util.Locale.US, "mean = %.2f", s.mean)));
+        summary.add(new JLabel(String.format(java.util.Locale.US, "median = %.1f", s.median)));
+        summary.add(new JLabel("min = " + s.min));
+        summary.add(new JLabel("max = " + s.max));
+        summary.add(new JLabel(String.format(java.util.Locale.US, "stdev = %.2f", s.stdev)));
+        center.add(summary);
+
+        // charts
+        int max = java.util.Arrays.stream(counts).max().orElse(0);
+        int binW = Math.max(1, (int)Math.ceil((max + 1) / 15.0)); // ~15 bins
+        BufferedImage hist = makeSpatialHistogram(counts, binW);
+
+        JPanel charts = new JPanel(new GridLayout(1, 2, 10, 0));
+        charts.add(new JLabel(new ImageIcon(hist)) {{ setBorder(new EmptyBorder(0,0,6,0)); }});
+        center.add(charts);
+
+        // save
+        JPanel btnRow = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
+        JButton save = new JButton("Save spatial plots…");
+        save.addActionListener(e -> {
+            try {
+                File out1 = new File(outDir, "Plot_spatial_histogram.png");
+                saveImage(hist, out1);
+                JOptionPane.showMessageDialog(center,
+                        "Saved:\n" + out1.getAbsolutePath(),
+                        "Saved", JOptionPane.INFORMATION_MESSAGE);
+            } catch (Exception ex) {
+                IJ.handleException(ex);
+            }
+        });
+        btnRow.add(save);
+        center.add(btnRow);
+    }
+
+    // ===== Spatial analysis helpers =====
+
+
+
+
+    private static final class Stats {
+        final int n, min, max; final double mean, median, stdev;
+        Stats(int n,int min,int max,double mean,double median,double stdev){
+            this.n=n; this.min=min; this.max=max; this.mean=mean; this.median=median; this.stdev=stdev;
+        }
+    }
+
+    private static Stats stats(int[] a) {
+        if (a == null || a.length == 0) return new Stats(0, 0, 0, 0, 0, 0);
+        int n = a.length;
+        int min = Integer.MAX_VALUE, max = Integer.MIN_VALUE; double sum=0;
+        for (int v : a) { if (v<min) min=v; if (v>max) max=v; sum+=v; }
+        double mean = sum/n;
+        int[] s = java.util.Arrays.copyOf(a, n);
+        java.util.Arrays.sort(s);
+        double median = (n%2==1) ? s[n/2] : (s[n/2-1] + s[n/2]) / 2.0;
+        double ss=0; for (int v : a) { double d=v-mean; ss += d*d; }
+        double stdev = Math.sqrt(ss / Math.max(1, n-1));
+        return new Stats(n,min,max,mean,median,stdev);
+    }
+
+    private static BufferedImage makeSpatialHistogram(int[] values, int binW) {
+        if (values == null || values.length == 0) return placeholderImage(420,240,"No spatial data");
+        int vmax = java.util.Arrays.stream(values).max().orElse(0);
+        if (vmax < 0) vmax = 0;
+        int bins = Math.max(1, (int)Math.ceil((vmax+1)/(double)binW));
+
+        int[] counts = new int[bins];
+        for (int v : values) {
+            int idx = Math.min(bins-1, v / binW);
+            counts[idx]++;
+        }
+        int peak = java.util.Arrays.stream(counts).max().orElse(1);
+
+        int W=560,H=300,padL=50,padR=20,padT=24,padB=40;
+        BufferedImage bi = new BufferedImage(W,H,BufferedImage.TYPE_INT_RGB);
+        Graphics2D g = bi.createGraphics();
+        g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        g.setColor(Color.WHITE); g.fillRect(0,0,W,H);
+
+        int x0=padL, x1=W-padR, y0=H-padB, y1=padT;
+        // grid + frame
+        g.setColor(new Color(235,235,235));
+        for (int i=0;i<=5;i++){
+            int y = y0 - (int)Math.round(i*(y0-y1)/5.0);
+            g.drawLine(x0,y,x1,y);
+        }
+        g.setColor(new Color(220,220,220)); g.drawRect(x0,y1,(x1-x0),(y0-y1));
+
+        // bars
+        int bw = Math.max(3, (x1-x0- (bins-1)*4) / Math.max(1,bins));
+        int x = x0;
+        g.setColor(new Color(120,150,220));
+        for (int i=0;i<bins;i++){
+            int h = (peak==0) ? 0 : (int)Math.round((counts[i]/(double)peak)*(y0-y1));
+            g.fillRect(x, y0-h, bw, h);
+            x += bw + 4;
+        }
+
+        // axes labels
+        g.setColor(new Color(90,90,90));
+        g.setFont(g.getFont().deriveFont(12f));
+        // y labels
+        for (int i=0;i<=5;i++){
+            int y = y0 - (int)Math.round(i*(y0-y1)/5.0);
+            String lab = String.valueOf((int)Math.round(i*peak/5.0));
+            int tw=g.getFontMetrics().stringWidth(lab);
+            g.drawString(lab, x0 - tw - 6, y + 4);
+        }
+        // x labels (bin ranges)
+        g.setFont(g.getFont().deriveFont(11f));
+        x = x0;
+        for (int i=0;i<bins;i++){
+            int lo = i*binW, hi = Math.min(vmax, (i+1)*binW - 1);
+            String lab = (lo==hi) ? String.valueOf(lo) : (lo + "–" + hi);
+            int tw=g.getFontMetrics().stringWidth(lab);
+            g.drawString(lab, x + (bw - tw)/2, H-10);
+            x += bw + 4;
+        }
+
+        // title inside chart
+        g.setFont(g.getFont().deriveFont(Font.BOLD, 13f));
+        g.setColor(new Color(60,60,60));
+        g.drawString("Histogram of neighbor counts", x0+4, y1-6);
+
+        g.dispose();
+        return bi;
+    }
+
+
+
+
+
+
 
 }
