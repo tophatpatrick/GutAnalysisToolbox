@@ -5,6 +5,7 @@ import Features.Tools.*;
 import UI.panes.Tools.ReviewUI;
 import ij.IJ;
 import ij.ImagePlus;
+import ij.gui.Roi;
 import ij.plugin.frame.RoiManager;
 import static Features.Tools.RoiManagerHelper.*;
 
@@ -239,6 +240,7 @@ public class NeuronsMultiPipeline {
             );
             progress.setVisible(true);
             ij.macro.Interpreter.batchMode = true;
+            Roi[] edited = rm.getRoisAsArray();
 
             progress.step("Save: " + m.name);
             // Count + save ROIs
@@ -248,8 +250,7 @@ public class NeuronsMultiPipeline {
 
 
             rm.reset();
-            Features.Core.PluginCalls.labelsToRois(reviewed);
-            syncToSingleton(new RoiManager[]{ rm });
+            for (ij.gui.Roi r : edited) if (r != null) rm.addRoi((ij.gui.Roi) r.clone());
             if (rm.getCount() > 0) {
                 OutputIO.saveRois(rm, new File(outDir, m.name + "_ROIs_" + baseName + ".zip"));
                 if (mp.base.saveFlattenedOverlay)

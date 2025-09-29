@@ -9,6 +9,7 @@ import Features.Tools.ProgressUI;
 import UI.panes.Tools.ReviewUI;
 import ij.IJ;
 import ij.ImagePlus;
+import ij.gui.Roi;
 import ij.plugin.frame.RoiManager;
 
 import javax.swing.*;
@@ -261,6 +262,7 @@ public class NeuronsMultiNoHuPipeline {
             ImagePlus reviewed = ReviewUI.reviewAndRebuildLabels(
                     ch, rmRev, m.name + " (review)", max.getCalibration(), fallback);
             progress.setVisible(true);
+            Roi[] edited = rmRev.getRoisAsArray();
             ij.macro.Interpreter.batchMode = true;
             rmRev.reset();
             rmRev.setVisible(false);
@@ -279,10 +281,11 @@ public class NeuronsMultiNoHuPipeline {
             int n = countLabels(reviewed);
             totals.put(m.name, n);
 
+
             RoiManager rmSave = rmh.rm;
             rmSave.reset();
-            PluginCalls.labelsToRois(reviewed);
-            syncToSingleton(new RoiManager[]{ rmSave });
+            for (ij.gui.Roi r : edited) if (r != null) rmSave.addRoi((ij.gui.Roi) r.clone());
+
             if (rmSave.getCount() > 0) {
                 OutputIO.saveRois(rmSave, new File(outDir, m.name + "_ROIs_" + baseName + ".zip"));
                 if (mp.base.saveFlattenedOverlay)
