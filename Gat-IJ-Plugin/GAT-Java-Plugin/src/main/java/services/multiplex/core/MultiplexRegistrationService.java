@@ -8,6 +8,11 @@ import ij.plugin.frame.RoiManager;
 import services.multiplex.config.MultiplexConfig;
 import services.multiplex.util.NamingUtils;
 
+import ij.macro.Interpreter;      // batch mode flag (ImageJ macro engine)
+import javax.swing.*;             // for the final popup (already imported below but safe)
+import java.awt.Desktop;          // to open the Results folder in OS file explorer
+
+
 import java.io.File;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -105,7 +110,13 @@ public class MultiplexRegistrationService {
      *                                  missing ROI correspondences, or pre-existing {@code Results/}.
      */
     public void run() {
-        // ---- 1) Prepare Results/ ----
+        // --- Hide ImageJ windows during processing (batch mode) ---
+        final boolean prevBatch = Interpreter.batchMode;  // remember prior state
+        Interpreter.batchMode = true;
+
+        try {
+
+            // ---- 1) Prepare Results/ ----
         File resultsDir = new File(cfg.saveFolder(), "Results");
         if (resultsDir.exists()) {
             throw new IllegalStateException("Remove Results folder in directory: " + resultsDir.getAbsolutePath());
@@ -316,9 +327,48 @@ public class MultiplexRegistrationService {
                     new File(resultsDir, "landmark_correspondences.zip").getAbsolutePath());
         }
 
-        // ---- 11) Cleanup + notify ----
+            // ---- Offer to open the aligned image and/or the Results folder ----
+            File alignedTif = new File(resultsDir, "Aligned_Stack.tif");
+            JPanel panel = new JPanel(new java.awt.GridLayout(0, 1, 0, 6));
+            JLabel msg = new JLabel("<html><b>Multiplex Registration finished.</b><br/>" +
+                    "Results saved in:<br/>" + resultsDir.getAbsolutePath() + "</html>");
+            JCheckBox openImage = new JCheckBox("Open Aligned_Stack.tif now", true);
+            JCheckBox openFolder = new JCheckBox("Open Results folder", false);
+            panel.add(msg);
+            panel.add(openImage);
+            panel.add(openFolder);
+
+            int choice = JOptionPane.showConfirmDialog(
+                    null, panel, "Done", JOptionPane.OK_CANCEL_OPTION, JOptionPane.INFORMATION_MESSAGE);
+
+            if (choice == JOptionPane.OK_OPTION) {
+                if (openImage.isSelected() && alignedTif.exists()) {
+                    ImagePlus opened = IJ.openImage(alignedTif.getAbsolutePath());
+                    if (opened != null) opened.show();
+                }
+                if (openFolder.isSelected() && resultsDir.exists()) {
+                    try {
+                        if (Desktop.isDesktopSupported()) {
+                            Desktop.getDesktop().open(resultsDir);
+                        } else {
+                            IJ.showMessage("Results Folder", "Results: " + resultsDir.getAbsolutePath());
+                        }
+                    } catch (Exception ex) {
+                        IJ.showMessage("Open Folder Failed",
+                                "Could not open folder:\n" + resultsDir.getAbsolutePath() + "\n" + ex.getMessage());
+                    }
+                }
+            }
+
+
+            // ---- 11) Cleanup + notify ----
         finalStack.close();
         ref.close();
         IJ.showMessage("Multiplex Registration", "Done.\nSaved to: " + resultsDir.getAbsolutePath());
+    } finally {
+// Restore the previous batch mode so ImageJ UI behaves normally afterwards
+            Interpreter.batchMode = prevBatch;
+        }
+
     }
 }
