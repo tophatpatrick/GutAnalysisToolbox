@@ -71,7 +71,7 @@ public class GatPluginUI implements PlugIn {
         cardPanel.add(new MultichannelPane(dialog),MultichannelPane.Name);
 
         // register your dashboard pane
-
+        cardPanel.add(new alignStackPane(navigator, dialog), alignStackPane.Name);
 
 
 

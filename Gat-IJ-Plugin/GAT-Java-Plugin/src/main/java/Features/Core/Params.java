@@ -81,6 +81,15 @@ public class Params {
     public String  spatialCellTypeName = "Hu";
 
     public Window uiAnchor;
+
+    // Calcium imaging alignment defaults
+    public int referenceFrame = 1;            // default first frame
+    public boolean normalizeToBaseline = false; // default: no normalization
+    public int baselineStart = 1;             // default start frame
+    public int baselineEnd = 5;               // default end frame
+    public boolean saveAlignedStack = false;  // default: don't save aligned stack
+    public boolean subpixel = false;
+    public boolean useSIFT = false;
 }
 
 

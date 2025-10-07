@@ -342,8 +342,8 @@ public class AlignStack implements PlugIn {
                                "swindow=0 " +
                                "subpixel=false " +
                                "itpmethod=0 " +
-                               "ref.slice= " + referenceFrame +
-                               "show=true";
+                               "ref.slice=" + referenceFrame +
+                               " show=true";
         
         IJ.run(selectedImage, "Align slices in stack...", templateParams);
         IJ.wait(10);
