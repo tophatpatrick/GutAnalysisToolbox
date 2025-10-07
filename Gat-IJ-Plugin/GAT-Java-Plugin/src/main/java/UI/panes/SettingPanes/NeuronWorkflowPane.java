@@ -456,7 +456,7 @@ public class NeuronWorkflowPane extends JPanel {
         // Fill with your known-good defaults (same as your working run)
         if (tfCustomGangliaZip != null) tfCustomGangliaZip.setText("");
         tfImagePath.setText("/path/to/image");
-        spHuChannel.setValue(3);
+        spHuChannel.setValue(1);
 
         String modelZip = new File(new File(IJ.getDirectory("imagej"), "models"), "2D_enteric_neuron_v4_1.zip").getAbsolutePath();
         tfModelZip.setText(modelZip);
@@ -475,7 +475,7 @@ public class NeuronWorkflowPane extends JPanel {
 
         cbGangliaAnalysis.setSelected(true);
         cbGangliaMode.setSelectedItem(Params.GangliaMode.DEEPIMAGEJ);
-        spGangliaChannel.setValue(2);
+        spGangliaChannel.setValue(1);
         tfGangliaModelFolder.setText("2D_Ganglia_RGB_v3.bioimage.io.model");
 
         spHuDilationMicron.setValue(12.0);

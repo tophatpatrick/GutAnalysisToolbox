@@ -606,20 +606,19 @@ public class MultiChannelNoHuPane extends JPanel {
 
         cbGangliaAnalysis.setSelected(false);
         cbGangliaMode.setSelectedItem(Params.GangliaMode.DEEPIMAGEJ);
-        spGangliaChannel.setValue(2);
+        spGangliaChannel.setValue(1);
         spCellBodyChannel.setValue(!markerRows.isEmpty()
                 ? ((Number) markerRows.get(0).spChannel.getValue()).intValue()
                 : 1);
 
         if (tfGangliaRoiZip == null) tfGangliaRoiZip = new JTextField(28);
         tfGangliaRoiZip.setText("");
-        if (tfGangliaModelFolder == null) tfGangliaModelFolder = new JTextField(28);
         tfGangliaModelFolder.setText("2D_Ganglia_RGB_v3.bioimage.io.model");
         updateGangliaVisibility();
 
         // one example row
-        addMarkerRow("nNOS", 4, null, null, false, null);
-        addMarkerRow("ChAT", 5, null, null, false, null);
+        addMarkerRow("Marker 1", 1, null, null, false, null);
+        addMarkerRow("Marker 2", 2, null, null, false, null);
     }
 
     private void updateGangliaVisibility() {

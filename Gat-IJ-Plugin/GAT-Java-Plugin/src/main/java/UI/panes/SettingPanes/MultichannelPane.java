@@ -595,8 +595,8 @@ public class MultichannelPane extends JPanel {
         tfSubtypeModelZip.setText(new File(new File(IJ.getDirectory("imagej"), "models"), "2D_enteric_neuron_subtype_v4.zip").getAbsolutePath());
         spSubtypeProb.setValue(0.50); spSubtypeNms.setValue(0.30); spOverlapFrac.setValue(0.40);
 
-        addMarkerRow("nNOS", 2, false, null);
-        addMarkerRow("ChAT", 1,  false, null);
+        addMarkerRow("Marker 1", 1, false, null);
+        addMarkerRow("Marker 2", 2,  false, null);
 
         // Defaults for new ganglia UI
         if (tfGangliaRoiZip == null) tfGangliaRoiZip = new JTextField(28);
