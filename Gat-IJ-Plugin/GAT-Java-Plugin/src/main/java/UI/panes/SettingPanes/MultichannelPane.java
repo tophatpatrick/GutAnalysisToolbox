@@ -7,6 +7,7 @@ import ij.IJ;
 
 import javax.swing.*;
 import javax.swing.border.TitledBorder;
+import javax.swing.filechooser.FileNameExtensionFilter;
 import java.awt.*;
 import static UI.util.FormUI.*;
 import java.io.File;
@@ -405,6 +406,14 @@ public class MultichannelPane extends JPanel {
                 new JLabel("Subtype NMS:"),                    spSubtypeNms,
                 new JLabel("Hu/marker overlap fraction:"),     spOverlapFrac
         )));
+
+        JButton btnLoadCfg = new JButton("Load config…");
+        btnLoadCfg.addActionListener(e -> loadConfigFromFile());
+        JButton btnSaveCfg = new JButton("Save config…");
+        btnSaveCfg.addActionListener(e -> saveConfigToFile());
+        p.add(box("Config file", row(btnLoadCfg, btnSaveCfg)));
+
+
         p.add(Box.createVerticalStrut(8));
 
         JScrollPane scroll = new JScrollPane(
@@ -690,4 +699,79 @@ public class MultichannelPane extends JPanel {
     }
     private static JTextField ensure(JTextField tf) { return tf==null? new JTextField(36) : tf; }
     private static String emptyToNull(String s) { if (s==null) return null; s=s.trim(); return s.isEmpty()? null : s; }
+
+    private java.util.Properties toConfigMulti() {
+        java.util.Properties p = new java.util.Properties();
+
+        UI.util.ConfigIO.putStr(p, "workflow", "Multichannel");
+        UI.util.ConfigIO.putStr(p, "cfgVersion", "1");
+
+        // reuse some Hu keys (this pane needs them)
+        UI.util.ConfigIO.putStr(p,"hu.modelZip", tfHuModelZip.getText());
+        UI.util.ConfigIO.putInt(p,"hu.channel", ((Number)spHuChannel.getValue()).intValue());
+
+        // subtype & overlap (namespace "multi.")
+        UI.util.ConfigIO.putStr(p, "multi.subtypeModelZip", tfSubtypeModelZip.getText());
+        UI.util.ConfigIO.putDbl(p, "multi.subtypeProb", ((Number)spSubtypeProb.getValue()).doubleValue());
+        UI.util.ConfigIO.putDbl(p, "multi.subtypeNms",  ((Number)spSubtypeNms.getValue()).doubleValue());
+        UI.util.ConfigIO.putDbl(p, "multi.overlapFrac", ((Number)spOverlapFrac.getValue()).doubleValue());
+
+        // shared resc/overlay/spatial
+        UI.util.ConfigIO.putBool(p,"rescale.enabled", cbRescaleToTrainingPx.isSelected());
+        UI.util.ConfigIO.putDbl (p,"rescale.trainingPxUm", ((Number)spTrainingPxUm.getValue()).doubleValue());
+        UI.util.ConfigIO.putDbl (p,"rescale.trainingScale", ((Number)spTrainingScale.getValue()).doubleValue());
+        UI.util.ConfigIO.putBool(p,"overlay.saveFlattened", cbSaveOverlay.isSelected());
+        UI.util.ConfigIO.putBool(p,"cal.requireMicrons", cbRequireMicronUnits.isSelected());
+        UI.util.ConfigIO.putDbl (p,"cal.neuronSegLowerUm", ((Number)spNeuronSegLowerUm.getValue()).doubleValue());
+        UI.util.ConfigIO.putDbl (p,"cal.neuronSegMinUm",   ((Number)spNeuronSegMinUm.getValue()).doubleValue());
+        UI.util.ConfigIO.putBool(p,"spatial.enabled", cbDoSpatial.isSelected());
+
+        // ganglia here (Hu-based)
+        UI.util.ConfigIO.putBool(p,"ganglia.enabled", cbGangliaAnalysis.isSelected());
+        UI.util.ConfigIO.putStr (p,"ganglia.mode", String.valueOf(cbGangliaMode.getSelectedItem()));
+        UI.util.ConfigIO.putInt (p,"ganglia.channel", ((Number)spGangliaChannel.getValue()).intValue());
+        UI.util.ConfigIO.putStr (p,"ganglia.modelFolder", tfGangliaModelFolder.getText());
+
+        return p;
+    }
+
+    private void applyConfigMulti(java.util.Properties p) {
+        if (UI.util.ConfigIO.has(p,"hu.modelZip")) tfHuModelZip.setText(UI.util.ConfigIO.getStr(p,"hu.modelZip", tfHuModelZip.getText()));
+        if (UI.util.ConfigIO.has(p,"hu.channel"))  spHuChannel.setValue(UI.util.ConfigIO.getInt(p,"hu.channel", ((Number)spHuChannel.getValue()).intValue()));
+
+        if (UI.util.ConfigIO.has(p,"multi.subtypeModelZip")) tfSubtypeModelZip.setText(UI.util.ConfigIO.getStr(p,"multi.subtypeModelZip", tfSubtypeModelZip.getText()));
+        if (UI.util.ConfigIO.has(p,"multi.subtypeProb"))     spSubtypeProb.setValue(UI.util.ConfigIO.getDbl(p,"multi.subtypeProb", ((Number)spSubtypeProb.getValue()).doubleValue()));
+        if (UI.util.ConfigIO.has(p,"multi.subtypeNms"))      spSubtypeNms.setValue(UI.util.ConfigIO.getDbl(p,"multi.subtypeNms",  ((Number)spSubtypeNms.getValue()).doubleValue()));
+        if (UI.util.ConfigIO.has(p,"multi.overlapFrac"))     spOverlapFrac.setValue(UI.util.ConfigIO.getDbl(p,"multi.overlapFrac", ((Number)spOverlapFrac.getValue()).doubleValue()));
+
+        if (UI.util.ConfigIO.has(p,"rescale.enabled")) cbRescaleToTrainingPx.setSelected(UI.util.ConfigIO.getBool(p,"rescale.enabled", cbRescaleToTrainingPx.isSelected()));
+        if (UI.util.ConfigIO.has(p,"rescale.trainingPxUm")) spTrainingPxUm.setValue(UI.util.ConfigIO.getDbl(p,"rescale.trainingPxUm", ((Number)spTrainingPxUm.getValue()).doubleValue()));
+        if (UI.util.ConfigIO.has(p,"rescale.trainingScale")) spTrainingScale.setValue(UI.util.ConfigIO.getDbl(p,"rescale.trainingScale", ((Number)spTrainingScale.getValue()).doubleValue()));
+        if (UI.util.ConfigIO.has(p,"overlay.saveFlattened")) cbSaveOverlay.setSelected(UI.util.ConfigIO.getBool(p,"overlay.saveFlattened", cbSaveOverlay.isSelected()));
+        if (UI.util.ConfigIO.has(p,"cal.requireMicrons"))    cbRequireMicronUnits.setSelected(UI.util.ConfigIO.getBool(p,"cal.requireMicrons", cbRequireMicronUnits.isSelected()));
+        if (UI.util.ConfigIO.has(p,"cal.neuronSegLowerUm"))  spNeuronSegLowerUm.setValue(UI.util.ConfigIO.getDbl(p,"cal.neuronSegLowerUm", ((Number)spNeuronSegLowerUm.getValue()).doubleValue()));
+        if (UI.util.ConfigIO.has(p,"cal.neuronSegMinUm"))    spNeuronSegMinUm.setValue(UI.util.ConfigIO.getDbl(p,"cal.neuronSegMinUm", ((Number)spNeuronSegMinUm.getValue()).doubleValue()));
+        if (UI.util.ConfigIO.has(p,"spatial.enabled"))       cbDoSpatial.setSelected(UI.util.ConfigIO.getBool(p,"spatial.enabled", cbDoSpatial.isSelected()));
+
+        if (UI.util.ConfigIO.has(p,"ganglia.enabled")) cbGangliaAnalysis.setSelected(UI.util.ConfigIO.getBool(p,"ganglia.enabled", cbGangliaAnalysis.isSelected()));
+        if (UI.util.ConfigIO.has(p,"ganglia.mode"))    cbGangliaMode.setSelectedItem(Params.GangliaMode.valueOf(UI.util.ConfigIO.getStr(p,"ganglia.mode", String.valueOf(cbGangliaMode.getSelectedItem()))));
+        if (UI.util.ConfigIO.has(p,"ganglia.channel")) spGangliaChannel.setValue(UI.util.ConfigIO.getInt(p,"ganglia.channel", ((Number)spGangliaChannel.getValue()).intValue()));
+        if (UI.util.ConfigIO.has(p,"ganglia.modelFolder")) tfGangliaModelFolder.setText(UI.util.ConfigIO.getStr(p,"ganglia.modelFolder", tfGangliaModelFolder.getText()));
+
+        updateGangliaVisibility();
+    }
+
+    private static final String EXPECTED_WORKFLOW = "Multichannel";
+
+    private void saveConfigToFile() {
+        UI.util.ConfigIO.saveConfig(this, EXPECTED_WORKFLOW, this::toConfigMulti);
+    }
+
+    private void loadConfigFromFile() {
+        UI.util.ConfigIO.loadConfig(this, EXPECTED_WORKFLOW, this::applyConfigMulti);
+    }
+
+
+
+
 }

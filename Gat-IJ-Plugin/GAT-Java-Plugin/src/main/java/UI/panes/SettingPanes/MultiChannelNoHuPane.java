@@ -4,15 +4,20 @@ import Features.AnalyseWorkflows.NeuronsMultiNoHuPipeline;
 import Features.Core.Params;
 import UI.Handlers.Navigator;
 import static UI.util.FormUI.*;
+
+import UI.util.ConfigIO;
 import UI.util.InputValidation;
 import ij.IJ;
 
 import javax.swing.*;
 import javax.swing.border.TitledBorder;
+import javax.swing.filechooser.FileNameExtensionFilter;
 import java.awt.*;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.Properties;
 
 public class MultiChannelNoHuPane extends JPanel {
 
@@ -285,6 +290,13 @@ public class MultiChannelNoHuPane extends JPanel {
         pnlGangliaModelRow = box("Ganglia model (DeepImageJ)",
                 row(new JLabel("Folder (under <Fiji>/models):"), tfGangliaModelFolder, btnBrowseGangliaModelFolder));
         p.add(pnlGangliaModelRow);
+
+        JButton btnLoadCfg = new JButton("Load config…");
+        btnLoadCfg.addActionListener(e -> loadConfigFromFile());
+        JButton btnSaveCfg = new JButton("Save config…");
+        btnSaveCfg.addActionListener(e -> saveConfigToFile());
+        p.add(box("Config file", row(btnLoadCfg, btnSaveCfg)));
+
 
 
         p.add(Box.createVerticalStrut(8));
@@ -627,4 +639,63 @@ public class MultiChannelNoHuPane extends JPanel {
         revalidate();
         repaint();
     }
+    private java.util.Properties toConfigNoHu() {
+        java.util.Properties p = new java.util.Properties();
+        UI.util.ConfigIO.putStr(p, "workflow", "noHuWorkflow");
+        UI.util.ConfigIO.putStr(p, "cfgVersion", "1");
+        UI.util.ConfigIO.putStr(p, "nohu.subtypeModelZip", tfSubtypeModelZip.getText());
+        UI.util.ConfigIO.putDbl(p, "nohu.defaultProb", ((Number)spDefaultProb.getValue()).doubleValue());
+        UI.util.ConfigIO.putDbl(p, "nohu.defaultNms",  ((Number)spDefaultNms.getValue()).doubleValue());
+        UI.util.ConfigIO.putDbl(p, "nohu.overlapFrac", ((Number)spOverlapFrac.getValue()).doubleValue());
+        UI.util.ConfigIO.putDbl(p, "nohu.minMarkerSizeUm", ((Number)spMinMarkerSizeUm.getValue()).doubleValue());
+
+        UI.util.ConfigIO.putBool(p,"rescale.enabled", cbRescaleToTrainingPx.isSelected());
+        UI.util.ConfigIO.putDbl (p,"rescale.trainingPxUm", ((Number)spTrainingPixelSizeUm.getValue()).doubleValue());
+        UI.util.ConfigIO.putDbl (p,"rescale.trainingScale", ((Number)spTrainingRescaleFactor.getValue()).doubleValue());
+        UI.util.ConfigIO.putBool(p,"overlay.saveFlattened", cbSaveFlattenedOverlay.isSelected());
+        UI.util.ConfigIO.putBool(p,"spatial.enabled", cbDoSpatial.isSelected());
+
+        // ganglia (no-Hu variant)
+        UI.util.ConfigIO.putBool(p,"ganglia.enabled", cbGangliaAnalysis.isSelected());
+        UI.util.ConfigIO.putStr (p,"ganglia.mode", String.valueOf(cbGangliaMode.getSelectedItem()));
+        UI.util.ConfigIO.putInt (p,"ganglia.fibresChannel", ((Number)spGangliaChannel.getValue()).intValue());
+        UI.util.ConfigIO.putInt (p,"ganglia.cellBodyChannel", ((Number)spCellBodyChannel.getValue()).intValue());
+        UI.util.ConfigIO.putStr (p,"ganglia.modelFolder", tfGangliaModelFolder.getText());
+        return p;
+    }
+
+    private void applyConfigNoHu(java.util.Properties p) {
+        if (UI.util.ConfigIO.has(p,"nohu.subtypeModelZip")) tfSubtypeModelZip.setText(UI.util.ConfigIO.getStr(p,"nohu.subtypeModelZip", tfSubtypeModelZip.getText()));
+        if (UI.util.ConfigIO.has(p,"nohu.defaultProb"))     spDefaultProb.setValue(UI.util.ConfigIO.getDbl(p,"nohu.defaultProb", ((Number)spDefaultProb.getValue()).doubleValue()));
+        if (UI.util.ConfigIO.has(p,"nohu.defaultNms"))      spDefaultNms.setValue(UI.util.ConfigIO.getDbl(p,"nohu.defaultNms",  ((Number)spDefaultNms.getValue()).doubleValue()));
+        if (UI.util.ConfigIO.has(p,"nohu.overlapFrac"))     spOverlapFrac.setValue(UI.util.ConfigIO.getDbl(p,"nohu.overlapFrac", ((Number)spOverlapFrac.getValue()).doubleValue()));
+        if (UI.util.ConfigIO.has(p,"nohu.minMarkerSizeUm")) spMinMarkerSizeUm.setValue(UI.util.ConfigIO.getDbl(p,"nohu.minMarkerSizeUm", ((Number)spMinMarkerSizeUm.getValue()).doubleValue()));
+
+        if (UI.util.ConfigIO.has(p,"rescale.enabled")) cbRescaleToTrainingPx.setSelected(UI.util.ConfigIO.getBool(p,"rescale.enabled", cbRescaleToTrainingPx.isSelected()));
+        if (UI.util.ConfigIO.has(p,"rescale.trainingPxUm")) spTrainingPixelSizeUm.setValue(UI.util.ConfigIO.getDbl(p,"rescale.trainingPxUm", ((Number)spTrainingPixelSizeUm.getValue()).doubleValue()));
+        if (UI.util.ConfigIO.has(p,"rescale.trainingScale")) spTrainingRescaleFactor.setValue(UI.util.ConfigIO.getDbl(p,"rescale.trainingScale", ((Number)spTrainingRescaleFactor.getValue()).doubleValue()));
+        if (UI.util.ConfigIO.has(p,"overlay.saveFlattened")) cbSaveFlattenedOverlay.setSelected(UI.util.ConfigIO.getBool(p,"overlay.saveFlattened", cbSaveFlattenedOverlay.isSelected()));
+        if (UI.util.ConfigIO.has(p,"spatial.enabled")) cbDoSpatial.setSelected(UI.util.ConfigIO.getBool(p,"spatial.enabled", cbDoSpatial.isSelected()));
+
+        if (UI.util.ConfigIO.has(p,"ganglia.enabled")) cbGangliaAnalysis.setSelected(UI.util.ConfigIO.getBool(p,"ganglia.enabled", cbGangliaAnalysis.isSelected()));
+        if (UI.util.ConfigIO.has(p,"ganglia.mode"))    cbGangliaMode.setSelectedItem(Params.GangliaMode.valueOf(UI.util.ConfigIO.getStr(p,"ganglia.mode", String.valueOf(cbGangliaMode.getSelectedItem()))));
+        if (UI.util.ConfigIO.has(p,"ganglia.fibresChannel")) spGangliaChannel.setValue(UI.util.ConfigIO.getInt(p,"ganglia.fibresChannel", ((Number)spGangliaChannel.getValue()).intValue()));
+        if (UI.util.ConfigIO.has(p,"ganglia.cellBodyChannel")) spCellBodyChannel.setValue(UI.util.ConfigIO.getInt(p,"ganglia.cellBodyChannel", ((Number)spCellBodyChannel.getValue()).intValue()));
+        if (UI.util.ConfigIO.has(p,"ganglia.modelFolder")) tfGangliaModelFolder.setText(UI.util.ConfigIO.getStr(p,"ganglia.modelFolder", tfGangliaModelFolder.getText()));
+
+        updateGangliaVisibility();
+    }
+
+
+    private static final String EXPECTED_WORKFLOW = "noHuWorkflow";
+
+    private void saveConfigToFile() {
+        UI.util.ConfigIO.saveConfig(this, EXPECTED_WORKFLOW, this::toConfigNoHu);
+    }
+
+    private void loadConfigFromFile() {
+        UI.util.ConfigIO.loadConfig(this, EXPECTED_WORKFLOW, this::applyConfigNoHu);
+    }
+
+
 }
