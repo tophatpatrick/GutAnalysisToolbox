@@ -3,6 +3,7 @@ package UI.panes.SettingPanes;
 import Features.AnalyseWorkflows.NeuronsHuPipeline;
 import Features.Core.Params;
 import UI.Handlers.Navigator;
+import UI.util.ConfigIO;
 import UI.util.InputValidation;
 import ij.IJ;
 
@@ -12,6 +13,7 @@ import java.awt.*;
 import java.io.File;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
+import javax.swing.filechooser.FileNameExtensionFilter;
 import java.util.Locale;
 import java.util.Objects;
 
@@ -301,6 +303,14 @@ public class NeuronWorkflowPane extends JPanel {
         )));
         p.add(box("Review", cbGangliaInteractiveReview));
 
+
+        JButton btnLoadCfg = new JButton("Load config…");
+        btnLoadCfg.addActionListener(e -> loadConfigFromFile());
+        JButton btnSaveCfg = new JButton("Save config…");
+        btnSaveCfg.addActionListener(e -> saveConfigToFile());
+        p.add(box("Config file", row(btnLoadCfg, btnSaveCfg)));
+
+
         p.add(Box.createVerticalStrut(8));
 
         JScrollPane scroll = new JScrollPane(
@@ -446,7 +456,7 @@ public class NeuronWorkflowPane extends JPanel {
         // Fill with your known-good defaults (same as your working run)
         if (tfCustomGangliaZip != null) tfCustomGangliaZip.setText("");
         tfImagePath.setText("/path/to/image");
-        spHuChannel.setValue(3);
+        spHuChannel.setValue(1);
 
         String modelZip = new File(new File(IJ.getDirectory("imagej"), "models"), "2D_enteric_neuron_v4_1.zip").getAbsolutePath();
         tfModelZip.setText(modelZip);
@@ -465,7 +475,7 @@ public class NeuronWorkflowPane extends JPanel {
 
         cbGangliaAnalysis.setSelected(true);
         cbGangliaMode.setSelectedItem(Params.GangliaMode.DEEPIMAGEJ);
-        spGangliaChannel.setValue(2);
+        spGangliaChannel.setValue(1);
         tfGangliaModelFolder.setText("2D_Ganglia_RGB_v3.bioimage.io.model");
 
         spHuDilationMicron.setValue(12.0);
@@ -568,6 +578,85 @@ public class NeuronWorkflowPane extends JPanel {
         String name = f.getName().toLowerCase(Locale.ROOT);
         return f.isFile() && name.endsWith(".zip");
     }
+
+    // ---- Config mapping (Hu pane) ----
+    private java.util.Properties toConfigHu() {
+        java.util.Properties p = new java.util.Properties();
+        UI.util.ConfigIO.putStr(p, "workflow", "HuWorkflow");
+        UI.util.ConfigIO.putStr(p, "cfgVersion", "1");
+        UI.util.ConfigIO.putStr(p, "hu.modelZip", tfModelZip.getText());
+        UI.util.ConfigIO.putInt(p, "hu.channel", ((Number)spHuChannel.getValue()).intValue());
+        UI.util.ConfigIO.putDbl(p, "hu.prob", ((Number)spProbThresh.getValue()).doubleValue());
+        UI.util.ConfigIO.putDbl(p, "hu.nms",  ((Number)spNmsThresh.getValue()).doubleValue());
+
+        UI.util.ConfigIO.putBool(p, "rescale.enabled", cbRescaleToTrainingPx.isSelected());
+        UI.util.ConfigIO.putDbl(p,  "rescale.trainingPxUm", ((Number)spTrainingPixelSizeUm.getValue()).doubleValue());
+        UI.util.ConfigIO.putDbl(p,  "rescale.trainingScale", ((Number)spTrainingRescaleFactor.getValue()).doubleValue());
+
+        UI.util.ConfigIO.putBool(p, "overlay.saveFlattened", cbSaveFlattenedOverlay.isSelected());
+
+        UI.util.ConfigIO.putBool(p, "cal.requireMicrons", cbRequireMicronUnits.isSelected());
+        UI.util.ConfigIO.putDbl(p,  "cal.neuronSegLowerUm", ((Number)spNeuronSegLowerLimitUm.getValue()).doubleValue());
+        UI.util.ConfigIO.putDbl(p,  "cal.neuronSegMinUm",   ((Number)spNeuronSegMinMicron.getValue()).doubleValue());
+
+        UI.util.ConfigIO.putBool(p, "ganglia.enabled", cbGangliaAnalysis.isSelected());
+        UI.util.ConfigIO.putStr (p, "ganglia.mode", String.valueOf(cbGangliaMode.getSelectedItem()));
+        UI.util.ConfigIO.putInt (p, "ganglia.channel", ((Number)spGangliaChannel.getValue()).intValue());
+        UI.util.ConfigIO.putStr (p, "ganglia.modelFolder", tfGangliaModelFolder.getText());
+        UI.util.ConfigIO.putDbl (p, "ganglia.huDilationUm", ((Number)spHuDilationMicron.getValue()).doubleValue());
+        UI.util.ConfigIO.putDbl (p, "ganglia.prob01", ((Number)spGangliaProbThresh01.getValue()).doubleValue());
+        UI.util.ConfigIO.putDbl (p, "ganglia.minAreaUm2", ((Number)spGangliaMinAreaUm2.getValue()).doubleValue());
+        UI.util.ConfigIO.putInt (p, "ganglia.openIters", ((Number)spGangliaOpenIterations.getValue()).intValue());
+        UI.util.ConfigIO.putBool(p, "ganglia.interactiveReview", cbGangliaInteractiveReview.isSelected());
+
+        UI.util.ConfigIO.putBool(p, "spatial.enabled", cbDoSpatial.isSelected());
+        return p;
+    }
+
+    private void applyConfigHu(java.util.Properties p) {
+        // Only set if a key exists (keeps it tolerant across panes)
+        if (UI.util.ConfigIO.has(p, "hu.modelZip")) tfModelZip.setText(UI.util.ConfigIO.getStr(p, "hu.modelZip", tfModelZip.getText()));
+        if (UI.util.ConfigIO.has(p, "hu.channel"))  spHuChannel.setValue(UI.util.ConfigIO.getInt(p, "hu.channel", ((Number)spHuChannel.getValue()).intValue()));
+        if (UI.util.ConfigIO.has(p, "hu.prob"))     spProbThresh.setValue(UI.util.ConfigIO.getDbl(p, "hu.prob", ((Number)spProbThresh.getValue()).doubleValue()));
+        if (UI.util.ConfigIO.has(p, "hu.nms"))      spNmsThresh.setValue(UI.util.ConfigIO.getDbl(p, "hu.nms",  ((Number)spNmsThresh.getValue()).doubleValue()));
+
+        if (UI.util.ConfigIO.has(p, "rescale.enabled")) cbRescaleToTrainingPx.setSelected(UI.util.ConfigIO.getBool(p,"rescale.enabled", cbRescaleToTrainingPx.isSelected()));
+        if (UI.util.ConfigIO.has(p, "rescale.trainingPxUm")) spTrainingPixelSizeUm.setValue(UI.util.ConfigIO.getDbl(p,"rescale.trainingPxUm", ((Number)spTrainingPixelSizeUm.getValue()).doubleValue()));
+        if (UI.util.ConfigIO.has(p, "rescale.trainingScale")) spTrainingRescaleFactor.setValue(UI.util.ConfigIO.getDbl(p,"rescale.trainingScale", ((Number)spTrainingRescaleFactor.getValue()).doubleValue()));
+
+        if (UI.util.ConfigIO.has(p, "overlay.saveFlattened")) cbSaveFlattenedOverlay.setSelected(UI.util.ConfigIO.getBool(p,"overlay.saveFlattened", cbSaveFlattenedOverlay.isSelected()));
+
+        if (UI.util.ConfigIO.has(p, "cal.requireMicrons")) cbRequireMicronUnits.setSelected(UI.util.ConfigIO.getBool(p,"cal.requireMicrons", cbRequireMicronUnits.isSelected()));
+        if (UI.util.ConfigIO.has(p, "cal.neuronSegLowerUm")) spNeuronSegLowerLimitUm.setValue(UI.util.ConfigIO.getDbl(p,"cal.neuronSegLowerUm", ((Number)spNeuronSegLowerLimitUm.getValue()).doubleValue()));
+        if (UI.util.ConfigIO.has(p, "cal.neuronSegMinUm"))   spNeuronSegMinMicron.setValue(UI.util.ConfigIO.getDbl(p,"cal.neuronSegMinUm",   ((Number)spNeuronSegMinMicron.getValue()).doubleValue()));
+
+        if (UI.util.ConfigIO.has(p, "ganglia.enabled")) cbGangliaAnalysis.setSelected(UI.util.ConfigIO.getBool(p,"ganglia.enabled", cbGangliaAnalysis.isSelected()));
+        if (UI.util.ConfigIO.has(p, "ganglia.mode"))    cbGangliaMode.setSelectedItem(Params.GangliaMode.valueOf(UI.util.ConfigIO.getStr(p,"ganglia.mode", String.valueOf(cbGangliaMode.getSelectedItem()))));
+        if (UI.util.ConfigIO.has(p, "ganglia.channel")) spGangliaChannel.setValue(UI.util.ConfigIO.getInt(p,"ganglia.channel", ((Number)spGangliaChannel.getValue()).intValue()));
+        if (UI.util.ConfigIO.has(p, "ganglia.modelFolder")) tfGangliaModelFolder.setText(UI.util.ConfigIO.getStr(p,"ganglia.modelFolder", tfGangliaModelFolder.getText()));
+        if (UI.util.ConfigIO.has(p, "ganglia.huDilationUm")) spHuDilationMicron.setValue(UI.util.ConfigIO.getDbl(p,"ganglia.huDilationUm", ((Number)spHuDilationMicron.getValue()).doubleValue()));
+        if (UI.util.ConfigIO.has(p, "ganglia.prob01"))       spGangliaProbThresh01.setValue(UI.util.ConfigIO.getDbl(p,"ganglia.prob01", ((Number)spGangliaProbThresh01.getValue()).doubleValue()));
+        if (UI.util.ConfigIO.has(p, "ganglia.minAreaUm2"))   spGangliaMinAreaUm2.setValue(UI.util.ConfigIO.getDbl(p,"ganglia.minAreaUm2", ((Number)spGangliaMinAreaUm2.getValue()).doubleValue()));
+        if (UI.util.ConfigIO.has(p, "ganglia.openIters"))    spGangliaOpenIterations.setValue(UI.util.ConfigIO.getInt(p,"ganglia.openIters", ((Number)spGangliaOpenIterations.getValue()).intValue()));
+        if (UI.util.ConfigIO.has(p, "ganglia.interactiveReview")) cbGangliaInteractiveReview.setSelected(UI.util.ConfigIO.getBool(p,"ganglia.interactiveReview", cbGangliaInteractiveReview.isSelected()));
+
+        if (UI.util.ConfigIO.has(p, "spatial.enabled")) cbDoSpatial.setSelected(UI.util.ConfigIO.getBool(p,"spatial.enabled", cbDoSpatial.isSelected()));
+
+        updateGangliaUI(); // keep visibility consistent after loading
+    }
+
+    private static final String EXPECTED_WORKFLOW = "HuWorkflow";
+
+    private void saveConfigToFile() {
+        ConfigIO.saveConfig(this, EXPECTED_WORKFLOW, this::toConfigHu);
+    }
+
+    private void loadConfigFromFile() {
+        ConfigIO.loadConfig(this, EXPECTED_WORKFLOW, this::applyConfigHu);
+    }
+
+
+
 
 
 }
