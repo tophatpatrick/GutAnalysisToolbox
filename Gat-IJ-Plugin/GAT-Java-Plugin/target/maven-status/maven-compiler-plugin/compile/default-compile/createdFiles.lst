@@ -33,6 +33,7 @@ UI\panes\Tools\AnalysisPane$2.class
 UI\panes\Tools\SpatialAnalysisPane.class
 Features\AnalyseWorkflows\GangliaOps$Result.class
 UI\panes\Tools\MultiplexPane.class
+Analysis\TemporalColorCoder.class
 Features\AnalyseWorkflows\NeuronsMultiPipeline$MultiParams.class
 UI\Handlers\AnalysisWindow$1.class
 Features\AnalyseWorkflows\NeuronsMultiNoHuPipeline.class
@@ -61,6 +62,7 @@ UI\panes\Tools\ToolsPane.class
 UI\panes\HomePane$3.class
 Features\AnalyseWorkflows\NeuronsMultiPipeline$MultiResult.class
 UI\panes\Tools\AnalysisPane.class
+UI\panes\SettingPanes\TemporalColorPane.class
 services\merge\DirectoryUtils$1.class
 UI\panes\Tools\AnalyseNeuronsPane.class
 services\merge\DefaultLabelStrategy.class
@@ -89,7 +91,6 @@ UI\util\FormUI$MiniInfoIcon.class
 services\merge\DirectoryUtils$4.class
 Features\AnalyseWorkflows\NeuronsMultiPipeline$MarkerSpec.class
 UI\panes\HomePane$1.class
-UI\panes\SettingPanes\temporalColourCodePane.class
 Features\AnalyseWorkflows\NeuronsMultiPipeline.class
 services\merge\LabelStrategy.class
 UI\Handlers\Navigator.class
@@ -100,6 +101,7 @@ UI\panes\Results\ResultsMultiUI$1.class
 Features\Tools\SilentRun.class
 Features\Tools\RoiManagerHelper.class
 Features\AnalyseWorkflows\NeuronsHuPipeline.class
+UI\panes\SettingPanes\TemporalColorPane$1.class
 UI\panes\Tools\AnalyseNeuronsPane$OptionPanel$1.class
 UI\panes\Tools\AnalyseNeuronsPane$OptionPanel.class
 Features\AnalyseWorkflows\NeuronsHuPipeline$HuResult.class

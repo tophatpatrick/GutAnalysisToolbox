@@ -1,7 +1,9 @@
 C:\Users\EdwardG\Desktop\Uni\4002\GutAnalysisToolbox-1\Gat-IJ-Plugin\GAT-Java-Plugin\src\main\java\Analysis\SpatialSingleCellType.java
 C:\Users\EdwardG\Desktop\Uni\4002\GutAnalysisToolbox-1\Gat-IJ-Plugin\GAT-Java-Plugin\src\main\java\UI\panes\HomePane.java
+C:\Users\EdwardG\Desktop\Uni\4002\GutAnalysisToolbox-1\Gat-IJ-Plugin\GAT-Java-Plugin\src\main\java\UI\panes\SettingPanes\TemporalColorPane.java
 C:\Users\EdwardG\Desktop\Uni\4002\GutAnalysisToolbox-1\Gat-IJ-Plugin\GAT-Java-Plugin\src\main\java\Analysis\SpatialTwoCellType.java
 C:\Users\EdwardG\Desktop\Uni\4002\GutAnalysisToolbox-1\Gat-IJ-Plugin\GAT-Java-Plugin\src\main\java\UI\Handlers\Navigator.java
+C:\Users\EdwardG\Desktop\Uni\4002\GutAnalysisToolbox-1\Gat-IJ-Plugin\GAT-Java-Plugin\src\main\java\Analysis\TemporalColorCoder.java
 C:\Users\EdwardG\Desktop\Uni\4002\GutAnalysisToolbox-1\Gat-IJ-Plugin\GAT-Java-Plugin\src\main\java\Analysis\ConvertLabelToROIs.java
 C:\Users\EdwardG\Desktop\Uni\4002\GutAnalysisToolbox-1\Gat-IJ-Plugin\GAT-Java-Plugin\src\main\java\Features\Tools\WindowHacks.java
 C:\Users\EdwardG\Desktop\Uni\4002\GutAnalysisToolbox-1\Gat-IJ-Plugin\GAT-Java-Plugin\src\main\java\services\merge\MergeException.java
@@ -26,7 +28,6 @@ C:\Users\EdwardG\Desktop\Uni\4002\GutAnalysisToolbox-1\Gat-IJ-Plugin\GAT-Java-Pl
 C:\Users\EdwardG\Desktop\Uni\4002\GutAnalysisToolbox-1\Gat-IJ-Plugin\GAT-Java-Plugin\src\main\java\UI\util\FormUI.java
 C:\Users\EdwardG\Desktop\Uni\4002\GutAnalysisToolbox-1\Gat-IJ-Plugin\GAT-Java-Plugin\src\main\java\services\merge\LabelStrategy.java
 C:\Users\EdwardG\Desktop\Uni\4002\GutAnalysisToolbox-1\Gat-IJ-Plugin\GAT-Java-Plugin\src\main\java\Features\Tools\AlignStackBatchDeprecated.java
-C:\Users\EdwardG\Desktop\Uni\4002\GutAnalysisToolbox-1\Gat-IJ-Plugin\GAT-Java-Plugin\src\main\java\UI\panes\Tools\TemporalColorCoder.java
 C:\Users\EdwardG\Desktop\Uni\4002\GutAnalysisToolbox-1\Gat-IJ-Plugin\GAT-Java-Plugin\src\main\java\Features\Tools\AlignStackBatch.java
 C:\Users\EdwardG\Desktop\Uni\4002\GutAnalysisToolbox-1\Gat-IJ-Plugin\GAT-Java-Plugin\src\main\java\Features\AnalyseWorkflows\NeuronsMultiNoHuPipeline.java
 C:\Users\EdwardG\Desktop\Uni\4002\GutAnalysisToolbox-1\Gat-IJ-Plugin\GAT-Java-Plugin\src\main\java\UI\panes\Tools\ToolsPane.java
@@ -55,6 +56,5 @@ C:\Users\EdwardG\Desktop\Uni\4002\GutAnalysisToolbox-1\Gat-IJ-Plugin\GAT-Java-Pl
 C:\Users\EdwardG\Desktop\Uni\4002\GutAnalysisToolbox-1\Gat-IJ-Plugin\GAT-Java-Plugin\src\main\java\services\merge\FileExtension.java
 C:\Users\EdwardG\Desktop\Uni\4002\GutAnalysisToolbox-1\Gat-IJ-Plugin\GAT-Java-Plugin\src\main\java\Features\Tools\ProgressUI.java
 C:\Users\EdwardG\Desktop\Uni\4002\GutAnalysisToolbox-1\Gat-IJ-Plugin\GAT-Java-Plugin\src\main\java\UI\util\GatWindows.java
-C:\Users\EdwardG\Desktop\Uni\4002\GutAnalysisToolbox-1\Gat-IJ-Plugin\GAT-Java-Plugin\src\main\java\UI\panes\SettingPanes\temporalColourCodePane.java
 C:\Users\EdwardG\Desktop\Uni\4002\GutAnalysisToolbox-1\Gat-IJ-Plugin\GAT-Java-Plugin\src\main\java\Analysis\SingleCellTypeAnalysis.java
 C:\Users\EdwardG\Desktop\Uni\4002\GutAnalysisToolbox-1\Gat-IJ-Plugin\GAT-Java-Plugin\src\main\java\Analysis\CalciumAnalysis.java

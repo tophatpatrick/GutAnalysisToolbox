@@ -107,6 +107,13 @@ public class Params {
     public int maxEnd = 50;
     public int numCellTypes = 1;   
     public List<String> cellNames;
+
+    // Temporal Colour Analysis
+    public int referenceFrameEnd = 5;  
+    public String lutName = null;
+    public String projectionMethod = null; 
+    public boolean createColorScale = false;
+    public boolean batchMode = false;
     
 }
 

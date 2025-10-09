@@ -34,8 +34,8 @@ public class CalciumImagingPane extends JPanel {
         );
         OptionPanel temporalColour = new OptionPanel(
                 "Temporal Colour Imaging",
-                "Temporal Colour Imaging...",
-                temporalColourCodePane.Name
+                "Temporal colour imaging - visualise dyanmics in a stack",
+                TemporalColorPane.Name
         );
 
         OptionPanel[] all = {alignStack, calciumImagingAnalysis, temporalColour};
