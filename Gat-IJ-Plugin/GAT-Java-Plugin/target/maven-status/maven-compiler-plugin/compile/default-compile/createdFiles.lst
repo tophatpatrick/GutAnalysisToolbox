@@ -25,6 +25,7 @@ UI\panes\Results\ResultsMultiNoHuUI$1.class
 Features\Tools\OutputIO.class
 services\merge\DirectoryUtils$2.class
 UI\panes\WorkflowDashboards\AnalyseNeuronDashboard$1.class
+Features\Tools\AlignStack$AlignResult.class
 Features\Tools\LabelOps.class
 UI\panes\SettingPanes\MultiChannelNoHuPane$MarkerRow.class
 UI\panes\SettingPanes\alignStackPane$2.class
@@ -81,6 +82,7 @@ Analysis\TwoCellTypeAnalysis.class
 UI\panes\WorkflowDashboards\CalciumImagingAnalysisDashboard.class
 UI\panes\SettingPanes\NeuronWorkflowPane$1.class
 UI\util\GatWindows.class
+Features\Tools\AlignStackDeprecated.class
 services\merge\DirectoryUtils$3.class
 UI\util\FormUI$MiniInfoIcon.class
 services\merge\DirectoryUtils$4.class
@@ -104,7 +106,6 @@ Analysis\ConvertLabelToROIs.class
 Features\Tools\RoiManagerHelper$RmHandle.class
 UI\panes\Tools\SpatialAnalysisPane$1.class
 services\merge\MergeException.class
-UI\panes\WorkflowDashboards\AlignStackDashboard$1.class
 UI\panes\Results\ResultsUI$2.class
 UI\panes\HomePane$2.class
 UI\panes\Tools\CalciumImagingPane$OptionPanel.class

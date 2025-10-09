@@ -92,6 +92,7 @@ public class Params {
     public boolean saveAlignedStack = false;  // default: don't save aligned stack
     public boolean subpixel = false;
     public boolean useSIFT = false;
+    public boolean useTemplateMatching = true;
 
     // Calcium Imaging Analysis
     public boolean useFF0 = true;          // F/F₀ normalization

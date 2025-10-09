@@ -1,48 +1,41 @@
 package UI.panes.SettingPanes;
 
-import Features.Tools.AlignStack;
 import Features.Core.Params;
+import Features.Tools.AlignStack;
 import UI.Handlers.Navigator;
 import UI.panes.WorkflowDashboards.AlignStackDashboard;
 import UI.util.InputValidation;
 import ij.IJ;
+import ij.ImagePlus;
 
 import javax.swing.*;
 import java.awt.*;
 import java.io.File;
-import Features.Tools.AlignStack;
-
-import static UI.util.FormUI.*;
-import javax.swing.event.DocumentEvent;
-import javax.swing.event.DocumentListener;
-import java.util.Locale;
-import java.util.Objects;
 
 /**
  * Align Stack pane
- * Lets user configure reference frame, save options, and input image.
+ * Lets user configure reference frame, alignment method, save options, and input image.
  */
 public class alignStackPane extends JPanel {
     public static final String Name = "Align Stack";
 
     private final Window owner;
+
+    // --- UI components ---
     private JTextField tfImagePath;
     private JButton btnBrowseImage;
     private JButton btnPreviewImage;
 
     private JSpinner spReferenceFrame;
-    private JCheckBox cbNormalizeToBaseline;
-    private JSpinner spBaselineStart;
-    private JSpinner spBaselineEnd;
-
+    private JCheckBox cbUseSIFT;
+    private JCheckBox cbUseTemplateMatching;
     private JTextField tfOutputDir;
     private JButton btnBrowseOutput;
     private JCheckBox cbSaveAlignedStack;
 
     private JButton runBtn;
-    private JCheckBox cbUseSIFT; //sift
 
-    // Dashboard panel
+    // Dashboard
     private AlignStackDashboard alignStackDashboard;
 
     public alignStackPane(Navigator navigator, Window owner) {
@@ -50,6 +43,7 @@ public class alignStackPane extends JPanel {
         this.owner = owner;
         setBorder(BorderFactory.createEmptyBorder(16,16,16,16));
 
+        // --- Tabs ---
         JTabbedPane tabs = new JTabbedPane();
         tabs.addTab("Settings", buildSettingsTab());
 
@@ -58,6 +52,7 @@ public class alignStackPane extends JPanel {
 
         add(tabs, BorderLayout.CENTER);
 
+        // --- Run button ---
         JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT));
         runBtn = new JButton("Run Alignment");
         runBtn.addActionListener(e -> onRun(runBtn));
@@ -72,45 +67,28 @@ public class alignStackPane extends JPanel {
         JPanel p = new JPanel();
         p.setLayout(new BoxLayout(p, BoxLayout.Y_AXIS));
 
-        // Input image
+        // Input stack
         tfImagePath = new JTextField(36);
         btnBrowseImage = new JButton("Browse…");
         btnBrowseImage.addActionListener(e -> chooseFile(tfImagePath, JFileChooser.FILES_ONLY));
-
         btnPreviewImage = new JButton("Preview");
         btnPreviewImage.addActionListener(e -> previewImage());
-
         p.add(box("Input stack (.tif)", row(tfImagePath, btnBrowseImage, btnPreviewImage)));
 
         // Reference frame
         spReferenceFrame = new JSpinner(new SpinnerNumberModel(1, 1, 1000, 1));
         p.add(box("Reference frame", spReferenceFrame));
 
-        cbUseSIFT = new JCheckBox("Use SIFT alignment if the tissue is contracting and moving");
-        p.add(box("Alignment method", cbUseSIFT));
-
-        // Baseline normalization
-        cbNormalizeToBaseline = new JCheckBox("Normalize to baseline frames");
-        spBaselineStart = new JSpinner(new SpinnerNumberModel(1, 1, 1000, 1));
-        spBaselineEnd   = new JSpinner(new SpinnerNumberModel(10, 1, 1000, 1));
-
-        JPanel baselinePanel = row(new JLabel("Start:"), spBaselineStart,
-                                   new JLabel("End:"), spBaselineEnd);
-        baselinePanel.setEnabled(false);
-
-        cbNormalizeToBaseline.addActionListener(e -> {
-            boolean en = cbNormalizeToBaseline.isSelected();
-            for (Component c : baselinePanel.getComponents()) c.setEnabled(en);
-        });
-
-        p.add(box("Baseline normalization", column(cbNormalizeToBaseline, baselinePanel)));
+        // Alignment method
+        cbUseSIFT = new JCheckBox("Use SIFT alignment if tissue moves significantly");
+        cbUseTemplateMatching = new JCheckBox("Use Template Matching for XY movement");
+        p.add(box("Alignment method", column(cbUseSIFT, cbUseTemplateMatching)));
 
         // Output dir + save
         tfOutputDir = new JTextField(36);
         btnBrowseOutput = new JButton("Browse…");
         btnBrowseOutput.addActionListener(e -> chooseFile(tfOutputDir, JFileChooser.DIRECTORIES_ONLY));
         cbSaveAlignedStack = new JCheckBox("Save aligned stack (recommended)");
-
         p.add(box("Output location", column(row(tfOutputDir, btnBrowseOutput), cbSaveAlignedStack)));
 
         JScrollPane scroll = new JScrollPane(p);
@@ -119,7 +97,7 @@ public class alignStackPane extends JPanel {
         return outer;
     }
 
-    // --- Run logic ---
+    // --- Run logic (only sends params to dashboard) ---
     private void onRun(JButton runBtn) {
         runBtn.setEnabled(false);
 
@@ -130,23 +108,40 @@ public class alignStackPane extends JPanel {
         }
 
         SwingWorker<Void, Void> worker = new SwingWorker<Void, Void>() {
-            @Override protected Void doInBackground() {
+            private ImagePlus alignedImage;
+
+            @Override
+            protected Void doInBackground() {
                 try {
                     Params params = buildParamsFromUI();
-                    //new AlignStack().run(""); // currently AlignStack reads active ImagePlus
-                    // Send params to dashbaord
-                    SwingUtilities.invokeLater(() -> alignStackDashboard.addRun(params));
+
+                    // Run alignment
+                    AlignStack aligner = new AlignStack();
+                    AlignStack.AlignResult result = aligner.run(params);
+
+                    // Load the aligned image
+                    String outFile = params.outputDir + File.separator +
+                            new File(params.imagePath).getName().replace(".tif", "_aligned.tif");
+                    alignedImage = IJ.openImage(outFile);
+
+                    // --- Send aligned image and CSV to dashboard ---
+                    SwingUtilities.invokeLater(() -> {
+                        alignStackDashboard.addAlignedStackWithResults(
+                            result.alignedStack,
+                            result.resultCSV
+                        );
+                    });
+
                 } catch (Throwable ex) {
                     SwingUtilities.invokeLater(() -> JOptionPane.showMessageDialog(
-                        owner,
-                        "Alignment failed:\n" + ex.getClass().getSimpleName() + ": " + ex.getMessage(),
-                        "Error",
-                        JOptionPane.ERROR_MESSAGE
+                            owner,
+                            "Alignment failed:\n" + ex.getClass().getSimpleName() + ": " + ex.getMessage(),
+                            "Error",
+                            JOptionPane.ERROR_MESSAGE
                     ));
                 }
                 return null;
             }
-            @Override protected void done() { runBtn.setEnabled(true); }
         };
         worker.execute();
     }
@@ -156,15 +151,16 @@ public class alignStackPane extends JPanel {
         p.imagePath = tfImagePath.getText();
         p.outputDir = tfOutputDir.getText();
         p.referenceFrame = ((Number) spReferenceFrame.getValue()).intValue();
-        p.normalizeToBaseline = cbNormalizeToBaseline.isSelected();
-        p.baselineStart = ((Number) spBaselineStart.getValue()).intValue();
-        p.baselineEnd   = ((Number) spBaselineEnd.getValue()).intValue();
-        p.saveAlignedStack = cbSaveAlignedStack.isSelected();
         p.useSIFT = cbUseSIFT.isSelected();
+        p.saveAlignedStack = cbSaveAlignedStack.isSelected();
         p.uiAnchor = SwingUtilities.getWindowAncestor(this);
+        p.useSIFT = cbUseSIFT.isSelected();
+        p.useTemplateMatching = cbUseTemplateMatching.isSelected();
+        p.saveAlignedStack = cbSaveAlignedStack.isSelected();
         return p;
     }
 
+    // --- Utilities for UI ---
     private static JPanel box(String title, JComponent inner) {
         JPanel panel = new JPanel(new BorderLayout());
         panel.setBorder(BorderFactory.createTitledBorder(title));
@@ -212,10 +208,10 @@ public class alignStackPane extends JPanel {
                     if (path.isEmpty()) IJ.open(); else IJ.open(path);
                 } catch (Throwable ex) {
                     SwingUtilities.invokeLater(() -> JOptionPane.showMessageDialog(
-                        owner,
-                        "Preview failed:\n" + ex.getClass().getSimpleName() + ": " + ex.getMessage(),
-                        "Preview error",
-                        JOptionPane.ERROR_MESSAGE
+                            owner,
+                            "Preview failed:\n" + ex.getClass().getSimpleName() + ": " + ex.getMessage(),
+                            "Preview error",
+                            JOptionPane.ERROR_MESSAGE
                     ));
                 }
                 return null;
@@ -227,10 +223,8 @@ public class alignStackPane extends JPanel {
     private void loadDefaults() {
         tfImagePath.setText("/path/to/stack.tif");
         spReferenceFrame.setValue(1);
-        cbNormalizeToBaseline.setSelected(false);
-        spBaselineStart.setValue(1);
-        spBaselineEnd.setValue(10);
+        cbUseSIFT.setSelected(false);
         cbSaveAlignedStack.setSelected(true);
+        tfOutputDir.setText(System.getProperty("user.home"));
     }
 }
-
