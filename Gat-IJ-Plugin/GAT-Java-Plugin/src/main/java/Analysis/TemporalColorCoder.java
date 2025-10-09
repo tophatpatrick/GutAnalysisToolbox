@@ -6,11 +6,9 @@ import ij.ImagePlus;
 import ij.ImageStack;
 import ij.process.ColorProcessor;
 import ij.process.ImageProcessor;
-import ij.process.LUT;
-import ij.plugin.LutLoader;
 import ij.plugin.ZProjector;
 
-import java.awt.image.IndexColorModel;
+import javax.swing.*;
 
 /**
  * TemporalColorCoder
@@ -22,12 +20,7 @@ public class TemporalColorCoder {
     /**
      * Run the temporal color coding workflow.
      * @param imp Input ImagePlus stack (single-channel)
-     * @param p Params object containing UI selections:
-     *          - referenceFrame / referenceFrameEnd (frame range)
-     *          - lutName (LUT string, e.g., "Fire")
-     *          - projectionMethod (Z projection method)
-     *          - createColorScale (boolean)
-     *          - batchMode (boolean)
+     * @param p Params object containing UI selections
      * @return RGB ImagePlus stack after temporal color coding
      * @throws Exception if input is invalid
      */
@@ -55,33 +48,12 @@ public class TemporalColorCoder {
 
         ImageStack rgbStack = new ImageStack(width, height);
 
-        // Load LUT
-        LUT lut;
-        try {
-            lut = LutLoader.openLut(IJ.getDirectory("luts") + p.lutName + ".lut");
-        } catch (Exception e) {
-            IJ.log("Failed to load LUT " + p.lutName + ", using Fire LUT as default.");
-            lut = LutLoader.openLut(IJ.getDirectory("luts") + "Fire.lut");
-        }
-
-        // Extract LUT RGB arrays
-        IndexColorModel icm = (IndexColorModel) lut.getColorModel();
-        int mapSize = icm.getMapSize();
-        byte[] rBytes = new byte[mapSize];
-        byte[] gBytes = new byte[mapSize];
-        byte[] bBytes = new byte[mapSize];
-        icm.getReds(rBytes);
-        icm.getGreens(gBytes);
-        icm.getBlues(bBytes);
-
-        int[] rLUT = new int[mapSize];
-        int[] gLUT = new int[mapSize];
-        int[] bLUT = new int[mapSize];
-        for (int i = 0; i < mapSize; i++) {
-            rLUT[i] = rBytes[i] & 0xFF;
-            gLUT[i] = gBytes[i] & 0xFF;
-            bLUT[i] = bBytes[i] & 0xFF;
-        }
+        // Generate RGB LUT arrays from selected LUT name
+        int[][] rgbLUT = generateRGBLUT(p.lutName);
+        int[] rLUT = rgbLUT[0];
+        int[] gLUT = rgbLUT[1];
+        int[] bLUT = rgbLUT[2];
+        int lutSize = rLUT.length;
 
         // Main loop: frames then slices
         for (int t = startFrame; t <= endFrame; t++) {
@@ -90,7 +62,8 @@ public class TemporalColorCoder {
                 ImageProcessor ip = imp.getProcessor();
 
                 ColorProcessor cp = new ColorProcessor(width, height);
-                int colorIndex = (int) Math.floor((mapSize / (double) totalFrames) * (t - startFrame));
+                int colorIndex = (int) Math.floor((lutSize / (double) totalFrames) * (t - startFrame));
+                colorIndex = Math.min(colorIndex, lutSize - 1);
 
                 for (int y = 0; y < height; y++) {
                     for (int x = 0; x < width; x++) {
@@ -134,6 +107,48 @@ public class TemporalColorCoder {
     }
 
     /**
+     * Generates RGB LUT arrays from a LUT name
+     */
+    private static int[][] generateRGBLUT(String lutName) {
+        int size = 256;
+        int[] r = new int[size];
+        int[] g = new int[size];
+        int[] b = new int[size];
+
+        for (int i = 0; i < size; i++) {
+            float t = i / (float)(size - 1);
+            switch (lutName != null ? lutName : "Fire") {
+                case "Fire":
+                    r[i] = Math.min(255, (int)(255 * t));
+                    g[i] = Math.min(255, (int)(255 * t * 0.5));
+                    b[i] = 0;
+                    break;
+                case "Ice":
+                    r[i] = 0;
+                    g[i] = Math.min(255, (int)(255 * t * 0.5));
+                    b[i] = Math.min(255, (int)(255 * t));
+                    break;
+                case "Green":
+                    r[i] = 0;
+                    g[i] = Math.min(255, (int)(255 * t));
+                    b[i] = 0;
+                    break;
+                case "Red":
+                    r[i] = Math.min(255, (int)(255 * t));
+                    g[i] = 0;
+                    b[i] = 0;
+                    break;
+                default:
+                    r[i] = Math.min(255, (int)(255 * t));
+                    g[i] = Math.min(255, (int)(255 * t * 0.5));
+                    b[i] = 0;
+            }
+        }
+
+        return new int[][] { r, g, b };
+    }
+
+    /**
      * Creates a small RGB color scale bar
      */
     private static ImagePlus createColorScale(int[] rLUT, int[] gLUT, int[] bLUT, int startFrame, int endFrame) {
@@ -142,10 +157,11 @@ public class TemporalColorCoder {
         ImagePlus scale = IJ.createImage("TimeColorScale", "RGB", width, height, 1);
         ImageProcessor ip = scale.getProcessor();
         int totalFrames = endFrame - startFrame + 1;
-        int mapSize = rLUT.length;
+        int lutSize = rLUT.length;
 
         for (int x = 0; x < width; x++) {
-            int frameIndex = (int) Math.floor((mapSize / (double) totalFrames) * x);
+            int frameIndex = (int) Math.floor((lutSize / (double) totalFrames) * x);
+            frameIndex = Math.min(frameIndex, lutSize - 1);
             int r = rLUT[frameIndex];
             int g = gLUT[frameIndex];
             int b = bLUT[frameIndex];
