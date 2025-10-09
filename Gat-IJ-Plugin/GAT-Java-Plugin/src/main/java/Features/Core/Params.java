@@ -93,6 +93,10 @@ public class Params {
     public boolean subpixel = false;
     public boolean useSIFT = false;
     public boolean useTemplateMatching = true;
+    public boolean useStackReg = true;
+    public String inputDir = null; 
+    public String fileExt = null; 
+
 
     // Calcium Imaging Analysis
     public boolean useFF0 = true;          // F/F₀ normalization

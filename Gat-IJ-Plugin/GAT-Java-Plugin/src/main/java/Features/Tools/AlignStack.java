@@ -144,7 +144,7 @@ public class AlignStack implements PlugIn {
     }
 
     /** Align using SIFT plugin (Java version of macro align_sift function) */
-    private void alignSIFT(ImagePlus imp, boolean defaultSettings) {
+    public static void alignSIFT(ImagePlus imp, boolean defaultSettings) {
         int size = Math.min(imp.getWidth(), imp.getHeight());
         int maximalAlignmentError = (int) Math.ceil(0.1 * size);
         double inlierRatio = defaultSettings ? 0.05 : 0.7;
@@ -160,7 +160,7 @@ public class AlignStack implements PlugIn {
     }
 
     /** Align using Template Matching plugin (Java version of macro) */
-    private void alignTemplateMatching(ImagePlus imp, int refFrame) {
+    public static void alignTemplateMatching(ImagePlus imp, int refFrame) {
         int xSize = (int) Math.floor(imp.getWidth() * 0.7);
         int ySize = (int) Math.floor(imp.getHeight() * 0.7);
         int x0 = (int) Math.floor(imp.getWidth() / 6.0);
@@ -171,5 +171,31 @@ public class AlignStack implements PlugIn {
 
         IJ.run(imp, "Align slices in stack...", args);
         IJ.wait(10);
+    }
+
+    // For batch:
+    public static void alignStackReg(ImagePlus imp, int referenceFrame) {
+        if (imp == null) return;
+        imp.setT(referenceFrame);
+        IJ.run(imp, "StackReg", "transformation=[Rigid Body]");
+    }
+
+    public static void saveAlignmentResultsCSV(ImagePlus imp, String outputDir) {
+        if (imp == null || outputDir == null) return;
+
+        // Example: save simple shift info per frame as CSV
+        File csvFile = new File(outputDir, imp.getTitle() + "_alignment.csv");
+        try (PrintWriter pw = new PrintWriter(csvFile)) {
+            pw.println("Frame,X_shift,Y_shift");
+            int nFrames = imp.getNFrames();
+            for (int t = 1; t <= nFrames; t++) {
+                // Placeholder: real SIFT/registration results needed
+                double xShift = 0;
+                double yShift = 0;
+                pw.printf("%d,%.2f,%.2f%n", t, xShift, yShift);
+            }
+        } catch (Exception e) {
+            IJ.log("Failed to save CSV: " + e.getMessage());
+        }
     }
 }
