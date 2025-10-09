@@ -252,6 +252,7 @@ public class MultichannelPane extends JPanel {
         ));
 
         spHuChannel = new JSpinner(new SpinnerNumberModel(3,1,32,1));
+        lockSpinner(spHuChannel);
 
         String channelHelp =
                 "<b>Hu Channel:</b> Select the channel number which corresponds to the hu-stained channel.<br/>";
@@ -286,6 +287,7 @@ public class MultichannelPane extends JPanel {
         cbGangliaAnalysis.addActionListener(e -> updateGangliaVisibility());
         cbGangliaMode.addActionListener(e -> updateGangliaVisibility());
         spGangliaChannel = new JSpinner(new SpinnerNumberModel(2,1,32,1));
+        lockSpinner(spGangliaChannel);
 
 
         String gangliaHelp =
@@ -445,6 +447,11 @@ public class MultichannelPane extends JPanel {
 
     private void onRun(JButton runBtn) {
         runBtn.setEnabled(false);
+
+        if (!ensureValidOutputDir(tfOutputDir.getText())) {
+            runBtn.setEnabled(true);
+            return;
+        }
 
         if (markerRows.isEmpty()) {
             JOptionPane.showMessageDialog(this, "Please add at least one marker in the Markers tab.",
@@ -770,6 +777,52 @@ public class MultichannelPane extends JPanel {
     private void loadConfigFromFile() {
         UI.util.ConfigIO.loadConfig(this, EXPECTED_WORKFLOW, this::applyConfigMulti);
     }
+
+    private static void lockSpinner(JSpinner sp) {
+        JComponent ed = sp.getEditor();
+        if (ed instanceof JSpinner.DefaultEditor) {
+            JFormattedTextField tf = ((JSpinner.DefaultEditor) ed).getTextField();
+            tf.setEditable(false);
+            tf.setFocusable(true);
+        }
+    }
+
+    private boolean ensureValidOutputDir(String path) {
+        path = (path == null) ? "" : path.trim();
+        if (path.isEmpty()) return true; // allow default Analysis/<basename>
+
+        File f = new File(path);
+        if (f.exists()) {
+            if (!f.isDirectory()) {
+                JOptionPane.showMessageDialog(this,
+                        "Please choose a folder (not a file) for the output location.",
+                        "Output location", JOptionPane.ERROR_MESSAGE);
+                return false;
+            }
+            if (!f.canWrite()) {
+                JOptionPane.showMessageDialog(this,
+                        "No write permission for:\n" + f.getAbsolutePath(),
+                        "Output location", JOptionPane.ERROR_MESSAGE);
+                return false;
+            }
+            return true;
+        }
+
+        // doesn't exist: offer to create
+        int choice = JOptionPane.showConfirmDialog(this,
+                "The folder doesn’t exist:\n" + f.getAbsolutePath() + "\nCreate it now?",
+                "Create output folder", JOptionPane.YES_NO_OPTION);
+        if (choice != JOptionPane.YES_OPTION) return false;
+
+        if (!f.mkdirs()) {
+            JOptionPane.showMessageDialog(this,
+                    "Could not create folder:\n" + f.getAbsolutePath(),
+                    "Output location", JOptionPane.ERROR_MESSAGE);
+            return false;
+        }
+        return true;
+    }
+
 
 
 

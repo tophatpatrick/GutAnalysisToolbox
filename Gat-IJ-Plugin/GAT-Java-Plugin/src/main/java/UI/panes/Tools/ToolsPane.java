@@ -1,112 +1,203 @@
+// UI/panes/Tools/ToolsPane.java
 package UI.panes.Tools;
 
 import UI.Handlers.Navigator;
+import UI.util.GatSettings;
+import Features.Core.Params;
+import Features.AnalyseWorkflows.NeuronsMultiPipeline;
+import ij.IJ;
 
 import javax.swing.*;
+import javax.swing.border.EmptyBorder;
+import javax.swing.filechooser.FileNameExtensionFilter;
 import java.awt.*;
-import java.util.Arrays;
+import java.io.File;
 
+/**
+ * Tuning Tools pane (runs off the EDT to avoid UI freeze).
+ * - Fresh defaults each click
+ * - Prompts for missing model ZIPs (per run only)
+ * - Lets user choose an output folder (defaults to ~/Analysis/Tuning)
+ * - Long work runs in a SwingWorker; UI stays responsive
+ */
 public class ToolsPane extends JPanel {
+
     public static final String Name = "Tools";
 
-    public ToolsPane(Navigator navigator){
-        setLayout(new BorderLayout());
-        setBorder(BorderFactory.createEmptyBorder(16,16,16,16));
+    private final GatSettings settings;
+    private final JButton btnRescale = new JButton("Test Rescaling (Hu)");
+    private final JButton btnHuProb  = new JButton("Test Probability (Hu)");
+    private final JButton btnSubProb = new JButton("Test Probability (Subtype)");
+    private final JButton btnGanglia = new JButton("Test Ganglia expansion (µm)");
+    private final JLabel  status     = new JLabel(" ");
 
-        // Title
-        JLabel title = new JLabel("Tools", SwingConstants.CENTER);
-        title.setFont(title.getFont().deriveFont(Font.BOLD, 18f));
-        add(title, BorderLayout.NORTH);
+    public ToolsPane(Navigator navigator) {
+        this.settings = GatSettings.loadOrDefaults();
 
-        // Left-aligned vertical menu
-        JPanel menu = new JPanel();
-        menu.setLayout(new BoxLayout(menu, BoxLayout.Y_AXIS));
-        menu.setBorder(BorderFactory.createEmptyBorder(12, 0, 12, 24));
+        setLayout(new GridLayout(0, 1, 8, 8));
+        setBorder(new EmptyBorder(10, 10, 10, 10));
 
-        // Plain actions
-        menu.add(menuButton("QC cell count GT predictions", () ->
-                notImplemented("QC cell count GT predictions")));
-        menu.add(space());
+        JLabel title = new JLabel("Tuning Tools (fresh defaults each run)", SwingConstants.CENTER);
+        title.setFont(title.getFont().deriveFont(Font.BOLD, 16f));
+        add(title);
 
-        menu.add(menuButton("Save max projection", () ->
-                notImplemented("Save max projection")));
-        menu.add(space());
+        add(btnRescale);
+        add(btnHuProb);
+        add(btnSubProb);
+        add(btnGanglia);
 
-        menu.add(menuButton("Test neuron probability", () ->
-                notImplemented("Test neuron probability")));
-        menu.add(space());
+        status.setHorizontalAlignment(SwingConstants.CENTER);
+        add(status);
 
-        menu.add(menuButton("Test neuron rescaling", () ->
-                notImplemented("Test neuron rescaling")));
-        menu.add(space());
-
-        menu.add(menuButton("Test neuron rescaling advanced", () ->
-                notImplemented("Test neuron rescaling advanced")));
-        menu.add(space());
-
-        menu.add(menuButton("^Test ganglia segmentation Hu", () ->
-                notImplemented("^Test ganglia segmentation Hu")));
-        menu.add(space());
-
-        // Submenus: Data Curation ▸ and commands ▸
-        menu.add(submenuButton("Data Curation", new String[]{
-                "Annotate cells 2D", "Annotate ganglia 2D", "Rescale image masks pixel size", "Rescale image masks resolution", "Verify images Masks"
-        }));
-
-        menu.add(space());
-
-        menu.add(submenuButton("commands", new String[]{
-                "Calculate Neurons per Ganglia", "Calculate Neurons per Ganglia label", "....."
-        }));
-
-        // Push everything left, leave center area free
-        JPanel leftWrap = new JPanel(new BorderLayout());
-        leftWrap.add(menu, BorderLayout.NORTH); // keep compact at top
-        add(leftWrap, BorderLayout.WEST);
-        
+        // Wire actions (each runs async)
+        btnRescale.addActionListener(e -> startRescaleHu());
+        btnHuProb.addActionListener(e -> startHuProb());
+        btnSubProb.addActionListener(e -> startSubtypeProb());
+        btnGanglia.addActionListener(e -> startGangliaSweep());
     }
 
-    // ---- UI helpers ----
+    // -------------------- Actions (async) --------------------
 
-    private static Component space() {
-        return Box.createVerticalStrut(8);
+    private void startRescaleHu() {
+        Params base = defaultBaseParams();
+        if (!ensureNeuronModelZip(base)) return;
+        File outDir = ensureTuningDir(chooseOutDirOrDefault(null));
+        runAsync("Rescaling (Hu)", () -> TuningTools.runRescaleSweep(base, outDir, settings));
     }
 
-    private static JButton menuButton(String text, Runnable action){
-        JButton b = new JButton(text);
-        b.setAlignmentX(Component.LEFT_ALIGNMENT);
-        b.setMaximumSize(new Dimension(320, 36));
-        b.addActionListener(e -> action.run());
-        return b;
+    private void startHuProb() {
+        Params base = defaultBaseParams();
+        if (!ensureNeuronModelZip(base)) return;
+        File outDir = ensureTuningDir(chooseOutDirOrDefault(null));
+        runAsync("Probability (Hu)", () -> TuningTools.runProbSweepHu(base, outDir, settings));
     }
 
-    private JButton submenuButton(String title, String[] items){
-        // Button with a right-pointing triangle to indicate submenu
-        JButton b = new JButton(title + "  ▸");
-        b.setAlignmentX(Component.LEFT_ALIGNMENT);
-        b.setMaximumSize(new Dimension(320, 36));
-
-        // Build popup
-        JPopupMenu popup = new JPopupMenu();
-        Arrays.stream(items).forEach(label -> {
-            JMenuItem mi = new JMenuItem(label);
-            mi.addActionListener(e -> notImplemented(title + " → " + label));
-            popup.add(mi);
-        });
-
-        b.addActionListener(e -> {
-            // Show popup just to the right of the button
-            popup.show(b, b.getWidth() - 8, b.getHeight()/2);
-        });
-        return b;
+    private void startSubtypeProb() {
+        Params base = defaultBaseParams();
+        if (!ensureNeuronModelZip(base)) return; // Hu context still needed
+        NeuronsMultiPipeline.MultiParams mp = defaultMultiParams(base);
+        if (!ensureSubtypeModelZip(mp)) return;
+        File outDir = ensureTuningDir(chooseOutDirOrDefault(null));
+        runAsync("Probability (Subtype)", () -> TuningTools.runProbSweepSubtype(mp, outDir, settings));
     }
 
-    private void notImplemented(String what){
-        JOptionPane.showMessageDialog(
-                this,
-                what + " (not implemented yet)",
-                "Info",
-                JOptionPane.INFORMATION_MESSAGE
-        );
+    private void startGangliaSweep() {
+        Params base = defaultBaseParams();
+        if (!ensureNeuronModelZip(base)) return; // segments Hu first
+        File outDir = ensureTuningDir(chooseOutDirOrDefault(null));
+        runAsync("Ganglia expansion", () -> TuningTools.runGangliaExpansionSweep(base, outDir, settings));
+    }
+
+    // -------------------- Async runner -----------------------
+
+    private void runAsync(String label, Runnable task) {
+        setBusy(true, "Running: " + label + " …");
+        SwingWorker<Void, Void> w = new SwingWorker<Void, Void>() {
+            @Override protected Void doInBackground() {
+                try {
+                    task.run();
+                } catch (Throwable t) {
+                    // show error on EDT
+                    SwingUtilities.invokeLater(() -> JOptionPane.showMessageDialog(
+                            ToolsPane.this,
+                            "Error during " + label + ":\n" + t.getMessage(),
+                            "Error", JOptionPane.ERROR_MESSAGE));
+                }
+                return null;
+            }
+            @Override protected void done() {
+                setBusy(false, "Done: " + label);
+            }
+        };
+        w.execute();
+    }
+
+    private void setBusy(boolean busy, String msg) {
+        setCursor(Cursor.getPredefinedCursor(busy ? Cursor.WAIT_CURSOR : Cursor.DEFAULT_CURSOR));
+        btnRescale.setEnabled(!busy);
+        btnHuProb.setEnabled(!busy);
+        btnSubProb.setEnabled(!busy);
+        btnGanglia.setEnabled(!busy);
+        status.setText(msg != null ? msg : " ");
+        revalidate();
+        repaint();
+    }
+
+    // -------------------- Defaults per click -----------------
+
+    private static Params defaultBaseParams() {
+        Params p = new Params();
+        p.huChannel = 3;
+        p.rescaleToTrainingPx = true;
+        p.trainingPixelSizeUm = 0.568;
+        p.trainingRescaleFactor = 1.0;
+
+        p.probThresh = 0.50;
+        p.nmsThresh  = 0.30;
+
+        p.neuronSegMinMicron = 70.0;
+        p.saveFlattenedOverlay = true;
+        p.cellTypeName = "Neuron";
+
+        // optional ganglia/spatial defaults
+        p.gangliaInteractiveReview = true;
+        p.gangliaOpenIterations = 3;
+        p.gangliaMinAreaUm2 = 200.0;
+        p.spatialExpansionUm = 6.5;
+        p.spatialSaveParametric = false;
+        return p;
+    }
+
+    private static NeuronsMultiPipeline.MultiParams defaultMultiParams(Params base) {
+        NeuronsMultiPipeline.MultiParams mp = new NeuronsMultiPipeline.MultiParams();
+        mp.base = base;
+        mp.multiProb = 0.50;
+        mp.multiNms  = 0.30;
+        mp.overlapFrac = 0.40;
+        return mp;
+    }
+
+    // -------------------- Model prompts ----------------------
+
+    private boolean ensureNeuronModelZip(Params p) {;
+        p.stardistModelZip =  new File(new File(IJ.getDirectory("imagej"), "models"), "2D_enteric_neuron_subtype_v4.zip").getAbsolutePath();
+        return true;
+    }
+
+    private boolean ensureSubtypeModelZip(NeuronsMultiPipeline.MultiParams mp) {
+        mp.subtypeModelZip  = new File(new File(IJ.getDirectory("imagej"), "models"), "2D_enteric_neuron_subtype_v4.zip").getAbsolutePath();
+        return true;
+    }
+
+    private static String pickZipFile(String title) {
+        JFileChooser fc = new JFileChooser();
+        fc.setDialogTitle(title);
+        fc.setFileSelectionMode(JFileChooser.FILES_ONLY);
+        fc.setMultiSelectionEnabled(false);
+        fc.setFileFilter(new FileNameExtensionFilter("StarDist model (*.zip)", "zip"));
+        int ret = fc.showOpenDialog(null);
+        return (ret == JFileChooser.APPROVE_OPTION) ? fc.getSelectedFile().getAbsolutePath() : null;
+    }
+
+    // -------------------- Output folder ----------------------
+
+    private static File chooseOutDirOrDefault(File preselect) {
+        JFileChooser fc = new JFileChooser(preselect);
+        fc.setDialogTitle("Choose output folder (optional)");
+        fc.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
+        fc.setMultiSelectionEnabled(false);
+        int ret = fc.showOpenDialog(null);
+        if (ret == JFileChooser.APPROVE_OPTION) {
+            File f = fc.getSelectedFile();
+            if (f != null) return f;
+        }
+        return new File(System.getProperty("user.home"), "Analysis");
+    }
+
+    private static File ensureTuningDir(File parent) {
+        File base = (parent != null) ? parent : new File(System.getProperty("user.home"), "Analysis");
+        File tuning = new File(base, "Tuning");
+        if (!tuning.isDirectory()) tuning.mkdirs();
+        return tuning;
     }
 }
