@@ -135,6 +135,9 @@ public class AlignStack implements PlugIn {
         if (slices > sizeT) {
             IJ.log("Swapping slices with frames");
             sizeT = slices;
+            // if you want the ImagePlus metadata to match: 
+            // selectedImage.setDimensions(sizeC, 1, sizeT); // C, Z, T
+            // But be careful only do this if that matches your data layout.
         }
         
         // Only process stacks with at least 10 frames
@@ -202,7 +205,7 @@ public class AlignStack implements PlugIn {
         }
         
         // Set reference frame
-        selectedImage.setSlice(referenceFrame);
+        selectReferenceFrame(selectedImage, referenceFrame);
         
         // Run SIFT alignment if selected
         if (useSift) {
@@ -269,86 +272,70 @@ public class AlignStack implements PlugIn {
     
     private void runSiftAlignment() {
         IJ.log("Running SIFT alignment...");
-        
+
+        IJ.run("Set Batch Mode...", "true");
+        selectedImage.show();
+        selectedImage.getWindow().toFront();
+        WindowManager.setCurrentWindow(selectedImage.getWindow());
+
         int size = Math.min(sizeX, sizeY);
         int maximalAlignmentError = (int) Math.ceil(0.1 * size);
-        
-        String siftParams;
-        
-        if (!useDefaultSettings) {
-            double inlierRatio = 0.7;
-            int featureDescSize = 4;
-            
-            if (size < 500) {
-                // For smaller images, these parameters work well
-                featureDescSize = 8;
-                maximalAlignmentError = 5;
-                inlierRatio = 0.9;
-            }
-            
-            siftParams = "initial_gaussian_blur=1.60 " +
-                        "steps_per_scale_octave=4 " +
-                        "minimum_image_size=64 " +
-                        "maximum_image_size=" + size + " " +
-                        "feature_descriptor_size=" + featureDescSize + " " +
-                        "feature_descriptor_orientation_bins=8 " +
-                        "closest/next_closest_ratio=0.92 " +
-                        "maximal_alignment_error=" + maximalAlignmentError + " " +
-                        "inlier_ratio=" + inlierRatio + " " +
-                        "expected_transformation=Affine";
-        } else {
-            siftParams = "initial_gaussian_blur=1.60 " +
-                        "steps_per_scale_octave=3 " +
-                        "minimum_image_size=64 " +
-                        "maximum_image_size=" + size + " " +
-                        "feature_descriptor_size=4 " +
-                        "feature_descriptor_orientation_bins=8 " +
-                        "closest/next_closest_ratio=0.92 " +
-                        "maximal_alignment_error=" + maximalAlignmentError + " " +
-                        "inlier_ratio=0.05 " +
-                        "expected_transformation=Affine";
-        }
-        
+        double inlierRatio = (size < 500) ? 0.9 : 0.7;
+        int featureDescSize = (size < 500) ? 8 : 4;
+
+        String siftParams = 
+            "initial_gaussian_blur=1.60 steps_per_scale_octave=4 minimum_image_size=64 " +
+            "maximum_image_size=" + size + " feature_descriptor_size=" + featureDescSize + 
+            " feature_descriptor_orientation_bins=8 closest/next_closest_ratio=0.92 " +
+            "maximal_alignment_error=" + maximalAlignmentError + " inlier_ratio=" + inlierRatio +
+            " transformation=Affine";
+
+        selectedImage.setSlice(referenceFrame);
         IJ.run(selectedImage, "Linear Stack Alignment with SIFT", siftParams);
         IJ.wait(100);
-        
-        // Close original image and select aligned result
-        selectedImage.close();
-        selectedImage = WindowManager.getImage("Aligned " + sizeT + " of " + sizeT);
-        
-        if (selectedImage == null) {
-            IJ.error("SIFT alignment failed - could not find aligned image");
-            return;
+
+        for (int i = 1; i <= WindowManager.getImageCount(); i++) {
+            ImagePlus imp = WindowManager.getImage(i);
+            if (imp.getTitle().toLowerCase().contains("aligned")) {
+                selectedImage.close();
+                selectedImage = imp;
+                break;
+            }
         }
+
+        IJ.run("Set Batch Mode...", "false");
     }
+
     
     private void runTemplateMatching() {
         IJ.log("Running template matching...");
-        
-        // Set reference frame
-        selectedImage.setSlice(referenceFrame);
-        
-        // Calculate template matching parameters
+
+        // Ensure reference frame is properly selected in the right dimension
+        selectReferenceFrame(selectedImage, referenceFrame);
+
         int xSize = (int) Math.floor(sizeX * 0.7);
         int ySize = (int) Math.floor(sizeY * 0.7);
         int x0 = (int) Math.floor(sizeX / 6.0);
         int y0 = (int) Math.floor(sizeY / 6.0);
-        
+
+        // Build template params, ensure spaces are inserted correctly
         String templateParams = "method=5 " +
-                               "windowsizex=" + xSize + " " +
-                               "windowsizey=" + ySize + " " +
-                               "x0=" + x0 + " " +
-                               "y0=" + y0 + " " +
-                               "swindow=0 " +
-                               "subpixel=false " +
-                               "itpmethod=0 " +
-                               "ref.slice=" + referenceFrame +
-                               " show=true";
-        
+                "windowsizex=" + xSize + " " +
+                "windowsizey=" + ySize + " " +
+                "x0=" + x0 + " " +
+                "y0=" + y0 + " " +
+                "swindow=0 " +
+                "subpixel=false " +
+                "itpmethod=0 " +
+                "ref.slice=" + referenceFrame + " " +
+                "show=true";
+
         IJ.run(selectedImage, "Align slices in stack...", templateParams);
+        selectedImage.show();
+        selectedImage.getWindow().toFront();
+        WindowManager.setCurrentWindow(selectedImage.getWindow());
         IJ.wait(10);
     }
-    
     private void saveAlignedImage() {
         String outputPath = inputDirectory + imageName + "_aligned.tif";
         IJ.log("Saving: " + outputPath);
@@ -358,6 +345,46 @@ public class AlignStack implements PlugIn {
             IJ.log("Successfully saved aligned image: " + outputPath);
         } else {
             IJ.error("Failed to save aligned image: " + outputPath);
+        }
+    }
+
+    /** 
+     * Pick the appropriate position for the reference frame based on the image dimensions.
+     * For hyperstacks use setPosition(channel, z, frame). For classic stacks use setSlice(slice).
+     */
+    private void selectReferenceFrame(ImagePlus imp, int refFrame1based) {
+        int nC = imp.getNChannels();
+        int nZ = imp.getNSlices();
+        int nT = imp.getNFrames();
+
+        // If we detect a time series (T>1 and Z==1), set the time (T)
+        if (nT > 1 && nZ <= 1) {
+            // Set channel to 1, z to 1, t to refFrame
+            int c = 1;
+            int z = 1;
+            int t = Math.max(1, Math.min(refFrame1based, nT));
+            imp.setPosition(c, z, t);
+            IJ.log("setPosition(c,z,t) -> " + c + "," + z + "," + t);
+        }
+        // If it's a Z-stack (Z>1 and T==1), use setSlice
+        else if (nZ > 1 && nT <= 1) {
+            int slice = Math.max(1, Math.min(refFrame1based, nZ));
+            imp.setSlice(slice);
+            IJ.log("setSlice -> " + slice);
+        }
+        // If hyperstack with both Z and T, choose to interpret refFrame as TIME (T) like the macro
+        else if (nZ > 1 && nT > 1) {
+            // interpret referenceFrame as time (to match original macro behaviour)
+            int c = 1;
+            int z = 1;
+            int t = Math.max(1, Math.min(refFrame1based, nT));
+            imp.setPosition(c, z, t);
+            IJ.log("Hyperstack: setPosition(c,z,t) -> " + c + "," + z + "," + t);
+        } else {
+            // fallback
+            int slice = Math.max(1, Math.min(refFrame1based, imp.getStackSize()));
+            imp.setSlice(slice);
+            IJ.log("Fallback setSlice -> " + slice);
         }
     }
     

@@ -56,7 +56,11 @@ public class AlignStackDashboard extends JPanel {
                         " itpmethod=0 ref.slice=" + p.referenceFrame +
                         (p.useSIFT ? " sift=true" : "") +
                         " show=true";
-                IJ.run(alignedImp, "Align slices in stack...", options);
+                // make sure correct position selected
+                if (alignedImp != null) {
+                    // call helper from AlignStack instance or duplicate code here
+                    IJ.run(alignedImp, "Align slices in stack...", options);
+                }
 
                 // 5) Capture results
                 ResultsTable rt = ResultsTable.getResultsTable();

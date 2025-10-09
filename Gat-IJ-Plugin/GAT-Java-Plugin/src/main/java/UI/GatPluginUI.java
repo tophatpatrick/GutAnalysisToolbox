@@ -72,6 +72,7 @@ public class GatPluginUI implements PlugIn {
 
         // register your dashboard pane
         cardPanel.add(new alignStackPane(navigator, dialog), alignStackPane.Name);
+        cardPanel.add(new calciumImagingAnalysisPane(navigator, dialog), calciumImagingAnalysisPane.Name);
 
 
 
