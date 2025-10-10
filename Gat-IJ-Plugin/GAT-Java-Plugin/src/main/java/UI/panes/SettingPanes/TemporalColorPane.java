@@ -146,6 +146,14 @@ public class TemporalColorPane extends JPanel {
             p.createColorScale = cbColorScale.isSelected();
             p.batchMode = cbBatchMode.isSelected();
 
+            int nFrames = selectedImage.getStackSize();
+            int start = Integer.parseInt(tfStartFrame.getText());
+            int end = Integer.parseInt(tfEndFrame.getText());
+            if (start < 1 || end > nFrames || start > end) {
+                IJ.error("Frame range invalid. Stack has " + nFrames + " frames.");
+                return;
+            }
+
             TemporalColorOutput output = TemporalColorCoder.run(selectedImage, p);
 
             // --- Dashboard for this run ---
