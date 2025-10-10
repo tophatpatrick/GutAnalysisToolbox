@@ -75,30 +75,6 @@ public class SpatialSingleCellType {
             IJ.saveAs(cellImg, "Tiff", spatialSavePath + "cell_labels.tif");
             }
 
-        // old parametric image (attempt trying to get fire lut to work)
-//        if (saveParametricImage) {
-//            float[] neighborArray = new float[maxLabel];
-//            for (int i = 0; i < maxLabel; i++) neighborArray[i] = (float) outTable.getValueAsDouble(i, 1);
-//
-//            ClearCLBuffer vectorNeighbours = clij2.pushArray(neighborArray, neighborArray.length, 1, 1);
-//            ClearCLBuffer paramImg = clij2.create(cellBuffer);
-//            clij2.replaceIntensities(cellBuffer, vectorNeighbours, paramImg);
-//
-//            ImagePlus paramResult = clij2.pull(paramImg);
-//
-//            // Show parametric image only if requested
-//            paramResult.setTitle(cellType + "_parametric");
-//            paramResult.show();
-//            IJ.run(paramResult, "Fire", "");
-//
-//
-//            // Save parametric image
-//            IJ.saveAs(paramResult, "Tiff", spatialSavePath + "cell_labels_parametric.tif");
-//
-//            vectorNeighbours.close();
-//            paramImg.close();
-//        }
-
         // Cleanup GPU buffers
         cellBuffer.close();
         dilated.close();

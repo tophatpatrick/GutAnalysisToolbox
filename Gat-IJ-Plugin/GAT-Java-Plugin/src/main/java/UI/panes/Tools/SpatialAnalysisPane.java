@@ -1,11 +1,14 @@
 package UI.panes.Tools;
 
+import Analysis.ChartGenerator;
+import Analysis.ParameterGenerator;
 import UI.Handlers.Navigator;
 import Analysis.SingleCellTypeAnalysis;
 import Analysis.TwoCellTypeAnalysis;
 
 import javax.swing.*;
 import java.awt.*;
+import java.io.File;
 
 
 public class SpatialAnalysisPane extends JPanel {
@@ -34,6 +37,9 @@ public class SpatialAnalysisPane extends JPanel {
     private JRadioButton twoCell2Radio;
     private JSpinner twoExpansionSpinner;
     private JCheckBox twoSaveParametricImage;
+
+    // Store last analysis info for chart generation
+    private String lastAnalysisType = null;
 
     public SpatialAnalysisPane(Navigator navigator, Window owner) {
         super(new BorderLayout(10, 10));
@@ -89,7 +95,10 @@ public class SpatialAnalysisPane extends JPanel {
                 progress.dispose();
                 try {
                     get(); // This will throw any exception that occurred
-                    JOptionPane.showMessageDialog(owner, "Spatial analysis complete!", "Success", JOptionPane.INFORMATION_MESSAGE);
+                    // Close ImageJ windows before showing dialog
+                    closeImageJWindows();
+                    showSuccessDialogWithChartOption(owner);
+                    // JOptionPane.showMessageDialog(owner, "Spatial analysis complete!", "Success", JOptionPane.INFORMATION_MESSAGE);
                 } catch (Exception ex) {
                     JOptionPane.showMessageDialog(owner, "Error during analysis: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
                     ex.printStackTrace();
@@ -99,6 +108,87 @@ public class SpatialAnalysisPane extends JPanel {
 
         worker.execute();
         progress.setVisible(true);
+    }
+
+    private void showSuccessDialogWithChartOption(Window owner) {
+        JLabel messageLabel = new JLabel("<html>Spatial analysis complete!</html>");
+
+        Object[] options = {"Generate Chart", "OK"};
+        JOptionPane pane = new JOptionPane(
+                messageLabel,
+                JOptionPane.INFORMATION_MESSAGE,
+                JOptionPane.YES_NO_OPTION,
+                null,
+                options,
+                options[1]
+        );
+
+        JDialog dialog = pane.createDialog(owner, "Success");
+        dialog.setModal(true);
+        dialog.setResizable(false);
+
+        dialog.setVisible(true);
+        Object selectedValue = pane.getValue();
+
+        if ("Generate Chart".equals(selectedValue)) {
+            generateCharts(owner);
+            // Update label to include chart confirmation
+            messageLabel.setText("<html>Spatial analysis complete!<br><span style='color:green;'>Chart Generated!</span></html>");
+
+            // Replace options so only OK remains
+            pane.setOptions(new Object[]{"OK"});
+            pane.setValue(JOptionPane.UNINITIALIZED_VALUE);
+
+            // Reopen dialog with updated content
+            dialog.setVisible(true);
+        }
+
+        dialog.dispose();
+
+//        Object[] options = {"Generate Chart", "OK"};
+//        int result = JOptionPane.showOptionDialog(
+//                owner,
+//                "Spatial analysis complete!",
+//                "Success",
+//                JOptionPane.YES_NO_OPTION,
+//                JOptionPane.INFORMATION_MESSAGE,
+//                null,
+//                options,
+//                options[1]
+//        );
+//
+//        if (result == 0) { // Generate Charts clicked
+//            generateCharts(owner);
+//        }
+    }
+
+    private void generateCharts(Window owner) {
+        try {
+            if (lastAnalysisType.equals("single")) {
+                String spatialPath = singleOutputPath.getText().trim() + File.separator + "spatial_analysis" + File.separator;
+//                String csvPath = spatialPath + "Neighbour_count_" + lastCellTypeName + ".csv";
+                String csvPath = spatialPath + "Neighbour_count_" + singleCellTypeName.getText().trim() + ".csv";
+
+                ChartGenerator.createSingleCellTypeChart(csvPath, singleCellTypeName.getText().trim());
+//                JOptionPane.showMessageDialog(owner,
+//                        "Chart generated successfully!\nSaved to: " + spatialPath,
+//                        "Success", JOptionPane.INFORMATION_MESSAGE);
+            } else {
+                String spatialPath = twoOutputPath.getText().trim() + File.separator + "spatial_analysis" + File.separator;
+                String csvPath = spatialPath + "Neighbour_count_" + twoCellType1Name.getText().trim() + "_"
+                        + twoCellType2Name.getText().trim() + ".csv";
+
+                ChartGenerator.createTwoCellTypeChart(csvPath, twoCellType1Name.getText().trim(), twoCellType2Name.getText().trim());
+//                JOptionPane.showMessageDialog(owner,
+//                        "Chart generated successfully!\nSaved to: " + spatialPath,
+//                        "Success", JOptionPane.INFORMATION_MESSAGE);
+            }
+        } catch (Exception ex) {
+            JOptionPane.showMessageDialog(owner,
+                    "Error generating charts: " + ex.getMessage(),
+                    "Error", JOptionPane.ERROR_MESSAGE);
+            ex.printStackTrace();
+        }
     }
 
     private void runSingleCelltypeAnalysis() throws Exception {
@@ -127,6 +217,11 @@ public class SpatialAnalysisPane extends JPanel {
         String cellType = singleCellTypeName.getText().trim();
         double expansion = (Double) singleExpansionSpinner.getValue();
         boolean saveParametric = singleSaveParametricImage.isSelected();
+
+        ParameterGenerator.saveParametersToCSVSingleCellType(output, cellType, expansion, saveParametric, maxProj, roiCells, roiGanglia);
+
+        // Store for chart generation
+        lastAnalysisType = "single";
 
         // Create and execute analysis
         SingleCellTypeAnalysis analysis = new SingleCellTypeAnalysis(
@@ -166,20 +261,20 @@ public class SpatialAnalysisPane extends JPanel {
         String roi2 = twoRoi2Path.getText().trim();
         String roiGanglia = twoRoiGangliaPath.getText().trim();
         String output = twoOutputPath.getText().trim();
-//        boolean assignPanNeuronal = twoAssignPanNeuronal.isSelected();
-//        String panNeuronalChoice = twoCell1Radio.isSelected() ? "Cell 1" : "Cell 2";
         double expansion = (Double) twoExpansionSpinner.getValue();
         boolean saveParametric = twoSaveParametricImage.isSelected();
+
+        ParameterGenerator.saveParametersToCSVTwoCellType(output, cellType1, cellType2, expansion, saveParametric, maxProj, roi1, roi2, roiGanglia);
+
+        // Store for chart generation
+        lastAnalysisType = "two";
 
         // Create and execute analysis
         TwoCellTypeAnalysis analysis = new TwoCellTypeAnalysis(
                 maxProj, cellType1, roi1, cellType2, roi2, roiGanglia, output,
                 expansion, saveParametric
         );
-//        TwoCellTypeAnalysis analysis = new TwoCellTypeAnalysis(
-//                maxProj, cellType1, roi1, cellType2, roi2, roiGanglia, output,
-//                assignPanNeuronal, panNeuronalChoice, expansion, saveParametric
-//        );
+
         analysis.execute();
     }
 
@@ -437,43 +532,6 @@ public class SpatialAnalysisPane extends JPanel {
 
         panel.add(Box.createVerticalStrut(10));
 
-//        // Pan-neuronal marker section
-//        JPanel panNeuronalWrapper = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
-//        JLabel panNeuronalLabel = new JLabel("Pan-neuronal Marker Options");
-//        panNeuronalLabel.setFont(new Font("SansSerif", Font.BOLD, 14));
-//        panNeuronalWrapper.add(panNeuronalLabel);
-//        panel.add(panNeuronalWrapper);
-//
-//        // Pan-neuronal hint
-//        JPanel hintRow1 = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
-//        JLabel hintLabel1 = new JLabel("<html>If using a pan-neuronal marker, make sure to assign the marker that is pan-neuronal</html>");
-//        hintLabel1.setFont(new Font("SansSerif", Font.ITALIC, 12));
-//        hintLabel1.setForeground(Color.GRAY);
-//        hintRow1.add(hintLabel1);
-//        panel.add(hintRow1);
-//
-//        twoAssignPanNeuronal = new JCheckBox("Assign as pan-neuronal");
-//        twoAssignPanNeuronal.setAlignmentX(Component.LEFT_ALIGNMENT);
-//        panel.add(twoAssignPanNeuronal);
-//
-//        // Pan-neuronal choice radio buttons
-//        JPanel panNeuronalChoiceRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
-//        panNeuronalChoiceRow.add(new JLabel("Pan-neuronal choice:"));
-//
-//        ButtonGroup panNeuronalGroup = new ButtonGroup();
-//        twoCell1Radio = new JRadioButton("Cell 1");
-//        twoCell2Radio = new JRadioButton("Cell 2");
-//        twoCell1Radio.setSelected(true);
-//
-//        panNeuronalGroup.add(twoCell1Radio);
-//        panNeuronalGroup.add(twoCell2Radio);
-//
-//        panNeuronalChoiceRow.add(twoCell1Radio);
-//        panNeuronalChoiceRow.add(twoCell2Radio);
-//        panel.add(panNeuronalChoiceRow);
-//
-//        panel.add(Box.createVerticalStrut(10));
-
         // Cell expansion parameter
         JPanel expansionRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
         expansionRow.add(new JLabel("Cell expansion distance for cells (microns):"));
@@ -489,17 +547,6 @@ public class SpatialAnalysisPane extends JPanel {
         hintRow2.add(hintLabel2);
         panel.add(hintRow2);
 
-//        // Enable/disable pan-neuronal options based on checkbox
-//        twoAssignPanNeuronal.addActionListener(e -> {
-//            boolean enabled = twoAssignPanNeuronal.isSelected();
-//            twoCell1Radio.setEnabled(enabled);
-//            twoCell2Radio.setEnabled(enabled);
-//        });
-//
-//        // Initially disable radio buttons
-//        twoCell1Radio.setEnabled(false);
-//        twoCell2Radio.setEnabled(false);
-
         // Save parametric image option
         twoSaveParametricImage = new JCheckBox("Save parametric image");
         twoSaveParametricImage.setAlignmentX(Component.LEFT_ALIGNMENT);
@@ -507,5 +554,37 @@ public class SpatialAnalysisPane extends JPanel {
 
         panel.add(Box.createVerticalGlue());
         return panel;
+    }
+
+    private void closeImageJWindows() {
+
+        // Close ROI Manager
+        ij.plugin.frame.RoiManager roiManager = ij.plugin.frame.RoiManager.getInstance();
+        if (roiManager != null) {
+            roiManager.close();
+        }
+
+        // Close Results window
+//        ij.IJ.run("Clear Results");
+//        ij.measure.ResultsTable rt = ij.measure.ResultsTable.getResultsTable();
+//        if (rt != null) {
+//            rt.reset();
+//        }
+        ij.text.TextWindow resultWindow =  (ij.text.TextWindow) ij.WindowManager.getWindow("Results");
+        if (resultWindow != null) {
+            resultWindow.close();
+        }
+
+        // Close Log window
+        ij.text.TextWindow logWindow = (ij.text.TextWindow) ij.WindowManager.getWindow("Log");
+        if (logWindow != null) {
+            logWindow.close();
+        }
+
+        // Close Console if it exists
+        ij.text.TextWindow consoleWindow = (ij.text.TextWindow) ij.WindowManager.getWindow("Console");
+        if (consoleWindow != null) {
+            consoleWindow.close();
+        }
     }
 }

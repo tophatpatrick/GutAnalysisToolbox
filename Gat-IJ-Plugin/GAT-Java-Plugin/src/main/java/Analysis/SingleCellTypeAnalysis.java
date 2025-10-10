@@ -42,13 +42,6 @@ public class SingleCellTypeAnalysis {
         }
         maxProjImage.show();
 
-        // Get file name and restrict length if necessary
-//        String fileName = new File(maxProjPath).getName();
-//        fileName = fileName.substring(0, fileName.lastIndexOf('.'));
-//        if (fileName.length() > 50) {
-//            fileName = fileName.substring(0, 39);
-//        }
-
         // Get pixel size
         double pixelWidth = maxProjImage.getCalibration().pixelWidth;
         String unit = maxProjImage.getCalibration().getUnit();
@@ -108,6 +101,36 @@ public class SingleCellTypeAnalysis {
         // Close all images
         IJ.run("Close All");
 
+        // Close all ImageJ windows
+        closeImageJWindows();
+
         IJ.log("Neighbour Analysis complete");
+    }
+
+    private void closeImageJWindows() {
+        // Close ROI Manager
+        RoiManager roiManager = RoiManager.getInstance();
+        if (roiManager != null) {
+            roiManager.close();
+        }
+
+        // Close Results window
+        IJ.run("Clear Results");
+        ij.measure.ResultsTable rt = ij.measure.ResultsTable.getResultsTable();
+        if (rt != null) {
+            rt.reset();
+        }
+
+        // Close Log window
+        ij.text.TextWindow logWindow = (ij.text.TextWindow) WindowManager.getWindow("Log");
+        if (logWindow != null) {
+            logWindow.close();
+        }
+
+        // Close Console if it exists
+        ij.text.TextWindow consoleWindow = (ij.text.TextWindow) WindowManager.getWindow("Console");
+        if (consoleWindow != null) {
+            consoleWindow.close();
+        }
     }
 }
