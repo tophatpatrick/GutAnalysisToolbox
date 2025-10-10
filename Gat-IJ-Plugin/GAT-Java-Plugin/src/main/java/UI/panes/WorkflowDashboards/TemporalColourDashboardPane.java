@@ -1,72 +1,58 @@
 package UI.panes.WorkflowDashboards;
 
+import Features.Core.Params;
 import ij.ImagePlus;
-import ij.process.ImageProcessor;
 
 import javax.swing.*;
 import java.awt.*;
+import java.awt.image.BufferedImage;
 
 public class TemporalColourDashboardPane extends JPanel {
 
-    public static final String Name = "Temporal Color Dashboard";
-
-    private final Window owner;
-    private ImagePlus coloredStack;
-    private ImagePlus colorScale;
-
-    private JPanel stackPanel;
-    private JPanel scalePanel;
+    private JPanel imagePanel;
+    private JTextArea paramInfo;
+    private JPanel intensityPlotPanel;
 
     public TemporalColourDashboardPane(Window owner) {
-        super(new BorderLayout(10,10));
-        this.owner = owner;
-        initUI();
+        super(new BorderLayout(6,6));
+
+        // Parameter info panel
+        paramInfo = new JTextArea();
+        paramInfo.setEditable(false);
+        paramInfo.setBackground(getBackground());
+        add(paramInfo, BorderLayout.WEST);
+
+        // Image panel
+        imagePanel = new JPanel(new BorderLayout());
+        add(imagePanel, BorderLayout.CENTER);
+
+        // Optional intensity plot at bottom
+        intensityPlotPanel = new JPanel() {
+            @Override
+            protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                // Draw dummy plot as example
+                g.setColor(Color.BLUE);
+                int w = getWidth(), h = getHeight();
+                for (int i = 0; i < w; i+=5) g.drawLine(i, h, i, h - (i%h));
+            }
+        };
+        intensityPlotPanel.setPreferredSize(new Dimension(400,100));
+        add(intensityPlotPanel, BorderLayout.SOUTH);
     }
 
-    private void initUI() {
-        setLayout(new GridBagLayout());
-        GridBagConstraints c = new GridBagConstraints();
-        c.insets = new Insets(5,5,5,5);
-        c.gridx = 0; c.gridy = 0;
-        c.fill = GridBagConstraints.BOTH;
-        c.weightx = 1.0; c.weighty = 1.0;
+    public void setOutputs(ImagePlus rgbStack, ImagePlus colorScale, Params p) {
+        // Image display
+        BufferedImage bi = rgbStack.getBufferedImage();
+        imagePanel.removeAll();
+        imagePanel.add(new JLabel(new ImageIcon(bi)), BorderLayout.CENTER);
 
-        stackPanel = new JPanel(new BorderLayout());
-        stackPanel.setBorder(BorderFactory.createTitledBorder("Colored Stack"));
-        add(stackPanel, c);
-
-        c.gridy++;
-        scalePanel = new JPanel(new BorderLayout());
-        scalePanel.setBorder(BorderFactory.createTitledBorder("Time Color Scale"));
-        c.weighty = 0.2; // smaller height for scale
-        add(scalePanel, c);
-    }
-
-    /**
-     * Set the outputs to display in the dashboard
-     */
-    public void setOutputs(ImagePlus coloredStack, ImagePlus colorScale) {
-        this.coloredStack = coloredStack;
-        this.colorScale = colorScale;
-
-        stackPanel.removeAll();
-        scalePanel.removeAll();
-
-        if (coloredStack != null) {
-            // Convert first slice/frame into an ImageIcon for display
-            ImageProcessor ip = coloredStack.getProcessor();
-            Image img = ip.getBufferedImage();
-            JLabel lblStack = new JLabel(new ImageIcon(img));
-            JScrollPane scrollStack = new JScrollPane(lblStack);
-            stackPanel.add(scrollStack, BorderLayout.CENTER);
-        }
-
-        if (colorScale != null) {
-            ImageProcessor ipScale = colorScale.getProcessor();
-            Image imgScale = ipScale.getBufferedImage();
-            JLabel lblScale = new JLabel(new ImageIcon(imgScale));
-            scalePanel.add(lblScale, BorderLayout.CENTER);
-        }
+        // Parameter display
+        paramInfo.setText(String.format(
+                "Start Frame: %d\nEnd Frame: %d\nLUT: %s\nProjection: %s\nColor Scale: %s\nBatch Mode: %s",
+                p.referenceFrame, p.referenceFrameEnd, p.lutName, p.projectionMethod,
+                p.createColorScale, p.batchMode
+        ));
 
         revalidate();
         repaint();

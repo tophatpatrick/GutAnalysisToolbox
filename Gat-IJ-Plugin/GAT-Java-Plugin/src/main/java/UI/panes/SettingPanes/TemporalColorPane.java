@@ -11,6 +11,8 @@ import UI.panes.WorkflowDashboards.TemporalColourDashboardPane;
 import javax.swing.*;
 import java.awt.*;
 import java.io.File;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 
 public class TemporalColorPane extends JPanel {
 
@@ -18,137 +20,122 @@ public class TemporalColorPane extends JPanel {
 
     private final Window owner;
 
-    private JTextField tfStartFrame;
-    private JTextField tfEndFrame;
-    private JComboBox<String> cbLUT;
-    private JComboBox<String> cbProjection;
-    private JCheckBox cbColorScale;
-    private JCheckBox cbBatchMode;
-    private JButton runBtn;
-    private JButton selectImageBtn;
-    private JTextField tfImagePath;
+    private JTextField tfStartFrame, tfEndFrame, tfImagePath;
+    private JComboBox<String> cbLUT, cbProjection;
+    private JCheckBox cbColorScale, cbBatchMode;
+    private JButton runBtn, selectImageBtn;
 
-    private JTabbedPane mainTabs;
-    private TemporalColourDashboardPane dashboard;
+    private JTabbedPane dashboardTabs;
 
     private ImagePlus selectedImage;
 
     public TemporalColorPane(Navigator navigator, Window owner) {
-        super(new BorderLayout(10, 10));
+        super(new BorderLayout(10,10));
         this.owner = owner;
-
-        // Main JTabbedPane
-        mainTabs = new JTabbedPane();
-        this.add(mainTabs, BorderLayout.CENTER);
-
-        // Add Settings Tab
-        JPanel settingsTab = buildSettingsTab();
-        mainTabs.addTab("Temporal Color Settings", settingsTab);
+        dashboardTabs = new JTabbedPane();
+        initUI();
     }
 
-    private JPanel buildSettingsTab() {
-        JPanel panel = new JPanel(new GridBagLayout());
+    private void initUI() {
+        // ===== Info Panel (Top) =====
+        JTextArea infoArea = new JTextArea(
+            "Temporal Color Coding visualizes temporal dynamics in a stack. " +
+            "Bright colors represent later frames; darker colors represent earlier frames. " +
+            "Use this to see movement, calcium signals, or other time-lapse dynamics."
+        );
+        infoArea.setEditable(false);
+        infoArea.setBackground(getBackground());
+        infoArea.setLineWrap(true);
+        infoArea.setWrapStyleWord(true);
+        infoArea.setFont(infoArea.getFont().deriveFont(Font.PLAIN, 13f));
+        infoArea.setBorder(BorderFactory.createEmptyBorder(4,4,4,4));
+        add(infoArea, BorderLayout.NORTH);
+
+        // ===== Settings Panel (Left) =====
+        JPanel settingsPanel = new JPanel(new GridBagLayout());
+        settingsPanel.setBorder(BorderFactory.createEmptyBorder(8,8,8,8));
         GridBagConstraints c = new GridBagConstraints();
-        c.insets = new Insets(4, 4, 4, 4);
-        c.gridx = 0; c.gridy = 0; c.anchor = GridBagConstraints.LINE_END;
+        c.insets = new Insets(4,4,4,4);
+        c.anchor = GridBagConstraints.LINE_END;
+
+        int row = 0;
 
         // Image selection
-        panel.add(new JLabel("Select Image:"), c);
-        c.gridx = 1; c.anchor = GridBagConstraints.LINE_START;
-        tfImagePath = new JTextField(20);
-        tfImagePath.setEditable(false);
-        panel.add(tfImagePath, c);
-
-        c.gridx = 2;
-        selectImageBtn = new JButton("Browse...");
-        panel.add(selectImageBtn, c);
+        c.gridx=0; c.gridy=row; settingsPanel.add(new JLabel("Select Image:"), c);
+        c.gridx=1; c.anchor = GridBagConstraints.LINE_START;
+        tfImagePath = new JTextField(20); tfImagePath.setEditable(false);
+        settingsPanel.add(tfImagePath, c);
+        c.gridx=2; selectImageBtn = new JButton("Browse...");
+        settingsPanel.add(selectImageBtn, c);
         selectImageBtn.addActionListener(e -> selectImageFile());
+        row++;
 
-        // Start Frame
-        c.gridx = 0; c.gridy++;
-        c.anchor = GridBagConstraints.LINE_END;
-        panel.add(new JLabel("Start Frame:"), c);
-        c.gridx = 1; c.anchor = GridBagConstraints.LINE_START;
-        tfStartFrame = new JTextField("1", 5);
-        panel.add(tfStartFrame, c);
+        // Frame range
+        c.gridx=0; c.gridy=row; c.anchor = GridBagConstraints.LINE_END;
+        settingsPanel.add(new JLabel("Start Frame:"), c);
+        c.gridx=1; c.anchor = GridBagConstraints.LINE_START;
+        tfStartFrame = new JTextField("1",5); settingsPanel.add(tfStartFrame, c);
+        row++;
 
-        // End Frame
-        c.gridx = 0; c.gridy++;
-        c.anchor = GridBagConstraints.LINE_END;
-        panel.add(new JLabel("End Frame:"), c);
-        c.gridx = 1; c.anchor = GridBagConstraints.LINE_START;
-        tfEndFrame = new JTextField("10", 5);
-        panel.add(tfEndFrame, c);
+        c.gridx=0; c.gridy=row; c.anchor = GridBagConstraints.LINE_END;
+        settingsPanel.add(new JLabel("End Frame:"), c);
+        c.gridx=1; c.anchor = GridBagConstraints.LINE_START;
+        tfEndFrame = new JTextField("10",5); settingsPanel.add(tfEndFrame, c);
+        row++;
 
         // LUT
-        c.gridx = 0; c.gridy++;
-        c.anchor = GridBagConstraints.LINE_END;
-        panel.add(new JLabel("LUT:"), c);
-        c.gridx = 1; c.anchor = GridBagConstraints.LINE_START;
-        cbLUT = new JComboBox<>(new String[]{"Fire", "Ice", "Green", "Red"});
-        panel.add(cbLUT, c);
+        c.gridx=0; c.gridy=row; c.anchor = GridBagConstraints.LINE_END;
+        settingsPanel.add(new JLabel("LUT:"), c);
+        c.gridx=1; c.anchor = GridBagConstraints.LINE_START;
+        cbLUT = new JComboBox<>(new String[]{"Fire","Ice","Green","Red"}); settingsPanel.add(cbLUT, c);
+        row++;
 
         // Projection
-        c.gridx = 0; c.gridy++;
-        c.anchor = GridBagConstraints.LINE_END;
-        panel.add(new JLabel("Projection:"), c);
-        c.gridx = 1; c.anchor = GridBagConstraints.LINE_START;
-        cbProjection = new JComboBox<>(new String[]{
-                "Max Intensity", "Average Intensity", "Min Intensity"
-        });
-        panel.add(cbProjection, c);
+        c.gridx=0; c.gridy=row; c.anchor = GridBagConstraints.LINE_END;
+        settingsPanel.add(new JLabel("Projection:"), c);
+        c.gridx=1; c.anchor = GridBagConstraints.LINE_START;
+        cbProjection = new JComboBox<>(new String[]{"Max Intensity","Average Intensity","Min Intensity"});
+        settingsPanel.add(cbProjection, c);
+        row++;
 
-        // Color Scale
-        c.gridx = 0; c.gridy++;
-        c.anchor = GridBagConstraints.LINE_END;
-        panel.add(new JLabel("Color Scale:"), c);
-        c.gridx = 1; c.anchor = GridBagConstraints.LINE_START;
-        cbColorScale = new JCheckBox();
-        cbColorScale.setSelected(true);
-        panel.add(cbColorScale, c);
+        // Color Scale & Batch
+        c.gridx=0; c.gridy=row; c.anchor = GridBagConstraints.LINE_END;
+        settingsPanel.add(new JLabel("Color Scale:"), c);
+        c.gridx=1; c.anchor = GridBagConstraints.LINE_START;
+        cbColorScale = new JCheckBox(); cbColorScale.setSelected(true); settingsPanel.add(cbColorScale, c);
+        row++;
 
-        // Batch Mode
-        c.gridx = 0; c.gridy++;
-        c.anchor = GridBagConstraints.LINE_END;
-        panel.add(new JLabel("Batch Mode:"), c);
-        c.gridx = 1; c.anchor = GridBagConstraints.LINE_START;
-        cbBatchMode = new JCheckBox();
-        panel.add(cbBatchMode, c);
+        c.gridx=0; c.gridy=row; c.anchor = GridBagConstraints.LINE_END;
+        settingsPanel.add(new JLabel("Batch Mode:"), c);
+        c.gridx=1; c.anchor = GridBagConstraints.LINE_START;
+        cbBatchMode = new JCheckBox(); settingsPanel.add(cbBatchMode, c);
+        row++;
 
-        // Run Button
-        c.gridx = 0; c.gridy++;
-        c.gridwidth = 3; c.anchor = GridBagConstraints.CENTER;
+        // Run button
+        c.gridx=0; c.gridy=row; c.gridwidth=3; c.anchor = GridBagConstraints.CENTER;
         runBtn = new JButton("Run Temporal Color Coding");
-        panel.add(runBtn, c);
-
+        settingsPanel.add(runBtn, c);
         runBtn.addActionListener(e -> runWorkflow());
 
-        JScrollPane scroll = new JScrollPane(panel);
-        scroll.getVerticalScrollBar().setUnitIncrement(16);
-        JPanel outer = new JPanel(new BorderLayout());
-        outer.add(scroll, BorderLayout.CENTER);
-        return outer;
+        add(settingsPanel, BorderLayout.WEST);
+
+        // ===== Dashboard Tabs (Center) =====
+        add(dashboardTabs, BorderLayout.CENTER);
     }
 
     private void selectImageFile() {
         JFileChooser chooser = new JFileChooser();
-        chooser.setDialogTitle("Select an Image File");
         chooser.setFileSelectionMode(JFileChooser.FILES_ONLY);
-        int result = chooser.showOpenDialog(owner);
-        if (result == JFileChooser.APPROVE_OPTION) {
-            File file = chooser.getSelectedFile();
-            tfImagePath.setText(file.getAbsolutePath());
-            selectedImage = IJ.openImage(file.getAbsolutePath());
+        if (chooser.showOpenDialog(owner) == JFileChooser.APPROVE_OPTION) {
+            File f = chooser.getSelectedFile();
+            tfImagePath.setText(f.getAbsolutePath());
+            selectedImage = IJ.openImage(f.getAbsolutePath());
             if (selectedImage != null) selectedImage.show();
         }
     }
 
     private void runWorkflow() {
-        ImagePlus imp = IJ.getImage();
-        if (imp == null) {
-            IJ.error("No image open. Please open an image before running the workflow.");
-            return;
-        }
+        if (selectedImage == null) { IJ.error("No image selected"); return; }
 
         try {
             Params p = new Params();
@@ -159,35 +146,78 @@ public class TemporalColorPane extends JPanel {
             p.createColorScale = cbColorScale.isSelected();
             p.batchMode = cbBatchMode.isSelected();
 
-            TemporalColorOutput output = TemporalColorCoder.run(imp, p);
+            TemporalColorOutput output = TemporalColorCoder.run(selectedImage, p);
 
-            dashboard = new TemporalColourDashboardPane(owner);
-            dashboard.setOutputs(output.rgbStack, output.colorScale);
+            // --- Dashboard for this run ---
+            TemporalColourDashboardPane dashboard = new TemporalColourDashboardPane(owner);
+            dashboard.setOutputs(output.rgbStack, output.colorScale, p);
 
-            // Add dashboard as a new tab if it doesn't already exist
-            String tabName = "Temporal Color: " + imp.getTitle();
+            // --- Add live color strip at top ---
+            ImagePlus scaleImg = output.colorScale; // ImagePlus
+            int W = scaleImg.getWidth();
+            Color[] colours = new Color[W];
+            for (int x = 0; x < W; x++) {
+                int rgb = scaleImg.getProcessor().getPixel(x, 0);
+                colours[x] = new Color(rgb);
+            }
+            JPanel colorStrip = createColorScalePanel(300, 20, colours);
+            dashboard.add(colorStrip, BorderLayout.NORTH);
 
-            // Add the dashboard if it doesn’t exist
-            boolean tabExists = false;
-            for (int i = 0; i < mainTabs.getTabCount(); i++) {
-                if (mainTabs.getTitleAt(i).equals(tabName)) {
-                    tabExists = true;
-                    dashboard = (TemporalColourDashboardPane) mainTabs.getComponentAt(i);
-                    break;
-                }
+            // --- Timestamped tab ---
+            String tabName = String.format("Temporal: %s",
+                    new SimpleDateFormat("HH:mm:ss").format(new Date()));
+            dashboardTabs.addTab(tabName, dashboard);
+            dashboardTabs.setSelectedComponent(dashboard);
+
+            // --- Start live rotation of highlighted frame ---
+            if (output.rgbStack.getStackSize() > 1) {
+                Timer timer = new Timer(150, e -> {
+                    int idx = output.rgbStack.getCurrentSlice();
+                    idx = (idx % output.rgbStack.getStackSize()) + 1;
+                    output.rgbStack.setSlice(idx);
+                    colorStrip.repaint(); // update highlight on strip
+                });
+                timer.start();
             }
 
-            if (!tabExists) {
-                mainTabs.addTab(tabName, dashboard);
-            }
-
-            // Always select AFTER adding
-            SwingUtilities.invokeLater(() -> mainTabs.setSelectedComponent(dashboard));
-
-        } catch (NumberFormatException ex) {
-            IJ.error("Start/End frames must be integers.");
         } catch (Exception ex) {
             IJ.handleException(ex);
         }
     }
+
+    /**
+     * Creates a horizontal time-color bar representing all frames.
+     * Highlights current frame in live rotation.
+     */
+    private JPanel createColorScalePanel(int width, int height, Color[] colorScale) {
+        return new JPanel() {
+            @Override
+            protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                int n = colorScale.length;
+                for (int i = 0; i < n; i++) {
+                    int x0 = i * width / n;
+                    int x1 = (i+1) * width / n;
+                    g.setColor(colorScale[i]);
+                    g.fillRect(x0, 0, x1-x0, height);
+                }
+
+                // Optional: highlight current slice
+                if (selectedImage != null) {
+                    int cur = selectedImage.getCurrentSlice() - 1;
+                    if (cur >= 0 && cur < n) {
+                        g.setColor(Color.WHITE);
+                        int x = cur * width / n;
+                        g.drawLine(x, 0, x, height);
+                    }
+                }
+            }
+
+            @Override
+            public Dimension getPreferredSize() {
+                return new Dimension(width, height);
+            }
+        };
+    }
+
 }

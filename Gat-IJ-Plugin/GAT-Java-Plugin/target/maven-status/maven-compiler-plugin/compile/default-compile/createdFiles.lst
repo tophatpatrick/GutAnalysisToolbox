@@ -103,11 +103,13 @@ UI\panes\Results\ResultsMultiUI$1.class
 Features\Tools\SilentRun.class
 Features\Tools\RoiManagerHelper.class
 Features\AnalyseWorkflows\NeuronsHuPipeline.class
+UI\panes\SettingPanes\TemporalColorPane$1.class
 UI\panes\Tools\AnalyseNeuronsPane$OptionPanel$1.class
 UI\panes\Tools\AnalyseNeuronsPane$OptionPanel.class
 Features\AnalyseWorkflows\NeuronsHuPipeline$HuResult.class
 Analysis\ConvertLabelToROIs.class
 Features\Tools\RoiManagerHelper$RmHandle.class
+UI\panes\WorkflowDashboards\TemporalColourDashboardPane$1.class
 UI\panes\Tools\SpatialAnalysisPane$1.class
 services\merge\MergeException.class
 UI\panes\Results\ResultsUI$2.class
