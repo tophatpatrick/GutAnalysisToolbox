@@ -76,7 +76,9 @@ public class GatPluginUI implements PlugIn {
         cardPanel.add(new MultichannelPane(dialog),MultichannelPane.Name);
 
         // register your dashboard pane
-
+        cardPanel.add(new alignStackPane(navigator, dialog), alignStackPane.Name);
+        cardPanel.add(new calciumImagingAnalysisPane(navigator, dialog), calciumImagingAnalysisPane.Name);
+        cardPanel.add(new TemporalColorPane(navigator, dialog), TemporalColorPane.Name);
 
 
 
@@ -85,8 +87,7 @@ public class GatPluginUI implements PlugIn {
         panes.put(HomePane.Name, new HomePane(navigator));
         panes.put(AnalysisPane.Name,        new AnalysisPane(navigator));
         panes.put(AnalyseNeuronsPane.Name,  new AnalyseNeuronsPane(navigator));
-        panes.put(CalciumImagingPane.Name,  new CalciumImagingPane(navigator));
-        panes.put(MultiplexPane.Name,       new MultiplexPane(navigator));
+        panes.put(CalciumImagingPane.Name,  new CalciumImagingPane(navigator));        panes.put(MultiplexPane.Name,       new MultiplexPane(navigator));
         panes.put(ToolsPane.Name,           new ToolsPane(navigator));
         panes.put(SpatialAnalysisPane.Name, new SpatialAnalysisPane(navigator, dialog));
 

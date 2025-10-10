@@ -2,6 +2,7 @@ package Features.Core;
 
 
 import java.awt.*;
+import java.util.List;
 
 public class Params {
 
@@ -12,6 +13,7 @@ public class Params {
     /** If null, uses current image in Fiji. */
     // Input/output
     public String imagePath = null;       // if null, uses current ImageJ active image
+    public String roiPath;                // Path to ROI zip file (if importing)
     public String outputDir = null;       // parent output dir (optional). We will create Analysis/<baseName> inside
 
     /** 1-based channel index for Hu segmentation. */
@@ -81,6 +83,38 @@ public class Params {
     public String  spatialCellTypeName = "Hu";
 
     public Window uiAnchor;
+
+    // Calcium imaging alignment defaults
+    public int referenceFrame = 1;            // default first frame
+    public boolean normalizeToBaseline = false; // default: no normalization
+    public int baselineStart = 1;             // default start frame
+    public int baselineEnd = 5;               // default end frame
+    public boolean saveAlignedStack = false;  // default: don't save aligned stack
+    public boolean subpixel = false;
+    public boolean useSIFT = false;
+    public boolean useTemplateMatching = true;
+    public boolean useStackReg = true;
+    public String inputDir = null; 
+    public String fileExt = null; 
+
+
+    // Calcium Imaging Analysis
+    public boolean useFF0 = true;          // F/F₀ normalization
+    public boolean useStarDist = false;    // use StarDist segmentation
+    public int cellTypes = 1;              // cell type
+    public boolean importROIs = false;
+    public int maxStart = 1;
+    public int maxEnd = 50;
+    public int numCellTypes = 1;   
+    public List<String> cellNames;
+
+    // Temporal Colour Analysis
+    public int referenceFrameEnd = 5;  
+    public String lutName = null;
+    public String projectionMethod = null; 
+    public boolean createColorScale = false;
+    public boolean batchMode = false;
+    
 }
 
 
