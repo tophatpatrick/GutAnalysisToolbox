@@ -326,40 +326,50 @@ public class MultiplexRegistrationService {
             rm.runCommand("Save",
                     new File(resultsDir, "landmark_correspondences.zip").getAbsolutePath());
         }
+// ---- Offer to open results (Aligned_Stack + <common>_stack), batch/EDT safe ----
+            final File alignedTif = new File(resultsDir, "Aligned_Stack.tif");
+            final File commonTif  = new File(resultsDir, cfg.commonMarker() + "_stack.tif");
 
-            // ---- Offer to open the aligned image and/or the Results folder ----
-            File alignedTif = new File(resultsDir, "Aligned_Stack.tif");
-            JPanel panel = new JPanel(new java.awt.GridLayout(0, 1, 0, 6));
-            JLabel msg = new JLabel("<html><b>Multiplex Registration finished.</b><br/>" +
-                    "Results saved in:<br/>" + resultsDir.getAbsolutePath() + "</html>");
-            JCheckBox openImage = new JCheckBox("Open Aligned_Stack.tif now", true);
-            JCheckBox openFolder = new JCheckBox("Open Results folder", false);
-            panel.add(msg);
-            panel.add(openImage);
-            panel.add(openFolder);
+// Temporarily leave batch mode so windows can appear
+            final boolean wasBatch = ij.macro.Interpreter.batchMode;
+            ij.macro.Interpreter.batchMode = false;
 
-            int choice = JOptionPane.showConfirmDialog(
-                    null, panel, "Done", JOptionPane.OK_CANCEL_OPTION, JOptionPane.INFORMATION_MESSAGE);
+            javax.swing.SwingUtilities.invokeLater(() -> {
+                JPanel panel = new JPanel(new java.awt.GridLayout(0, 1, 0, 6));
+                panel.add(new javax.swing.JLabel("<html><b>Multiplex Registration finished.</b><br/>"
+                        + "Results saved in:<br/>" + resultsDir.getAbsolutePath() + "</html>"));
 
-            if (choice == JOptionPane.OK_OPTION) {
-                if (openImage.isSelected() && alignedTif.exists()) {
-                    ImagePlus opened = IJ.openImage(alignedTif.getAbsolutePath());
-                    if (opened != null) opened.show();
-                }
-                if (openFolder.isSelected() && resultsDir.exists()) {
-                    try {
-                        if (Desktop.isDesktopSupported()) {
-                            Desktop.getDesktop().open(resultsDir);
-                        } else {
-                            IJ.showMessage("Results Folder", "Results: " + resultsDir.getAbsolutePath());
-                        }
-                    } catch (Exception ex) {
-                        IJ.showMessage("Open Folder Failed",
-                                "Could not open folder:\n" + resultsDir.getAbsolutePath() + "\n" + ex.getMessage());
+                javax.swing.JCheckBox openAligned = new javax.swing.JCheckBox("Open Aligned_Stack.tif", true);
+                javax.swing.JCheckBox openCommon  = new javax.swing.JCheckBox("Open " + cfg.commonMarker() + "_stack.tif", true);
+                panel.add(openAligned);
+                panel.add(openCommon);
+
+                int choice = javax.swing.JOptionPane.showConfirmDialog(
+                        null, panel, "Open results?", javax.swing.JOptionPane.OK_CANCEL_OPTION,
+                        javax.swing.JOptionPane.INFORMATION_MESSAGE);
+
+                java.util.List<ij.ImagePlus> opened = new java.util.ArrayList<>(2);
+
+                if (choice == javax.swing.JOptionPane.OK_OPTION) {
+                    if (openAligned.isSelected() && alignedTif.exists()) {
+                        ij.ImagePlus imp = ij.IJ.openImage(alignedTif.getAbsolutePath());
+                        if (imp != null) { imp.show(); opened.add(imp); }
+                    }
+                    if (openCommon.isSelected() && commonTif.exists()) {
+                        ij.ImagePlus imp = ij.IJ.openImage(commonTif.getAbsolutePath());
+                        if (imp != null) { imp.show(); opened.add(imp); }
+                    }
+                    // If both opened, tile for convenience
+                    if (opened.size() > 1) {
+                        ij.IJ.run("Tile");
+                    } else if (opened.size() == 1) {
+                        ij.IJ.selectWindow(opened.get(0).getTitle());
                     }
                 }
-            }
 
+                // Restore prior batch mode after user interaction
+                ij.macro.Interpreter.batchMode = wasBatch;
+            });
 
             // ---- 11) Cleanup + notify ----
         finalStack.close();
