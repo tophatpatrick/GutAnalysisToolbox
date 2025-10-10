@@ -67,6 +67,13 @@
             <version>2.3.0.4</version>
         </dependency>
 
+        <!-- Free chart -->
+        <dependency>
+            <groupId>org.jfree</groupId>
+            <artifactId>jfreechart</artifactId>
+            <version>1.5.3</version>
+        </dependency>
+
         <!-- (Optional) plugins you call directly from code via IJ.run(...)
              If you plan to ship a self-contained Fiji, you can skip these
              here and let the app packager install from update sites instead. -->
