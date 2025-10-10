@@ -7,13 +7,19 @@ import UI.panes.WorkflowDashboards.CalciumImagingAnalysisDashboard;
 
 import javax.swing.*;
 import java.awt.*;
-import java.io.File;
 import java.util.ArrayList;
 
+/**
+ * Pane for Calcium Imaging Analysis settings.
+ * Allows configuration of input stack, normalization, segmentation, cell types, ROIs, and cell names.
+ * Provides a stepwise analysis dashboard for execution.
+ */
 public class calciumImagingAnalysisPane extends JPanel {
     public static final String Name = "Calcium Imaging Analysis";
 
     private final Window owner;
+
+    // --- UI components ---
     private JTextField imagePathField;
     private JCheckBox useFF0Box;
     private JCheckBox useStarDistBox;
@@ -23,15 +29,15 @@ public class calciumImagingAnalysisPane extends JPanel {
     private JButton browseButton;
     private JButton runButton;
 
-    private JTabbedPane tabs; 
-    private CalciumImagingAnalysisDashboard calciumDashboard; 
+    private JTabbedPane tabs;
+    private CalciumImagingAnalysisDashboard calciumDashboard;
 
     public calciumImagingAnalysisPane(Navigator navigator, Window owner) {
         super(new BorderLayout(10, 10));
         this.owner = owner;
         setBorder(BorderFactory.createEmptyBorder(16, 16, 16, 16));
 
-        // --- Tabs ---
+        // --- Tabs setup ---
         tabs = new JTabbedPane();
 
         // Settings panel
@@ -50,17 +56,19 @@ public class calciumImagingAnalysisPane extends JPanel {
         add(actions, BorderLayout.SOUTH);
     }
 
+    /** Builds the main settings panel with all options */
     private JPanel buildSettingsPanel() {
         JPanel panel = new JPanel();
         panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
 
+        // Title
         JLabel title = new JLabel("Calcium Imaging Analysis Settings");
         title.setFont(title.getFont().deriveFont(Font.BOLD, 16f));
         title.setAlignmentX(Component.LEFT_ALIGNMENT);
         panel.add(title);
         panel.add(Box.createVerticalStrut(12));
 
-        // Image path
+        // Input stack
         imagePathField = new JTextField(30);
         browseButton = new JButton("Browse…");
         browseButton.addActionListener(e -> chooseImageFile());
@@ -74,15 +82,15 @@ public class calciumImagingAnalysisPane extends JPanel {
         useStarDistBox = new JCheckBox("Use StarDist Segmentation", false);
         panel.add(box("Segmentation", useStarDistBox));
 
-        // Cell types
+        // Number of cell types
         cellTypesSpinner = new JSpinner(new SpinnerNumberModel(1, 1, 10, 1));
         panel.add(box("Cell Type Settings", row(new JLabel("Number of Cell Types:"), cellTypesSpinner)));
 
-        // Cell names
+        // Cell names input
         cellNamesField = new JTextField(30);
         panel.add(box("Cell Names", row(new JLabel("Cell Names (comma-separated):"), cellNamesField)));
 
-        // ROI path
+        // ROI file selection
         roiPathField = new JTextField(30);
         JButton roiBrowse = new JButton("Browse…");
         roiBrowse.addActionListener(e -> chooseROIFile());
@@ -91,6 +99,7 @@ public class calciumImagingAnalysisPane extends JPanel {
         return panel;
     }
 
+    /** Open file chooser for image stack */
     private void chooseImageFile() {
         JFileChooser chooser = new JFileChooser();
         chooser.setDialogTitle("Select aligned calcium imaging stack");
@@ -100,6 +109,7 @@ public class calciumImagingAnalysisPane extends JPanel {
         }
     }
 
+    /** Open file chooser for optional ROI manager ZIP */
     private void chooseROIFile() {
         JFileChooser chooser = new JFileChooser();
         chooser.setDialogTitle("Select ROI Manager ZIP file");
@@ -109,9 +119,11 @@ public class calciumImagingAnalysisPane extends JPanel {
         }
     }
 
+    /** Trigger stepwise analysis dashboard */
     private void onRun() {
         runButton.setEnabled(false);
 
+        // Validate input image
         if (!InputValidation.validateImageOrShow(this, imagePathField.getText())) {
             runButton.setEnabled(true);
             return;
@@ -119,16 +131,15 @@ public class calciumImagingAnalysisPane extends JPanel {
 
         Params p = getParams();
 
-        // --- Create dashboard with params ---
+        // --- Initialize and add dashboard tab ---
         calciumDashboard = new CalciumImagingAnalysisDashboard(p);
         tabs.addTab("Analysis Dashboard", calciumDashboard);
         tabs.setSelectedComponent(calciumDashboard);
 
-        // --- Stepwise execution ---
-        // The dashboard should now handle its own buttons for each step
-        // User can click each "Step 1", "Step 2", etc., to execute stepwise.
+        // Dashboard handles stepwise execution
     }
 
+    /** Construct Params object from UI fields */
     public Params getParams() {
         Params p = new Params();
         p.imagePath = imagePathField.getText();
@@ -138,6 +149,7 @@ public class calciumImagingAnalysisPane extends JPanel {
         p.roiPath = roiPathField.getText().isEmpty() ? null : roiPathField.getText();
         p.uiAnchor = SwingUtilities.getWindowAncestor(this);
 
+        // Parse comma-separated cell names
         String namesText = cellNamesField.getText().trim();
         if (!namesText.isEmpty()) {
             String[] names = namesText.split("\\s*,\\s*");

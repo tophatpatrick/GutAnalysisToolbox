@@ -15,7 +15,8 @@ import java.io.File;
 
 /**
  * Align Stack pane
- * Lets user configure reference frame, alignment method, save options, and input image.
+ * Provides UI for configuring alignment of image stacks.
+ * Supports single stack and batch alignment with SIFT, Template Matching, or StackReg (single only).
  */
 public class alignStackPane extends JPanel {
     public static final String Name = "Align Stack";
@@ -49,7 +50,7 @@ public class alignStackPane extends JPanel {
 
     private JButton runBtn;
 
-    // Dashboard
+    // Dashboard to display results
     private AlignStackDashboard alignStackDashboard;
 
     public alignStackPane(Navigator navigator, Window owner) {
@@ -57,15 +58,13 @@ public class alignStackPane extends JPanel {
         this.owner = owner;
         setBorder(BorderFactory.createEmptyBorder(16,16,16,16));
 
-        // --- Tabs ---
+        // Create tabs for single and batch alignment
         JTabbedPane tabs = new JTabbedPane();
         tabs.addTab("Align Stack (Single) Settings", buildSettingsTab());
         tabs.addTab("Align Stack (Batch) Settings", buildBatchTab());
-
-
         add(tabs, BorderLayout.CENTER);
 
-        // --- Run button ---
+        // Run button at bottom
         JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT));
         runBtn = new JButton("Run Alignment");
         runBtn.addActionListener(e -> onRun(runBtn, tabs));
@@ -75,26 +74,27 @@ public class alignStackPane extends JPanel {
         loadDefaults();
     }
 
+    /** Build the batch alignment tab UI */
     private JPanel buildBatchTab() {
         JPanel outer = new JPanel(new BorderLayout());
         JPanel p = new JPanel();
         p.setLayout(new BoxLayout(p, BoxLayout.Y_AXIS));
 
-        // Input folder
+        // Input folder selection
         tfInputDir = new JTextField(36);
         btnBrowseInput = new JButton("Browse…");
         btnBrowseInput.addActionListener(e -> chooseFile(tfInputDir, JFileChooser.DIRECTORIES_ONLY));
         p.add(box("Input folder with stacks", row(tfInputDir, btnBrowseInput)));
 
-        // Reference frame
+        // Reference frame for alignment
         spReferenceFrameBatch = new JSpinner(new SpinnerNumberModel(1, 1, 1000, 1));
         p.add(box("Reference frame", spReferenceFrameBatch));
 
-        // Alignment method
+        // Alignment method options
         cbUseSIFTBatch = new JCheckBox("Use SIFT alignment if tissue moves significantly", true);
-        // Create radio buttons for XY alignment
         JRadioButton rbTemplateMatching = new JRadioButton("Template Matching", true);
-        JRadioButton rbStackReg = new JRadioButton("StackReg");
+        JRadioButton rbStackReg = new JRadioButton("StackReg (unsupported in batch)");
+        rbStackReg.setEnabled(false); // Disable StackReg since not implemented in batch
 
         ButtonGroup xyGroup = new ButtonGroup();
         xyGroup.add(rbTemplateMatching);
@@ -105,11 +105,11 @@ public class alignStackPane extends JPanel {
 
         p.add(box("Alignment method", column(cbUseSIFTBatch, cbUseTemplateMatchingBatch, cbUseStackRegBatch)));
 
-        // File extension
+        // File extension filter
         tfFileExt = new JTextField(".tif", 6);
         p.add(box("File extension", tfFileExt));
 
-        // Output dir + save
+        // Output directory and save option
         tfOutputDirBatch = new JTextField(36);
         btnBrowseOutputBatch = new JButton("Browse…");
         btnBrowseOutputBatch.addActionListener(e -> chooseFile(tfOutputDirBatch, JFileChooser.DIRECTORIES_ONLY));
@@ -122,12 +122,13 @@ public class alignStackPane extends JPanel {
         return outer;
     }
 
+    /** Build the single stack alignment tab UI */
     private JPanel buildSettingsTab() {
         JPanel outer = new JPanel(new BorderLayout());
         JPanel p = new JPanel();
         p.setLayout(new BoxLayout(p, BoxLayout.Y_AXIS));
 
-        // Input stack
+        // Input stack selection
         tfImagePath = new JTextField(36);
         btnBrowseImage = new JButton("Browse…");
         btnBrowseImage.addActionListener(e -> chooseFile(tfImagePath, JFileChooser.FILES_ONLY));
@@ -139,12 +140,12 @@ public class alignStackPane extends JPanel {
         spReferenceFrame = new JSpinner(new SpinnerNumberModel(1, 1, 1000, 1));
         p.add(box("Reference frame", spReferenceFrame));
 
-        // Alignment method
+        // Alignment method options
         cbUseSIFT = new JCheckBox("Use SIFT alignment if tissue moves significantly");
         cbUseTemplateMatching = new JCheckBox("Use Template Matching for XY movement");
         p.add(box("Alignment method", column(cbUseSIFT, cbUseTemplateMatching)));
 
-        // Output dir + save
+        // Output directory and save option
         tfOutputDir = new JTextField(36);
         btnBrowseOutput = new JButton("Browse…");
         btnBrowseOutput.addActionListener(e -> chooseFile(tfOutputDir, JFileChooser.DIRECTORIES_ONLY));
@@ -157,14 +158,16 @@ public class alignStackPane extends JPanel {
         return outer;
     }
 
-    // --- Run logic (only sends params to dashboard) ---
+    /** Trigger alignment when run button is pressed */
     private void onRun(JButton runBtn, JTabbedPane tabs) {
         runBtn.setEnabled(false);
-        int selected = tabs.getSelectedIndex(); // 0 = single, 1 = batch i think
+        int selected = tabs.getSelectedIndex(); // 0 = single, 1 = batch
         boolean ok = true;
-        if (selected == 0) { // Single alignment tab
+
+        // Validate input
+        if (selected == 0) {
             ok = InputValidation.validateImageOrShow(this, tfImagePath.getText());
-        } else if (selected == 1) { // Batch alignment tab
+        } else if (selected == 1) {
             ok = validateDirectoryOrShow(this, tfInputDir.getText());
         }
         if (!ok) {
@@ -181,16 +184,16 @@ public class alignStackPane extends JPanel {
                     Params params = buildParamsFromUI(selected);
 
                     if (selected == 0) {
-                        // Run alignment
+                        // Single stack alignment
                         AlignStack aligner = new AlignStack();
                         AlignStack.AlignResult result = aligner.run(params);
 
-                        // Load the aligned image
+                        // Load aligned image from disk
                         String outFile = params.outputDir + File.separator +
                                 new File(params.imagePath).getName().replace(".tif", "_aligned.tif");
                         alignedImage = IJ.openImage(outFile);
 
-                        // --- Send aligned image and CSV to dashboard ---
+                        // Update dashboard with results
                         SwingUtilities.invokeLater(() -> {
                             alignStackDashboard = new AlignStackDashboard();
                             tabs.addTab("Alignment Dashboard", alignStackDashboard);
@@ -200,10 +203,9 @@ public class alignStackPane extends JPanel {
                             );
                         });
                     } else {
+                        // Batch alignment
                         runBatchAlignment(params);
                     }
-                    
-
                 } catch (Throwable ex) {
                     SwingUtilities.invokeLater(() -> JOptionPane.showMessageDialog(
                             owner,
@@ -218,20 +220,21 @@ public class alignStackPane extends JPanel {
         worker.execute();
     }
 
+    /** Construct Params object from UI fields */
     private Params buildParamsFromUI(int selectedTab) {
         Params p = new Params();
 
         if (selectedTab == 0) {
+            // Single stack settings
             p.imagePath = tfImagePath.getText();
             p.outputDir = tfOutputDir.getText();
             p.referenceFrame = ((Number) spReferenceFrame.getValue()).intValue();
             p.useSIFT = cbUseSIFT.isSelected();
-            p.saveAlignedStack = cbSaveAlignedStack.isSelected();
-            p.uiAnchor = SwingUtilities.getWindowAncestor(this);
-            p.useSIFT = cbUseSIFT.isSelected();
             p.useTemplateMatching = cbUseTemplateMatching.isSelected();
             p.saveAlignedStack = cbSaveAlignedStack.isSelected();
+            p.uiAnchor = SwingUtilities.getWindowAncestor(this);
         } else {
+            // Batch settings
             p.inputDir = tfInputDir.getText();
             p.outputDir = tfOutputDirBatch.getText();
             p.referenceFrame = ((Number) spReferenceFrameBatch.getValue()).intValue();
@@ -243,25 +246,14 @@ public class alignStackPane extends JPanel {
         return p;
     }
 
+    /** Run batch alignment for multiple stacks */
     private void runBatchAlignment(Params params) throws Exception {
-        // Validate input directory
-        boolean ok = validateDirectoryOrShow(this, tfInputDir.getText());
-        if (!ok) return;
+        if (!validateDirectoryOrShow(this, tfInputDir.getText())) return;
 
-        // Build Params from batch tab
-        Params p = params;
-
-        // Run batch alignment
-        AlignStackBatch.runBatch(p);
-
-        // SwingUtilities.invokeLater(() -> {
-        //     alignStackDashboard = new AlignStackDashboard();
-        //     tabs.addTab("Alignment Dashboard", alignStackDashboard);
-        //     IJ.log("Batch alignment finished. Dashboard ready.");
-        // });
+        AlignStackBatch.runBatch(params);
     }
 
-    // --- Utilities for UI ---
+    // --- UI utility functions ---
     private static JPanel box(String title, JComponent inner) {
         JPanel panel = new JPanel(new BorderLayout());
         panel.setBorder(BorderFactory.createTitledBorder(title));
@@ -287,6 +279,7 @@ public class alignStackPane extends JPanel {
         return r;
     }
 
+    /** File chooser utility for browsing files or directories */
     private void chooseFile(JTextField target, int mode) {
         JFileChooser ch = new JFileChooser();
         ch.setFileSelectionMode(mode);
@@ -300,6 +293,7 @@ public class alignStackPane extends JPanel {
         }
     }
 
+    /** Preview the selected image stack in ImageJ */
     private void previewImage() {
         final String path = (tfImagePath.getText() == null) ? "" : tfImagePath.getText().trim();
         btnPreviewImage.setEnabled(false);
@@ -321,6 +315,7 @@ public class alignStackPane extends JPanel {
         }.execute();
     }
 
+    /** Load default UI values */
     private void loadDefaults() {
         tfImagePath.setText("/path/to/stack.tif");
         spReferenceFrame.setValue(1);
@@ -329,6 +324,7 @@ public class alignStackPane extends JPanel {
         tfOutputDir.setText(System.getProperty("user.home"));
     }
 
+    /** Validate a directory path exists */
     public static boolean validateDirectoryOrShow(JComponent parent, String path) {
         File f = new File(path);
         if (!f.exists() || !f.isDirectory()) {

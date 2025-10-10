@@ -3,12 +3,8 @@ package Analysis;
 import ij.IJ;
 import ij.ImagePlus;
 import ij.plugin.frame.RoiManager;
-import ij.plugin.ZProjector;
-import ij.plugin.ImageCalculator;
 import java.io.File;
 import java.awt.GridLayout;
-
-
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
@@ -20,16 +16,16 @@ import Features.Core.Params;
 public class CalciumAnalysis {
 
     private final Params p;
-    private ImagePlus rawStack;
-    public ImagePlus maxProj;
-    public ImagePlus normStack;
-    private RoiManager rm;
+    private ImagePlus rawStack;     // Original image stack
+    public ImagePlus maxProj;       // Max intensity projection
+    public ImagePlus normStack;     // Normalized F/F0 stack
+    private RoiManager rm;          // ROI Manager for handling regions
 
     public CalciumAnalysis(Params params) {
         this.p = params;
     }
 
-    // Step 1: Open the image
+    /** Step 1: Load the image from file path */
     public void openImage() {
         File imgFile = new File(p.imagePath);
         if (!imgFile.exists()) {
@@ -40,17 +36,17 @@ public class CalciumAnalysis {
         this.maxProj = rawStack;
         rawStack.show();
         IJ.selectWindow(rawStack.getTitle());
-        IJ.log("Step 1: Image opened. Inspect for blank frames if needed.");
+        IJ.log("Step 1: Image loaded successfully.");
     }
 
-    // Step 2: Max intensity projection
+    /** Step 2: Generate max intensity projection for user-specified frame range */
     public void createMaxProjection() {
         if (maxProj.getStackSize() <= 1) {
-            IJ.showMessage("Error", "Image must be a stack with multiple slices for Max Projection.");
+            IJ.showMessage("Error", "Image must have multiple slices for Max Projection.");
             return;
         }
         int[] frames = promptForFrames(maxProj.getStackSize());
-        if (frames == null) return; // cancelled
+        if (frames == null) return;
 
         int start = frames[0];
         int end = frames[1];
@@ -58,10 +54,10 @@ public class CalciumAnalysis {
         maxProj = IJ.getImage();
         maxProj.setTitle("MAX_" + new File(p.imagePath).getName());
         maxProj.show();
-        IJ.log("Step 2: Max projection created.");
+        IJ.log("Step 2: Max intensity projection created.");
     }
 
-    // Step 3: F/F0 normalization
+    /** Step 3: Perform F/F0 normalization */
     public void normalizeStack() {
         if (!p.useFF0) {
             normStack = rawStack;
@@ -69,28 +65,29 @@ public class CalciumAnalysis {
         }
 
         int[] frames = promptForBaseline(rawStack.getStackSize());
-        if (frames == null) return; // cancelled
+        if (frames == null) return;
 
         int start = frames[0];
         int end = frames[1];
         IJ.run(rawStack, "Z Project...", "start=" + start + " stop=" + end + " projection=[Average Intensity]");
         ImagePlus f0 = IJ.getImage();
+
         IJ.run("Image Calculator...", "image1=[" + rawStack.getTitle() + "] operation=Divide image2=[" + f0.getTitle() + "] create 32-bit stack");
         normStack = IJ.getImage();
         normStack.setTitle("F_F0_" + new File(p.imagePath).getName());
         normStack.show();
-        IJ.log("Step 3: F/F0 normalization complete.");
+        IJ.log("Step 3: F/F0 normalization completed.");
     }
 
-    // Step 4: Setup ROI Manager
+    /** Step 4: Initialize ROI Manager */
     public void setupROIManager() {
         rm = RoiManager.getInstance();
         if (rm == null) rm = new RoiManager();
         rm.reset();
-        IJ.log("Step 4: ROI Manager initialized.");
+        IJ.log("Step 4: ROI Manager initialized and cleared.");
     }
 
-    // Step 5: Draw or import ROIs
+    /** Step 5: Import or generate ROIs for the specified cell type */
     public void handleCellType(int i) {
         String cellName = (p.cellNames != null && p.cellNames.size() > i)
                 ? p.cellNames.get(i)
@@ -98,7 +95,7 @@ public class CalciumAnalysis {
 
         boolean imported = false;
 
-        // --- 1. Try importing ROIs if a path is provided ---
+        // Try importing ROI file if path is provided
         if (p.roiPath != null && !p.roiPath.isEmpty()) {
             File roiFile = new File(p.roiPath);
             if (roiFile.exists()) {
@@ -116,32 +113,30 @@ public class CalciumAnalysis {
             }
         }
 
-        // --- 2. If not imported, optionally use StarDist or manual drawing ---
-        if (!imported) {
-            if (p.useStarDist) {
-                try {
-                    runStarDist(maxProj, new File(p.imagePath).getParentFile());
-                    IJ.showMessage("StarDist Segmentation Completed",
-                            "ROIs generated automatically for " + cellName + ".");
-                    imported = true;
-                } catch (Exception ex) {
-                    IJ.showMessage("StarDist Error",
-                            "StarDist segmentation failed: " + ex.getMessage());
-                }
+        // If no ROI imported, attempt automated segmentation with StarDist
+        if (!imported && p.useStarDist) {
+            try {
+                runStarDist(maxProj, new File(p.imagePath).getParentFile());
+                IJ.showMessage("StarDist Segmentation Completed",
+                        "ROIs generated automatically for " + cellName + ".");
+                imported = true;
+            } catch (Exception ex) {
+                IJ.showMessage("StarDist Error",
+                        "StarDist segmentation failed: " + ex.getMessage());
             }
         }
 
-        // --- 3. If still no ROIs, prompt user to draw manually ---
+        // If still no ROIs, prompt user to manually draw
         if (!imported) {
             IJ.selectWindow(maxProj.getTitle());
             IJ.setTool("oval");
             IJ.showMessage("Draw ROIs",
                     "No ROI file provided.\nPlease manually draw ROIs for " + cellName +
-                    " using the Oval or Freehand tools.\n.");
+                    " using Oval or Freehand tools.");
         }
     }
 
-    // Step 6: Rename ROIs
+    /** Step 6: Rename ROIs according to cell names */
     public void renameROIs() {
         int roiCount = rm.getCount();
         for (int r = 0; r < roiCount; r++) {
@@ -153,24 +148,26 @@ public class CalciumAnalysis {
         }
     }
 
-    // Step 7: Measure ROIs
+    /** Step 7: Measure intensity for all ROIs in the normalized stack */
     public void measureROIs() {
         IJ.selectWindow(normStack.getTitle());
         IJ.run("Set Measurements...", "mean redirect=None decimal=2");
         rm.runCommand("Multi Measure");
-        IJ.wait(50);
+        IJ.wait(50); // small delay to ensure measurements are recorded
     }
 
-    // Step 8: Save results
+    /** Step 8: Save measurement results and ROIs to RESULTS folder */
     public File saveResults() {
         File imgFile = new File(p.imagePath);
         File resultsDir = new File(imgFile.getParentFile(),
                 "RESULTS" + File.separator + imgFile.getName().replace(".tif", ""));
         if (!resultsDir.exists()) resultsDir.mkdirs();
 
+        // Save measurements CSV
         File csvFile = new File(resultsDir, "RESULTS_" + imgFile.getName() + ".csv");
         IJ.saveAs("Results", csvFile.getAbsolutePath());
 
+        // Save normalized stack if applicable
         if (p.useFF0) {
             IJ.selectWindow(normStack.getTitle());
             IJ.run("Select None");
@@ -179,64 +176,26 @@ public class CalciumAnalysis {
             IJ.run("Close");
         }
 
+        // Save all ROIs
         rm.deselect();
         rm.runCommand("Save", new File(resultsDir, "ROIS_" + imgFile.getName() + "_CELLS.zip").getAbsolutePath());
-        IJ.log("Step 8: All results saved in " + resultsDir.getAbsolutePath());
+        IJ.log("Step 8: Results and ROIs saved at " + resultsDir.getAbsolutePath());
 
         return csvFile;
     }
 
+    /** Run StarDist segmentation (currently disabled) */
     private void runStarDist(ImagePlus img, File resultsDir) {
         if (img == null) {
             IJ.showMessage("Error", "No image available for StarDist segmentation.");
             return;
         }
 
-        if (1 == 1) {
-            IJ.showMessage("Error", "Stardist is currently broken.");
-            return;
-        }
-
-        String fijiDir = IJ.getDirectory("imagej");
-        String modelsDir = fijiDir + "models" + File.separator;
-        String modelFile = modelsDir + "2D_enteric_neuron_v4_1.zip";
-
-        double probability = 0.5;
-        double overlap = 0.3;
-        int nTiles = 4;
-
-        IJ.log("Running StarDist 2D on " + img.getTitle());
-
-        // Prepare escaped path (Windows safe)
-        modelFile = modelFile.replace("\\", "\\\\\\\\");
-
-        // Run the StarDist command
-        IJ.run("Command From Macro",
-            "command=[de.csbdresden.stardist.StarDist2D], " +
-            "args=['input':'" + img.getTitle() +
-            "', 'modelChoice':'Model (.zip) from File', " +
-            "'normalizeInput':'true', " +
-            "'percentileBottom':'1.0', 'percentileTop':'99.8', " +
-            "'probThresh':'" + probability + "', " +
-            "'nmsThresh':'" + overlap + "', " +
-            "'outputType':'Both', " +
-            "'modelFile':'" + modelFile + "', " +
-            "'nTiles':'" + nTiles + "', " +
-            "'excludeBoundary':'2', " +
-            "'roiPosition':'Automatic', " +
-            "'verbose':'false', " +
-            "'showCsbdeepProgress':'false', " +
-            "'showProbAndDist':'false'], " +
-            "process=[false]"
-        );
-
-        // Basic cleanup and ROI preparation
-        IJ.run("Remove Overlay");
-        IJ.run("Remove Border Labels", "left right top bottom");
-
-        IJ.log("StarDist segmentation completed. ROIs can now be measured.");
+        IJ.showMessage("Error", "StarDist segmentation is currently disabled.");
+        return;
     }
 
+    /** Prompt user to select start and end frames for max projection */
     private int[] promptForFrames(int stackSize) {
         JPanel panel = new JPanel(new GridLayout(2, 2, 4, 4));
 
@@ -263,9 +222,10 @@ public class CalciumAnalysis {
             }
             return new int[]{start, end};
         }
-        return null; // user cancelled
+        return null;
     }
 
+    /** Prompt user to select start and end frames for baseline calculation */
     private int[] promptForBaseline(int stackSize) {
         JPanel panel = new JPanel(new GridLayout(2, 2, 4, 4));
 
@@ -292,6 +252,6 @@ public class CalciumAnalysis {
             }
             return new int[]{start, end};
         }
-        return null; // user cancelled
+        return null;
     }
 }

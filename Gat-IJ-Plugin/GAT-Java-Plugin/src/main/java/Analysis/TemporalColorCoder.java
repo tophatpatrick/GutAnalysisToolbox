@@ -10,10 +10,12 @@ import ij.plugin.ZProjector;
 
 /**
  * TemporalColorCoder
- * Converts a grayscale time-lapse stack to an RGB stack with temporal color coding.
+ * Converts a grayscale time-lapse stack into a temporally color-coded RGB stack.
+ * Optionally applies Z-projection and creates a color scale.
  */
 public class TemporalColorCoder {
 
+    /** Output container for the RGB stack and optional color scale */
     public static class TemporalColorOutput {
         public final ImagePlus rgbStack;
         public final ImagePlus colorScale;
@@ -25,22 +27,23 @@ public class TemporalColorCoder {
     }
 
     /**
-     * Run the temporal color coding workflow.
-     * @param imp Input ImagePlus stack (single-channel)
-     * @param p Params object containing UI selections
-     * @return TemporalColorOutput containing RGB stack and optional color scale
-     * @throws Exception if input is invalid
+     * Main workflow to convert a grayscale time-lapse stack to RGB with temporal color coding.
+     *
+     * @param imp Input single-channel ImagePlus stack
+     * @param p Parameters including LUT, projection, and color scale options
+     * @return TemporalColorOutput with the RGB stack and optional color scale
+     * @throws Exception if input is null or multi-channel
      */
     public static TemporalColorOutput run(ImagePlus imp, Params p) throws Exception {
         if (imp == null) throw new IllegalArgumentException("Input stack cannot be null.");
-        if (imp.getNChannels() > 1) throw new IllegalArgumentException("Multi-channel stacks not supported.");
+        if (imp.getNChannels() > 1) throw new IllegalArgumentException("Multi-channel stacks are not supported.");
 
         int width = imp.getWidth();
         int height = imp.getHeight();
         int slices = imp.getNSlices();
         int frames = imp.getNFrames();
 
-        // Swap slices/frames if macro logic requires
+        // Adjust dimensions if stack is interpreted differently
         if (slices > 1 && frames == 1) {
             int tmp = slices;
             slices = frames;
@@ -48,30 +51,33 @@ public class TemporalColorCoder {
             imp.setDimensions(1, slices, frames);
         }
 
-        // Frame range
+        // Determine frame range for processing
         int startFrame = Math.max(1, p.referenceFrame);
         int endFrame = Math.min(frames, p.referenceFrameEnd > 0 ? p.referenceFrameEnd : frames);
         int totalFrames = endFrame - startFrame + 1;
 
         ImageStack rgbStack = new ImageStack(width, height);
 
-        // Generate RGB LUT arrays
+        // Generate RGB lookup tables (LUTs) based on user selection
         int[][] rgbLUT = generateRGBLUT(p.lutName);
         int[] rLUT = rgbLUT[0];
         int[] gLUT = rgbLUT[1];
         int[] bLUT = rgbLUT[2];
         int lutSize = rLUT.length;
 
-        // Main loop: frames then slices
+        // Loop through frames and slices to apply temporal color coding
         for (int t = startFrame; t <= endFrame; t++) {
             for (int z = 1; z <= slices; z++) {
                 imp.setPosition(1, z, t);
                 ImageProcessor ip = imp.getProcessor();
 
                 ColorProcessor cp = new ColorProcessor(width, height);
+
+                // Map the current frame to a color index in the LUT
                 int colorIndex = (int) Math.floor((lutSize / (double) totalFrames) * (t - startFrame));
                 colorIndex = Math.min(colorIndex, lutSize - 1);
 
+                // Apply LUT scaling to each pixel
                 for (int y = 0; y < height; y++) {
                     for (int x = 0; x < width; x++) {
                         int gray = ip.getPixel(x, y);
@@ -83,13 +89,14 @@ public class TemporalColorCoder {
                     }
                 }
 
+                // Add the RGB slice to the output stack
                 rgbStack.addSlice("Z" + z + "-T" + t, cp);
             }
         }
 
         ImagePlus rgbImp = new ImagePlus("TemporalColor_" + imp.getTitle(), rgbStack);
 
-        // Apply Z-projection if requested
+        // Apply optional Z-projection
         if (p.projectionMethod != null && !p.projectionMethod.isEmpty()) {
             ZProjector zp = new ZProjector(rgbImp);
             switch (p.projectionMethod) {
@@ -103,22 +110,20 @@ public class TemporalColorCoder {
             rgbImp.setTitle("TemporalColor_" + imp.getTitle() + "_Proj");
         }
 
-        // Optional color scale
+        // Generate a color scale image if requested
         ImagePlus scaleImp = null;
         if (p.createColorScale) {
             scaleImp = createColorScale(rLUT, gLUT, bLUT, startFrame, endFrame);
         }
 
-        // Show output if not batch mode
+        // Display results unless running in batch mode
         if (!p.batchMode) rgbImp.show();
         if (!p.batchMode && scaleImp != null) scaleImp.show();
 
         return new TemporalColorOutput(rgbImp, scaleImp);
     }
 
-    /**
-     * Generates RGB LUT arrays from a LUT name
-     */
+    /** Generates RGB lookup tables based on a named LUT */
     private static int[][] generateRGBLUT(String lutName) {
         int size = 256;
         int[] r = new int[size];
@@ -158,9 +163,7 @@ public class TemporalColorCoder {
         return new int[][] { r, g, b };
     }
 
-    /**
-     * Creates a small RGB color scale bar
-     */
+    /** Creates a horizontal RGB color scale bar to show temporal mapping */
     private static ImagePlus createColorScale(int[] rLUT, int[] gLUT, int[] bLUT, int startFrame, int endFrame) {
         int width = 256;
         int height = 32;
@@ -169,6 +172,7 @@ public class TemporalColorCoder {
         int totalFrames = endFrame - startFrame + 1;
         int lutSize = rLUT.length;
 
+        // Map each horizontal pixel to the corresponding LUT color
         for (int x = 0; x < width; x++) {
             int frameIndex = (int) Math.floor((lutSize / (double) totalFrames) * x);
             frameIndex = Math.min(frameIndex, lutSize - 1);

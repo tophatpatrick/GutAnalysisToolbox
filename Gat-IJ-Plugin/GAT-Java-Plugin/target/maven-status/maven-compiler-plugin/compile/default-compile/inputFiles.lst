@@ -28,7 +28,6 @@ C:\Users\EdwardG\Desktop\Uni\4002\GutAnalysisToolbox-1\Gat-IJ-Plugin\GAT-Java-Pl
 C:\Users\EdwardG\Desktop\Uni\4002\GutAnalysisToolbox-1\Gat-IJ-Plugin\GAT-Java-Plugin\src\main\java\UI\panes\Results\ResultsUI.java
 C:\Users\EdwardG\Desktop\Uni\4002\GutAnalysisToolbox-1\Gat-IJ-Plugin\GAT-Java-Plugin\src\main\java\UI\util\FormUI.java
 C:\Users\EdwardG\Desktop\Uni\4002\GutAnalysisToolbox-1\Gat-IJ-Plugin\GAT-Java-Plugin\src\main\java\services\merge\LabelStrategy.java
-C:\Users\EdwardG\Desktop\Uni\4002\GutAnalysisToolbox-1\Gat-IJ-Plugin\GAT-Java-Plugin\src\main\java\Features\Tools\AlignStackBatchDeprecated.java
 C:\Users\EdwardG\Desktop\Uni\4002\GutAnalysisToolbox-1\Gat-IJ-Plugin\GAT-Java-Plugin\src\main\java\Features\Tools\AlignStackBatch.java
 C:\Users\EdwardG\Desktop\Uni\4002\GutAnalysisToolbox-1\Gat-IJ-Plugin\GAT-Java-Plugin\src\main\java\Features\AnalyseWorkflows\NeuronsMultiNoHuPipeline.java
 C:\Users\EdwardG\Desktop\Uni\4002\GutAnalysisToolbox-1\Gat-IJ-Plugin\GAT-Java-Plugin\src\main\java\UI\panes\Tools\ToolsPane.java
@@ -36,7 +35,6 @@ C:\Users\EdwardG\Desktop\Uni\4002\GutAnalysisToolbox-1\Gat-IJ-Plugin\GAT-Java-Pl
 C:\Users\EdwardG\Desktop\Uni\4002\GutAnalysisToolbox-1\Gat-IJ-Plugin\GAT-Java-Plugin\src\main\java\Analysis\SpatialHuMarker.java
 C:\Users\EdwardG\Desktop\Uni\4002\GutAnalysisToolbox-1\Gat-IJ-Plugin\GAT-Java-Plugin\src\main\java\UI\GatPluginUI.java
 C:\Users\EdwardG\Desktop\Uni\4002\GutAnalysisToolbox-1\Gat-IJ-Plugin\GAT-Java-Plugin\src\main\java\UI\panes\Tools\AnalyseNeuronsPane.java
-C:\Users\EdwardG\Desktop\Uni\4002\GutAnalysisToolbox-1\Gat-IJ-Plugin\GAT-Java-Plugin\src\main\java\Features\Tools\AlignStackDeprecated.java
 C:\Users\EdwardG\Desktop\Uni\4002\GutAnalysisToolbox-1\Gat-IJ-Plugin\GAT-Java-Plugin\src\main\java\UI\panes\WorkflowDashboards\CalciumImagingAnalysisDashboard.java
 C:\Users\EdwardG\Desktop\Uni\4002\GutAnalysisToolbox-1\Gat-IJ-Plugin\GAT-Java-Plugin\src\main\java\Features\Tools\AlignStack.java
 C:\Users\EdwardG\Desktop\Uni\4002\GutAnalysisToolbox-1\Gat-IJ-Plugin\GAT-Java-Plugin\src\main\java\UI\panes\Results\ResultsMultiUI.java

@@ -14,19 +14,25 @@ import java.io.File;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 
+/**
+ * Pane for Temporal Color Coding of image stacks.
+ * Allows users to select image, frame range, LUT, projection method,
+ * color scale and batch mode. Results are displayed in a dashboard tab.
+ */
 public class TemporalColorPane extends JPanel {
 
     public static final String Name = "Temporal Color Coder";
 
     private final Window owner;
 
+    // --- UI components ---
     private JTextField tfStartFrame, tfEndFrame, tfImagePath;
     private JComboBox<String> cbLUT, cbProjection;
     private JCheckBox cbColorScale, cbBatchMode;
     private JButton runBtn, selectImageBtn;
-
     private JTabbedPane dashboardTabs;
 
+    // Currently selected image
     private ImagePlus selectedImage;
 
     public TemporalColorPane(Navigator navigator, Window owner) {
@@ -36,8 +42,9 @@ public class TemporalColorPane extends JPanel {
         initUI();
     }
 
+    /** Initialize UI layout and components */
     private void initUI() {
-        // ===== Info Panel (Top) =====
+        // --- Info panel at top ---
         JTextArea infoArea = new JTextArea(
             "Temporal Color Coding visualizes temporal dynamics in a stack. " +
             "Bright colors represent later frames; darker colors represent earlier frames. " +
@@ -51,7 +58,7 @@ public class TemporalColorPane extends JPanel {
         infoArea.setBorder(BorderFactory.createEmptyBorder(4,4,4,4));
         add(infoArea, BorderLayout.NORTH);
 
-        // ===== Settings Panel (Left) =====
+        // --- Settings panel (left) ---
         JPanel settingsPanel = new JPanel(new GridBagLayout());
         settingsPanel.setBorder(BorderFactory.createEmptyBorder(8,8,8,8));
         GridBagConstraints c = new GridBagConstraints();
@@ -70,7 +77,7 @@ public class TemporalColorPane extends JPanel {
         selectImageBtn.addActionListener(e -> selectImageFile());
         row++;
 
-        // Frame range
+        // Frame range inputs
         c.gridx=0; c.gridy=row; c.anchor = GridBagConstraints.LINE_END;
         settingsPanel.add(new JLabel("Start Frame:"), c);
         c.gridx=1; c.anchor = GridBagConstraints.LINE_START;
@@ -83,14 +90,15 @@ public class TemporalColorPane extends JPanel {
         tfEndFrame = new JTextField("10",5); settingsPanel.add(tfEndFrame, c);
         row++;
 
-        // LUT
+        // LUT selection
         c.gridx=0; c.gridy=row; c.anchor = GridBagConstraints.LINE_END;
         settingsPanel.add(new JLabel("LUT:"), c);
         c.gridx=1; c.anchor = GridBagConstraints.LINE_START;
-        cbLUT = new JComboBox<>(new String[]{"Fire","Ice","Green","Red"}); settingsPanel.add(cbLUT, c);
+        cbLUT = new JComboBox<>(new String[]{"Fire","Ice","Green","Red"});
+        settingsPanel.add(cbLUT, c);
         row++;
 
-        // Projection
+        // Projection method
         c.gridx=0; c.gridy=row; c.anchor = GridBagConstraints.LINE_END;
         settingsPanel.add(new JLabel("Projection:"), c);
         c.gridx=1; c.anchor = GridBagConstraints.LINE_START;
@@ -98,13 +106,14 @@ public class TemporalColorPane extends JPanel {
         settingsPanel.add(cbProjection, c);
         row++;
 
-        // Color Scale & Batch
+        // Color scale checkbox
         c.gridx=0; c.gridy=row; c.anchor = GridBagConstraints.LINE_END;
         settingsPanel.add(new JLabel("Color Scale:"), c);
         c.gridx=1; c.anchor = GridBagConstraints.LINE_START;
         cbColorScale = new JCheckBox(); cbColorScale.setSelected(true); settingsPanel.add(cbColorScale, c);
         row++;
 
+        // Batch mode checkbox
         c.gridx=0; c.gridy=row; c.anchor = GridBagConstraints.LINE_END;
         settingsPanel.add(new JLabel("Batch Mode:"), c);
         c.gridx=1; c.anchor = GridBagConstraints.LINE_START;
@@ -119,10 +128,11 @@ public class TemporalColorPane extends JPanel {
 
         add(settingsPanel, BorderLayout.WEST);
 
-        // ===== Dashboard Tabs (Center) =====
+        // --- Dashboard tabs (center) ---
         add(dashboardTabs, BorderLayout.CENTER);
     }
 
+    /** Opens a file chooser to select image stack */
     private void selectImageFile() {
         JFileChooser chooser = new JFileChooser();
         chooser.setFileSelectionMode(JFileChooser.FILES_ONLY);
@@ -134,8 +144,12 @@ public class TemporalColorPane extends JPanel {
         }
     }
 
+    /** Run the temporal color coding workflow and display results in dashboard */
     private void runWorkflow() {
-        if (selectedImage == null) { IJ.error("No image selected"); return; }
+        if (selectedImage == null) {
+            IJ.error("No image selected");
+            return;
+        }
 
         try {
             Params p = new Params();
@@ -147,21 +161,22 @@ public class TemporalColorPane extends JPanel {
             p.batchMode = cbBatchMode.isSelected();
 
             int nFrames = selectedImage.getStackSize();
-            int start = Integer.parseInt(tfStartFrame.getText());
-            int end = Integer.parseInt(tfEndFrame.getText());
+            int start = p.referenceFrame;
+            int end = p.referenceFrameEnd;
             if (start < 1 || end > nFrames || start > end) {
                 IJ.error("Frame range invalid. Stack has " + nFrames + " frames.");
                 return;
             }
 
+            // Run the color coding algorithm
             TemporalColorOutput output = TemporalColorCoder.run(selectedImage, p);
 
-            // --- Dashboard for this run ---
+            // Setup dashboard
             TemporalColourDashboardPane dashboard = new TemporalColourDashboardPane(owner);
             dashboard.setOutputs(output.rgbStack, output.colorScale, p);
 
-            // --- Add live color strip at top ---
-            ImagePlus scaleImg = output.colorScale; // ImagePlus
+            // Add a horizontal color bar representing the stack
+            ImagePlus scaleImg = output.colorScale;
             int W = scaleImg.getWidth();
             Color[] colours = new Color[W];
             for (int x = 0; x < W; x++) {
@@ -171,19 +186,19 @@ public class TemporalColorPane extends JPanel {
             JPanel colorStrip = createColorScalePanel(300, 20, colours);
             dashboard.add(colorStrip, BorderLayout.NORTH);
 
-            // --- Timestamped tab ---
+            // Timestamped dashboard tab
             String tabName = String.format("Temporal: %s",
                     new SimpleDateFormat("HH:mm:ss").format(new Date()));
             dashboardTabs.addTab(tabName, dashboard);
             dashboardTabs.setSelectedComponent(dashboard);
 
-            // --- Start live rotation of highlighted frame ---
+            // Optional: start live rotation of slices
             if (output.rgbStack.getStackSize() > 1) {
                 Timer timer = new Timer(150, e -> {
                     int idx = output.rgbStack.getCurrentSlice();
                     idx = (idx % output.rgbStack.getStackSize()) + 1;
                     output.rgbStack.setSlice(idx);
-                    colorStrip.repaint(); // update highlight on strip
+                    colorStrip.repaint();
                 });
                 timer.start();
             }
@@ -194,8 +209,8 @@ public class TemporalColorPane extends JPanel {
     }
 
     /**
-     * Creates a horizontal time-color bar representing all frames.
-     * Highlights current frame in live rotation.
+     * Creates a horizontal panel representing the color scale for all frames.
+     * Highlights the currently selected slice in white.
      */
     private JPanel createColorScalePanel(int width, int height, Color[] colorScale) {
         return new JPanel() {
@@ -210,7 +225,7 @@ public class TemporalColorPane extends JPanel {
                     g.fillRect(x0, 0, x1-x0, height);
                 }
 
-                // Optional: highlight current slice
+                // Highlight current slice
                 if (selectedImage != null) {
                     int cur = selectedImage.getCurrentSlice() - 1;
                     if (cur >= 0 && cur < n) {
@@ -227,5 +242,4 @@ public class TemporalColorPane extends JPanel {
             }
         };
     }
-
 }

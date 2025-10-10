@@ -43,7 +43,6 @@ Features\AnalyseWorkflows\NeuronsMultiNoHuPipeline$NoHuResult.class
 Features\Core\Params$GangliaMode.class
 Analysis\SpatialTwoCellType.class
 Features\AnalyseWorkflows\GangliaOps.class
-Features\Tools\AlignStackBatchDeprecated.class
 UI\panes\SettingPanes\MultiChannelNoHuPane.class
 Analysis\CalciumAnalysis.class
 UI\panes\Tools\HelpAndSupportPane.class
@@ -87,7 +86,6 @@ Analysis\TwoCellTypeAnalysis.class
 UI\panes\WorkflowDashboards\CalciumImagingAnalysisDashboard.class
 UI\panes\SettingPanes\NeuronWorkflowPane$1.class
 UI\util\GatWindows.class
-Features\Tools\AlignStackDeprecated.class
 services\merge\DirectoryUtils$3.class
 UI\util\FormUI$MiniInfoIcon.class
 services\merge\DirectoryUtils$4.class
