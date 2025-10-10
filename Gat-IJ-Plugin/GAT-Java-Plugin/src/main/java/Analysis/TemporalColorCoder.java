@@ -8,23 +8,30 @@ import ij.process.ColorProcessor;
 import ij.process.ImageProcessor;
 import ij.plugin.ZProjector;
 
-import javax.swing.*;
-
 /**
  * TemporalColorCoder
  * Converts a grayscale time-lapse stack to an RGB stack with temporal color coding.
- * Supports single-channel 8-bit or 16-bit stacks.
  */
 public class TemporalColorCoder {
+
+    public static class TemporalColorOutput {
+        public final ImagePlus rgbStack;
+        public final ImagePlus colorScale;
+
+        public TemporalColorOutput(ImagePlus rgbStack, ImagePlus colorScale) {
+            this.rgbStack = rgbStack;
+            this.colorScale = colorScale;
+        }
+    }
 
     /**
      * Run the temporal color coding workflow.
      * @param imp Input ImagePlus stack (single-channel)
      * @param p Params object containing UI selections
-     * @return RGB ImagePlus stack after temporal color coding
+     * @return TemporalColorOutput containing RGB stack and optional color scale
      * @throws Exception if input is invalid
      */
-    public static ImagePlus run(ImagePlus imp, Params p) throws Exception {
+    public static TemporalColorOutput run(ImagePlus imp, Params p) throws Exception {
         if (imp == null) throw new IllegalArgumentException("Input stack cannot be null.");
         if (imp.getNChannels() > 1) throw new IllegalArgumentException("Multi-channel stacks not supported.");
 
@@ -48,7 +55,7 @@ public class TemporalColorCoder {
 
         ImageStack rgbStack = new ImageStack(width, height);
 
-        // Generate RGB LUT arrays from selected LUT name
+        // Generate RGB LUT arrays
         int[][] rgbLUT = generateRGBLUT(p.lutName);
         int[] rLUT = rgbLUT[0];
         int[] gLUT = rgbLUT[1];
@@ -97,13 +104,16 @@ public class TemporalColorCoder {
         }
 
         // Optional color scale
+        ImagePlus scaleImp = null;
         if (p.createColorScale) {
-            ImagePlus scale = createColorScale(rLUT, gLUT, bLUT, startFrame, endFrame);
-            scale.show();
+            scaleImp = createColorScale(rLUT, gLUT, bLUT, startFrame, endFrame);
         }
 
+        // Show output if not batch mode
         if (!p.batchMode) rgbImp.show();
-        return rgbImp;
+        if (!p.batchMode && scaleImp != null) scaleImp.show();
+
+        return new TemporalColorOutput(rgbImp, scaleImp);
     }
 
     /**

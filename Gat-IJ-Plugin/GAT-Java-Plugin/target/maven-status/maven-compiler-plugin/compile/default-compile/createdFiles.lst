@@ -16,6 +16,7 @@ UI\panes\SettingPanes\NeuronWorkflowPane$2.class
 services\merge\MergeSwingTest.class
 UI\panes\Tools\AnalysisPane$1.class
 UI\panes\WorkflowDashboards\AlignStackDashboard.class
+UI\panes\WorkflowDashboards\TemporalColourDashboardPane.class
 Analysis\SpatialHuMarker.class
 UI\panes\HomePane$4.class
 UI\panes\Tools\ReviewUI.class
@@ -61,6 +62,7 @@ Analysis\ConvertROIToLabels.class
 UI\panes\Tools\ToolsPane.class
 UI\panes\HomePane$3.class
 Features\AnalyseWorkflows\NeuronsMultiPipeline$MultiResult.class
+Analysis\TemporalColorCoder$TemporalColorOutput.class
 UI\panes\Tools\AnalysisPane.class
 UI\panes\SettingPanes\TemporalColorPane.class
 services\merge\DirectoryUtils$1.class
