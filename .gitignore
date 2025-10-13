@@ -1,6 +1,32 @@
 gat.txt
 Sample Images/Analysis/
 Models/*
+
+# Build outputs
+/target/
+/build/
+/out/
+/dist/
+/bin/
+/*.jar
+/*.war
+/*.zip
+
+# Compiled classes
+*.class
+
+# IDE files
+.idea/
+*.iml
+.vscode/
+
+# OS junk
+.DS_Store
+Thumbs.db
+Gat-IJ-Plugin/out/artifacts/GAT_Java_Plugin_jar/GAT-Java-Plugin.jar
+Gat-IJ-Plugin/GAT-Java-Plugin/src/main/java/UI/panes/WorkflowDashboards/AnalyseNeuronDashboard.java
+
 in_progress/*
 QuPath_workflow/qupath_project/*
 Sample Images/2D_enteric_neuron_IF/Analysis/*
+
