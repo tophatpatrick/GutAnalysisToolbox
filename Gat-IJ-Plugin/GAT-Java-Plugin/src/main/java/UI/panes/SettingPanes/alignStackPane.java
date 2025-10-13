@@ -167,10 +167,42 @@ public class alignStackPane extends JPanel {
         // Validate input
         if (selected == 0) {
             ok = InputValidation.validateImageOrShow(this, tfImagePath.getText());
+            if (ok) {
+                String path = tfImagePath.getText().trim().toLowerCase();
+                if (!path.endsWith(".tif") && !path.endsWith(".tiff")) {
+                    JOptionPane.showMessageDialog(
+                            owner,
+                            "Please select a valid .tif or .tiff image stack.",
+                            "Invalid file type",
+                            JOptionPane.ERROR_MESSAGE
+                    );
+                    runBtn.setEnabled(true);
+                    return;
+                }
+            }
         } else if (selected == 1) {
             ok = validateDirectoryOrShow(this, tfInputDir.getText());
         }
         if (!ok) {
+            runBtn.setEnabled(true);
+            return;
+        }
+
+        // Ensure at least one alignment method is selected
+        boolean hasAlignmentMethod = false;
+        if (selected == 0) {
+            hasAlignmentMethod = cbUseSIFT.isSelected() || cbUseTemplateMatching.isSelected();
+        } else {
+            hasAlignmentMethod = cbUseSIFTBatch.isSelected() || cbUseTemplateMatchingBatch.isSelected();
+        }
+
+        if (!hasAlignmentMethod) {
+            JOptionPane.showMessageDialog(
+                    owner,
+                    "Please select at least one alignment method (SIFT or Template Matching) before running.",
+                    "Alignment Method Required",
+                    JOptionPane.WARNING_MESSAGE
+            );
             runBtn.setEnabled(true);
             return;
         }
