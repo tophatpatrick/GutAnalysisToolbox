@@ -3,6 +3,9 @@ package UI.panes.Tools;
 import Features.Core.Params;
 import Features.AnalyseWorkflows.NeuronsMultiPipeline;
 import Features.Tools.SegOne;
+import UI.panes.Tools.dialogs.GangliaExpansionDialog;
+import UI.panes.Tools.dialogs.ProbabilityDialog;
+import UI.panes.Tools.dialogs.RescaleHuDialog;
 import UI.util.GatSettings;
 import ij.IJ;
 import ij.ImagePlus;
@@ -12,6 +15,7 @@ import java.io.File;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 public final class TuningTools {
 
@@ -125,6 +129,179 @@ public final class TuningTools {
             }
         }
     }
+
+
+    public static void runRescaleSweep(Params base,
+                                       File outDir,
+                                       GatSettings settings,
+                                       RescaleHuDialog.Config cfg) {
+
+        ImagePlus imp = null;
+        boolean closeImp = false;
+
+        try {
+            // Open or use active image
+
+            imp = Features.Core.PluginCalls.openWithBioFormats(cfg.imageFile.getAbsolutePath());
+            closeImp = true;
+
+
+            // Build MAX (or EDF if base.useClij2EDF is true)
+            ImagePlus max = toMaxProjection(imp, base);
+
+            // Use dialog’s prob/overlap for this run
+            base.probThresh = cfg.prob;
+            base.nmsThresh  = cfg.overlap;
+
+            // Sweep rescale factors
+            File sweepDir = ensureSweepDir(outDir);
+            java.util.List<Row> rows = new java.util.ArrayList<Row>();
+            for (double f = cfg.rescaleMin; f <= cfg.rescaleMax + 1e-9; f += cfg.rescaleStep) {
+                rows.add(SegOne.runHuAtScale(max, cfg.channel, base, round3(f), sweepDir));
+            }
+
+            // Let user pick a winner and (optionally) save a config for later loading
+            Row pick = pick("Pick best Hu rescale", rows);
+            if (pick != null) {
+                settings.setHuTrainingRescale(pick.x);
+                saveConfigDialog(settings, new File(outDir, "Tuning").toPath(), "tuning_hu_rescale.properties");
+            }
+
+            // Always write a small CSV summary
+            saveRowsCsv(rows, new File(sweepDir, "hu_rescale_sweep.csv"));
+
+            // tidy
+            if (max != null) { max.changes = false; max.close(); }
+
+        } finally {
+            if (closeImp && imp != null) { imp.changes = false; imp.close(); }
+        }
+    }
+
+    private static File ensureSweepDir(File outDir) {
+        File t = new File(outDir, "Tuning");
+        if (!t.isDirectory()) t.mkdirs();
+        return t;
+    }
+
+    private static double round3(double d){ return Math.round(d*1000.0)/1000.0; }
+
+    private static ImagePlus toMaxProjection(ImagePlus src, Params base) {
+        if (src == null) throw new IllegalArgumentException("Image is null");
+        if (src.getNSlices() <= 1) return src.duplicate();
+        // If you want to honor EDF toggle, call your CLIJ2 helper when base.useClij2EDF is true
+        if (base.useClij2EDF) {
+            return Features.Core.PluginCalls.clij2EdfVariance(src);
+        } else {
+            src.show();
+            IJ.run("Z Project...", "projection=[Max Intensity]");
+            ImagePlus out = IJ.getImage();
+            out.hide();
+            return out;
+        }
+    }
+
+    private static void saveRowsCsv(List<Row> rows, File csv) {
+        try {
+            java.io.PrintWriter pw = new java.io.PrintWriter(csv, "UTF-8");
+            try {
+                pw.println("x,count,preview");
+                for (Row r : rows) {
+                    String path = (r.preview != null) ? r.preview.getAbsolutePath().replace('\\','/') : "";
+                    pw.println(String.format(Locale.US, "%.3f,%d,%s", r.x, r.count, path));
+                }
+            } finally { pw.close(); }
+        } catch (Exception ignore) { }
+    }
+
+    // in UI/panes/Tools/TuningTools.java  (additions only)
+
+
+
+// ... keep existing class and methods ...
+
+    public static void runProbSweep(Features.Core.Params base,
+                                    java.io.File unusedOutDir,
+                                    UI.util.GatSettings s,
+                                    UI.panes.Tools.dialogs.ProbabilityDialog.Config cfg) {
+        ij.ImagePlus imp =  Features.Core.PluginCalls.openWithBioFormats(cfg.imageFile.getAbsolutePath());
+        if (imp == null) throw new IllegalStateException("No image available.");
+        boolean closeImp = true;
+
+        try {
+            // fix base thresholds used during sweep
+            base.rescaleToTrainingPx = true;
+            base.trainingRescaleFactor = cfg.rescaleFactor;
+            base.nmsThresh = cfg.overlap;
+
+            ij.ImagePlus max = toMaxProjection(imp, base);
+
+            java.util.List<Row> rows = new java.util.ArrayList<>();
+            java.io.File tdir = ensureSweepDir(cfg.outDir);
+
+            for (double p = cfg.probMin; p <= cfg.probMax + 1e-12; p += cfg.probStep) {
+                double pp = round3(p);
+                if (cfg.mode == UI.panes.Tools.dialogs.ProbabilityDialog.Mode.NEURON) {
+                    rows.add(Features.Tools.SegOne.runHuAtProb(max, cfg.channel, base,
+                            cfg.rescaleFactor, pp, tdir));
+                } else {
+                    Features.AnalyseWorkflows.NeuronsMultiPipeline.MultiParams mp =
+                            new Features.AnalyseWorkflows.NeuronsMultiPipeline.MultiParams();
+                    mp.base = base;
+                    mp.multiProb = pp;            // sweeping this
+                    mp.multiNms  = cfg.overlap;   // fixed
+                    mp.subtypeModelZip = cfg.modelZip.getAbsolutePath();
+
+                    rows.add(Features.Tools.SegOne.runSubtypeAtProb(max, cfg.channel, mp, pp, tdir));
+                }
+            }
+
+            Row pick = pick("Pick best probability", rows);
+            if (pick != null) {
+                if (cfg.mode == UI.panes.Tools.dialogs.ProbabilityDialog.Mode.NEURON) s.setHuProb(pick.x);
+                else s.subtypeProb = pick.x;
+                saveConfigDialog(s, cfg.outDir.toPath(), "tuning_probability.properties");
+            }
+            saveRowsCsv(rows, new java.io.File(tdir, "prob_sweep.csv"));
+
+        } finally {
+            if (closeImp) { imp.changes=false; imp.close(); }
+        }
+    }
+
+    // ---- Ganglia expansion sweep (uses Hu segmentation) ----
+    public static void runGangliaExpansionSweep(Features.Core.Params base,
+                                                java.io.File unusedOutDir,
+                                                UI.util.GatSettings s,
+                                                UI.panes.Tools.dialogs.GangliaExpansionDialog.Config cfg) {
+        ij.ImagePlus imp = Features.Core.PluginCalls.openWithBioFormats(cfg.imageFile.getAbsolutePath());
+        if (imp == null) throw new IllegalStateException("No image available.");
+        boolean closeImp = true;
+
+        try {
+            ij.ImagePlus max = toMaxProjection(imp, base);
+            java.util.List<Row> rows = new java.util.ArrayList<>();
+            java.io.File tdir = ensureSweepDir(cfg.outDir);
+
+            for (double um = cfg.minUm; um <= cfg.maxUm + 1e-12; um += cfg.stepUm) {
+                double uu = round3(um);
+                rows.add(Features.Tools.SegOne.runGangliaFromHuExpansion(max, base.huChannel, base, uu, tdir));
+            }
+
+            Row pick = pick("Pick ganglia expansion (µm)", rows);
+            if (pick != null) {
+                s.setGangliaExpandUm(pick.x);
+                saveConfigDialog(s, cfg.outDir.toPath(), "tuning_ganglia.properties");
+            }
+            saveRowsCsv(rows, new java.io.File(tdir, "ganglia_expand_sweep.csv"));
+
+        } finally {
+            if (closeImp) { imp.changes=false; imp.close(); }
+        }
+    }
+
+
+
 
     private TuningTools(){}
 }
