@@ -2,6 +2,7 @@ package Features.Core;
 
 
 import java.awt.*;
+import java.util.List;
 
 public class Params {
 
@@ -12,6 +13,7 @@ public class Params {
     /** If null, uses current image in Fiji. */
     // Input/output
     public String imagePath = null;       // if null, uses current ImageJ active image
+    public String roiPath;                // Path to ROI zip file (if importing)
     public String outputDir = null;       // parent output dir (optional). We will create Analysis/<baseName> inside
 
     /** 1-based channel index for Hu segmentation. */
@@ -82,54 +84,87 @@ public class Params {
 
     public Window uiAnchor;
 
+
+    // Calcium imaging alignment defaults
+    public int referenceFrame = 1;            // default first frame
+    public boolean normalizeToBaseline = false; // default: no normalization
+    public int baselineStart = 1;             // default start frame
+    public int baselineEnd = 5;               // default end frame
+    public boolean saveAlignedStack = false;  // default: don't save aligned stack
+    public boolean subpixel = false;
+    public boolean useSIFT = false;
+    public boolean useTemplateMatching = true;
+    public boolean useStackReg = true;
+    public String inputDir = null; 
+    public String fileExt = null; 
+
+
+    // Calcium Imaging Analysis
+    public boolean useFF0 = true;          // F/F₀ normalization
+    public boolean useStarDist = false;    // use StarDist segmentation
+    public int cellTypes = 1;              // cell type
+    public boolean importROIs = false;
+    public int maxStart = 1;
+    public int maxEnd = 50;
+    public int numCellTypes = 1;   
+    public List<String> cellNames;
+
+    // Temporal Colour Analysis
+    public int referenceFrameEnd = 5;  
+    public String lutName = null;
+    public String projectionMethod = null; 
+    public boolean createColorScale = false;
+    public boolean batchMode = false;
+  
     public Params copy() {
-        Params c = new Params();
-        c.gangliaCellChannel = this.gangliaCellChannel;
+      Params c = new Params();
+      c.gangliaCellChannel = this.gangliaCellChannel;
 
-        c.imagePath = this.imagePath;
-        c.outputDir = this.outputDir;
-        c.huChannel = this.huChannel;
+      c.imagePath = this.imagePath;
+      c.outputDir = this.outputDir;
+      c.huChannel = this.huChannel;
 
-        c.stardistModelZip = this.stardistModelZip;
+      c.stardistModelZip = this.stardistModelZip;
 
-        c.rescaleToTrainingPx   = this.rescaleToTrainingPx;
-        c.trainingPixelSizeUm   = this.trainingPixelSizeUm;
-        c.trainingRescaleFactor = this.trainingRescaleFactor;
+      c.rescaleToTrainingPx   = this.rescaleToTrainingPx;
+      c.trainingPixelSizeUm   = this.trainingPixelSizeUm;
+      c.trainingRescaleFactor = this.trainingRescaleFactor;
 
-        c.neuronDeepImageJModelDir = this.neuronDeepImageJModelDir;
+      c.neuronDeepImageJModelDir = this.neuronDeepImageJModelDir;
 
-        c.useClij2EDF = this.useClij2EDF;
-        c.requireMicronUnits = this.requireMicronUnits;
+      c.useClij2EDF = this.useClij2EDF;
+      c.requireMicronUnits = this.requireMicronUnits;
 
-        c.probThresh = this.probThresh;
-        c.nmsThresh  = this.nmsThresh;
+      c.probThresh = this.probThresh;
+      c.nmsThresh  = this.nmsThresh;
 
-        c.neuronSegLowerLimitUm = this.neuronSegLowerLimitUm;
-        c.saveFlattenedOverlay  = this.saveFlattenedOverlay;
-        c.cellTypeName = this.cellTypeName;
-        c.neuronSegMinMicron = this.neuronSegMinMicron;
+      c.neuronSegLowerLimitUm = this.neuronSegLowerLimitUm;
+      c.saveFlattenedOverlay  = this.saveFlattenedOverlay;
+      c.cellTypeName = this.cellTypeName;
+      c.neuronSegMinMicron = this.neuronSegMinMicron;
 
-        c.cellCountsPerGanglia = this.cellCountsPerGanglia;
-        c.gangliaMode = this.gangliaMode;
-        c.gangliaChannel = this.gangliaChannel;
-        c.gangliaModelFolder = this.gangliaModelFolder;
-        c.huDilationMicron = this.huDilationMicron;
-        c.customGangliaRoiZip = this.customGangliaRoiZip;
+      c.cellCountsPerGanglia = this.cellCountsPerGanglia;
+      c.gangliaMode = this.gangliaMode;
+      c.gangliaChannel = this.gangliaChannel;
+      c.gangliaModelFolder = this.gangliaModelFolder;
+      c.huDilationMicron = this.huDilationMicron;
+      c.customGangliaRoiZip = this.customGangliaRoiZip;
 
-        c.gangliaProbThresh01 = this.gangliaProbThresh01;
-        c.gangliaMinAreaUm2   = this.gangliaMinAreaUm2;
-        c.gangliaUsePreprocessing = this.gangliaUsePreprocessing;
-        c.gangliaOpenIterations   = this.gangliaOpenIterations;
-        c.gangliaInteractiveReview = this.gangliaInteractiveReview;
+      c.gangliaProbThresh01 = this.gangliaProbThresh01;
+      c.gangliaMinAreaUm2   = this.gangliaMinAreaUm2;
+      c.gangliaUsePreprocessing = this.gangliaUsePreprocessing;
+      c.gangliaOpenIterations   = this.gangliaOpenIterations;
+      c.gangliaInteractiveReview = this.gangliaInteractiveReview;
 
-        c.doSpatialAnalysis = this.doSpatialAnalysis;
-        c.spatialExpansionUm = this.spatialExpansionUm;
-        c.spatialSaveParametric = this.spatialSaveParametric;
-        c.spatialCellTypeName = this.spatialCellTypeName;
+      c.doSpatialAnalysis = this.doSpatialAnalysis;
+      c.spatialExpansionUm = this.spatialExpansionUm;
+      c.spatialSaveParametric = this.spatialSaveParametric;
+      c.spatialCellTypeName = this.spatialCellTypeName;
 
-        c.uiAnchor = this.uiAnchor;
-        return c;
-    }
+      c.uiAnchor = this.uiAnchor;
+      return c;
+  }
+
 }
 
 
