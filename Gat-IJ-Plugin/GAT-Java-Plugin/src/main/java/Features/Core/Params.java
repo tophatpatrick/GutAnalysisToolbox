@@ -84,6 +84,7 @@ public class Params {
 
     public Window uiAnchor;
 
+
     // Calcium imaging alignment defaults
     public int referenceFrame = 1;            // default first frame
     public boolean normalizeToBaseline = false; // default: no normalization
@@ -114,7 +115,56 @@ public class Params {
     public String projectionMethod = null; 
     public boolean createColorScale = false;
     public boolean batchMode = false;
-    
+  
+    public Params copy() {
+      Params c = new Params();
+      c.gangliaCellChannel = this.gangliaCellChannel;
+
+      c.imagePath = this.imagePath;
+      c.outputDir = this.outputDir;
+      c.huChannel = this.huChannel;
+
+      c.stardistModelZip = this.stardistModelZip;
+
+      c.rescaleToTrainingPx   = this.rescaleToTrainingPx;
+      c.trainingPixelSizeUm   = this.trainingPixelSizeUm;
+      c.trainingRescaleFactor = this.trainingRescaleFactor;
+
+      c.neuronDeepImageJModelDir = this.neuronDeepImageJModelDir;
+
+      c.useClij2EDF = this.useClij2EDF;
+      c.requireMicronUnits = this.requireMicronUnits;
+
+      c.probThresh = this.probThresh;
+      c.nmsThresh  = this.nmsThresh;
+
+      c.neuronSegLowerLimitUm = this.neuronSegLowerLimitUm;
+      c.saveFlattenedOverlay  = this.saveFlattenedOverlay;
+      c.cellTypeName = this.cellTypeName;
+      c.neuronSegMinMicron = this.neuronSegMinMicron;
+
+      c.cellCountsPerGanglia = this.cellCountsPerGanglia;
+      c.gangliaMode = this.gangliaMode;
+      c.gangliaChannel = this.gangliaChannel;
+      c.gangliaModelFolder = this.gangliaModelFolder;
+      c.huDilationMicron = this.huDilationMicron;
+      c.customGangliaRoiZip = this.customGangliaRoiZip;
+
+      c.gangliaProbThresh01 = this.gangliaProbThresh01;
+      c.gangliaMinAreaUm2   = this.gangliaMinAreaUm2;
+      c.gangliaUsePreprocessing = this.gangliaUsePreprocessing;
+      c.gangliaOpenIterations   = this.gangliaOpenIterations;
+      c.gangliaInteractiveReview = this.gangliaInteractiveReview;
+
+      c.doSpatialAnalysis = this.doSpatialAnalysis;
+      c.spatialExpansionUm = this.spatialExpansionUm;
+      c.spatialSaveParametric = this.spatialSaveParametric;
+      c.spatialCellTypeName = this.spatialCellTypeName;
+
+      c.uiAnchor = this.uiAnchor;
+      return c;
+  }
+
 }
 
 

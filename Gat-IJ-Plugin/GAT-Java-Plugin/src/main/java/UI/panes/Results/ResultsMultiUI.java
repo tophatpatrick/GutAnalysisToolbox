@@ -42,6 +42,39 @@ public class ResultsMultiUI {
         }
     }
 
+    private static JTable makeGangliaTable(MultiResult r) {
+        DefaultTableModel model = new DefaultTableModel(
+                new Object[]{"ganglion_id","neuron_count","area_um2"}, 0) {
+            @Override public boolean isCellEditable(int row, int col) { return false; }
+        };
+        int n = Math.max(
+                r.neuronsPerGanglion != null ? r.neuronsPerGanglion.length : 0,
+                r.gangliaAreaUm2     != null ? r.gangliaAreaUm2.length     : 0
+        );
+        for (int gid = 1; gid < n; gid++) {
+            int count = (r.neuronsPerGanglion != null && gid < r.neuronsPerGanglion.length)
+                    ? r.neuronsPerGanglion[gid] : 0;
+            double area = (r.gangliaAreaUm2 != null && gid < r.gangliaAreaUm2.length)
+                    ? r.gangliaAreaUm2[gid] : 0.0;
+            if (count == 0 && area == 0.0) continue;
+            model.addRow(new Object[]{gid, count, String.format(java.util.Locale.US, "%.2f", area)});
+        }
+        JTable table = new JTable(model);
+        table.setFillsViewportHeight(true);
+        table.setRowHeight(22);
+        table.setAutoResizeMode(JTable.AUTO_RESIZE_ALL_COLUMNS);
+        table.setFont(table.getFont().deriveFont(12f));
+        table.getTableHeader().setFont(table.getTableHeader().getFont().deriveFont(Font.BOLD, 12f));
+        TableColumnModel cm = table.getColumnModel();
+        if (cm.getColumnCount() >= 3) {
+            cm.getColumn(0).setPreferredWidth(90);
+            cm.getColumn(1).setPreferredWidth(120);
+            cm.getColumn(2).setPreferredWidth(140);
+        }
+        return table;
+    }
+
+
     private static void showResultsFrame(MultiResult r) {
         JFrame f = new JFrame("Results – " + r.baseName + " (multi)");
         f.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
@@ -73,6 +106,47 @@ public class ResultsMultiUI {
                     loadForThumb(gangliaOverlay, r.max), 400));
         }
         center.add(thumbsRow);
+
+        // --- Hu ganglia table + Hu box plot (same as single-channel UI) ---
+        if (r.neuronsPerGanglion != null && r.neuronsPerGanglion.length > 1) {
+            center.add(Box.createVerticalStrut(10));
+            center.add(sectionTitle("Ganglia results (table)"));
+
+            JTable table = makeGangliaTable(r);
+            JScrollPane tableScroll = new JScrollPane(table);
+            tableScroll.setBorder(BorderFactory.createEmptyBorder());
+            tableScroll.setPreferredSize(new Dimension(750, 220));
+            center.add(tableScroll);
+
+            center.add(Box.createVerticalStrut(10));
+            center.add(sectionTitle("Neurons per ganglion (box plot)"));
+
+            BufferedImage boxImgHu = makeBoxPlotFromCounts(r.neuronsPerGanglion);
+            JLabel chartHu = new JLabel(new ImageIcon(boxImgHu));
+            JPanel chartWrapHu = new JPanel(new FlowLayout(FlowLayout.CENTER, 0, 0));
+            chartHu.setBorder(new EmptyBorder(6,0,8,0));
+            chartWrapHu.add(chartHu);
+
+            JButton saveHu = new JButton("Save plot…");
+            saveHu.addActionListener(e -> {
+                try {
+                    File outPng = new File(r.outDir, "Plot_neurons_per_ganglion_box.png");
+                    saveImage(boxImgHu, outPng);
+                    JOptionPane.showMessageDialog(center, "Saved:\n" + outPng.getAbsolutePath(),
+                            "Saved", JOptionPane.INFORMATION_MESSAGE);
+                } catch (Exception ex) { IJ.handleException(ex); }
+            });
+
+            JPanel chartWithBtn = new JPanel();
+            chartWithBtn.setLayout(new BoxLayout(chartWithBtn, BoxLayout.Y_AXIS));
+            chartWithBtn.add(chartWrapHu);
+            JPanel btnRow = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
+            btnRow.add(saveHu);
+            btnRow.setBorder(new EmptyBorder(0,0,8,0));
+            chartWithBtn.add(btnRow);
+
+            center.add(chartWithBtn);
+        }
 
         // Summary table of totals (markers + combos)
         center.add(Box.createVerticalStrut(10));
@@ -397,6 +471,14 @@ public class ResultsMultiUI {
             File out = new File(r.outDir, "Plot_box_" + sanitize(name) + ".png");
             saveImage(img, out);
         }
+
+        // Save the Hu-only box plot too (if available)
+        if (r.neuronsPerGanglion != null && r.neuronsPerGanglion.length > 1) {
+            BufferedImage imgHu = makeBoxPlotFromCounts(r.neuronsPerGanglion);
+            File outHu = new File(r.outDir, "Plot_neurons_per_ganglion_box.png");
+            saveImage(imgHu, outHu);
+        }
+
     }
 
     private static void saveImage(BufferedImage img, File out) throws IOException {

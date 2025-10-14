@@ -79,7 +79,9 @@ public final class ConfigIO {
         try {
             Properties cfg = read(f);
             String wf = String.valueOf(cfg.getOrDefault("workflow", ""));
-            if (!expectedWorkflowTag.equals(wf)) {
+            boolean ok = expectedWorkflowTag.equals(wf) || "test".equalsIgnoreCase(wf);
+
+            if (!ok){
                 JOptionPane.showMessageDialog(
                         parent,
                         "This config was created for \n "

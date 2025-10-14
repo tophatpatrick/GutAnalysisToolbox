@@ -8,7 +8,6 @@ import ij.ImagePlus;
 import ij.gui.Roi;
 import ij.macro.Interpreter;
 import ij.plugin.frame.RoiManager;
-import net.imglib2.ops.parse.token.Int;
 
 import static Features.Tools.RoiManagerHelper.*;
 
@@ -28,7 +27,7 @@ public class NeuronsMultiPipeline {
         public Double prob;            // optional
         public Double nms;             // optional
 
-        // ADD ↓↓↓
+
         public File customRoisZip;     // optional: user-supplied ROI zip
 
         public MarkerSpec(String name, int channel) {
@@ -38,10 +37,17 @@ public class NeuronsMultiPipeline {
         public MarkerSpec withThresh(Double prob, Double nms) {
             this.prob = prob; this.nms = nms; return this;
         }
-        // ADD ↓↓↓
         public MarkerSpec withCustomRois(File zip) {
             this.customRoisZip = zip;
             return this;
+        }
+
+        public MarkerSpec copy() {
+            MarkerSpec m = new MarkerSpec(this.name, this.channel);
+            m.prob = this.prob;
+            m.nms  = this.nms;
+            m.customRoisZip = this.customRoisZip;
+            return m;
         }
     }
 
@@ -53,6 +59,23 @@ public class NeuronsMultiPipeline {
         public double overlapFrac = 0.40;            // Hu label must be >= this fraction covered by marker
 
         public final List<MarkerSpec> markers = new ArrayList<>();
+
+        public MultiParams copy() {
+            MultiParams c = new MultiParams();
+            c.base           = (this.base != null) ? this.base.copy() : null; // needs Params.copy()
+            c.subtypeModelZip = this.subtypeModelZip;
+            c.multiProb       = this.multiProb;
+            c.multiNms        = this.multiNms;
+            c.overlapFrac     = this.overlapFrac;
+
+            // deep-copy markers
+            for (MarkerSpec m : this.markers) {
+                if (m != null) c.markers.add(m.copy());
+            }
+            return c;
+        }
+
+
     }
 
     // ----- Output / result for the multi-stage UI -----------------------------
@@ -71,6 +94,8 @@ public class NeuronsMultiPipeline {
         // marker or combo name -> neurons-per-ganglion array (1..G)
         public final LinkedHashMap<String,int[]> perGanglia;
         public final Boolean doSpatialAnalysis;
+        public final int[]   neuronsPerGanglion; // Hu-only, index 1..n (0 unused)
+
 
         public MultiResult(File outDir,
                            String baseName,
@@ -80,7 +105,7 @@ public class NeuronsMultiPipeline {
                            double[] gangliaAreaUm2,
                            ImagePlus gangliaLabels,
                            LinkedHashMap<String,Integer> totals,
-                           LinkedHashMap<String,int[]> perGanglia, Boolean doSpatialAnalysis) {
+                           LinkedHashMap<String,int[]> perGanglia, Boolean doSpatialAnalysis, int[] neuronsPerGanglion) {
             this.outDir = outDir;
             this.baseName = baseName;
             this.max = max;
@@ -91,6 +116,8 @@ public class NeuronsMultiPipeline {
             this.totals = totals;
             this.perGanglia = perGanglia;
             this.doSpatialAnalysis = doSpatialAnalysis;
+
+            this.neuronsPerGanglion = neuronsPerGanglion;
         }
     }
 
@@ -330,7 +357,7 @@ public class NeuronsMultiPipeline {
             MultiResult mr = new MultiResult(
                     outDir, baseName, max, totalHu,
                     nGanglia, gangliaArea, hu.gangliaLabels,
-                    totals, perGanglia, mp.base.doSpatialAnalysis
+                    totals, perGanglia, mp.base.doSpatialAnalysis, hu.neuronsPerGanglion
             );
 
             RoiManager rmRev = rmh.rm;
