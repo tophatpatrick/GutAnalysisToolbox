@@ -58,10 +58,20 @@ public class ToolsPane extends JPanel {
         base.nmsThresh  = cfg.overlap;
         base.huChannel  = cfg.channel;
 
-        File outDir = ensureTuningDir(chooseOutDirOrDefault(null));
+        File outDir = ensureDir(cfg.outDir);
 
         runAsync("Rescaling", () ->
                 TuningTools.runRescaleSweep(base, outDir, settings, cfg));
+    }
+
+    private static File ensureDir(File dir) {
+        if (dir == null) {
+            File def = new File(new File(System.getProperty("user.home"), "Analysis"), "Tuning");
+            if (!def.isDirectory()) def.mkdirs();
+            return def;
+        }
+        if (!dir.isDirectory()) dir.mkdirs();
+        return dir;
     }
 
     private void startProbability() {
