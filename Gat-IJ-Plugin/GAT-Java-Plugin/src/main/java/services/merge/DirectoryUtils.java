@@ -5,6 +5,10 @@ import java.nio.file.*;
 import java.util.*;
 import java.util.stream.Collectors;
 
+import java.util.LinkedHashSet;
+import java.util.Set;
+import java.util.stream.Stream;
+
 public final class DirectoryUtils {
     private DirectoryUtils() {}
 
@@ -48,5 +52,20 @@ public final class DirectoryUtils {
     public static String nameWithoutExtension(String name) {
         int dot = name.lastIndexOf('.');
         return (dot <= 0) ? name : name.substring(0, dot);
+    }
+
+    /** : Collect unique base names for files with the given extension under 'folder'. */
+    public static Set<String> collectBaseNames(Path folder, FileExtension ext) throws IOException {
+        Set<String> names = new LinkedHashSet<>();
+        try (Stream<Path> s = Files.walk(folder)) {
+            s.filter(Files::isRegularFile)
+                    .filter(ext::matches)
+                    .forEach(p -> {
+                        String fn = p.getFileName().toString();
+                        int dot = fn.lastIndexOf('.');
+                        names.add(dot > 0 ? fn.substring(0, dot) : fn);
+                    });
+        }
+        return names;
     }
 }

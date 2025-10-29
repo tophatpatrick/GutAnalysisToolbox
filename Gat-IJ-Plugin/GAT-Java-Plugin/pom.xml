@@ -11,7 +11,6 @@
         <maven.compiler.source>1.8</maven.compiler.source>
         <maven.compiler.target>1.8</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <sonar.organization>tophatpatrick</sonar.organization>
     </properties>
 
     <repositories>
@@ -52,6 +51,38 @@
             <groupId>io.github.vincenzopalazzo</groupId>
             <artifactId>material-ui-swing</artifactId>
             <version>1.1.2</version>
+        </dependency>
+
+        <!-- CLIJ2 - Using correct available versions -->
+        <dependency>
+            <groupId>net.haesleinhuepf</groupId>
+            <artifactId>clij2_</artifactId>
+            <version>2.5.0.1</version>
+        </dependency>
+
+        <!-- CLIJ -->
+        <dependency>
+            <groupId>net.haesleinhuepf</groupId>
+            <artifactId>clij_</artifactId>
+            <version>1.9.0.1</version>
+        </dependency>
+
+        <dependency>
+            <groupId>net.haesleinhuepf</groupId>
+            <artifactId>clij2_</artifactId>
+            <version>2.5.0.1</version>
+        </dependency>
+        <dependency>
+            <groupId>net.haesleinhuepf</groupId>
+            <artifactId>clij-core</artifactId>
+            <version>1.8.0.6</version>
+        </dependency>
+
+        <!-- CLIJ Clear CL -->
+        <dependency>
+            <groupId>net.haesleinhuepf</groupId>
+            <artifactId>clij-clearcl</artifactId>
+            <version>2.3.0.4</version>
         </dependency>
 
         <!-- (Optional) plugins you call directly from code via IJ.run(...)
@@ -243,3 +274,5 @@
 
 
 </project>
+
+
