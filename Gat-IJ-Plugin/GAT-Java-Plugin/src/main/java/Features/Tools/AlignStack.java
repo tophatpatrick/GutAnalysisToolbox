@@ -33,13 +33,13 @@ public class AlignStack implements PlugIn {
 
     // URL for plugin installation guidance
     private static final String PLUGIN_INSTALLATION_URL =
-            "https://sites.google.com/site/qingzongtseng/template-matching-ij-plugin#install";
+            "https://sites.imagej.net/Template_Matching/";
 
     @Override
     public void run(String arg) {
         // Notify user about required plugins
         IJ.log("Please install template plugin if needed: " + PLUGIN_INSTALLATION_URL);
-        IJ.showMessage("Info", "Ensure Linear Stack Alignment with SIFT and Template Matching plugins are installed.\n" +
+        IJ.showMessage("Info", "Please Ensure Linear Stack Alignment:Template Matching plugin is installed.\n" +
                 "URL: " + PLUGIN_INSTALLATION_URL);
     }
 
