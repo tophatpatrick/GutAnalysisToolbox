@@ -8,10 +8,29 @@ import net.haesleinhuepf.clij.clearcl.ClearCLBuffer;
 
 import java.io.File;
 
+/**
+ * Performs GPU-accelerated spatial analysis on labeled cell images to compute
+ * neighbor counts for each cell using label dilation and touching neighbor detection.
+ */
 public class SpatialSingleCellType {
 
     private static final String FILE_SEPARATOR = File.separator;
 
+    /**
+     * Executes spatial neighbor analysis on labeled cells, optionally incorporating
+     * ganglia boundaries. Dilates cell labels, computes touching neighbors, and saves
+     * results as CSV. Optionally saves the labeled cell image.
+     *
+     * @param cellType name of the cell type being analyzed
+     * @param cellImage title of the labeled cell image window in ImageJ
+     * @param gangliaBinary title of ganglia binary mask window, or "NA" if not used
+     * @param savePath root directory for saving outputs
+     * @param labelDilation dilation distance in physical units (e.g., microns)
+     * @param saveParametricImage whether to save the labeled cell image as TIFF
+     * @param pixelWidth pixel size in physical units for converting dilation distance
+     * @param roiPath original ROI file path (currently unused, kept for interface compatibility)
+     * @throws Exception if image retrieval or GPU processing fails
+     */
     public static void execute(String cellType, String cellImage, String gangliaBinary,
                                String savePath, double labelDilation, boolean saveParametricImage,
                                double pixelWidth, String roiPath) throws Exception {
@@ -44,11 +63,11 @@ public class SpatialSingleCellType {
         ClearCLBuffer neighborMap = clij2.create(cellBuffer);
         clij2.touchingNeighborCountMap(dilated, neighborMap);
 
-        // Pull neighbor map back to ImageJ (no .show(), so no window)
+        // Pull neighbor map back to ImageJ (hidden, no window created)
         ImagePlus neighborImg = clij2.pull(neighborMap);
         ImageProcessor neighborIp = neighborImg.getProcessor();
 
-        // Prepare CSV
+        // Build results table with neighbor counts per label
         ResultsTable outTable = new ResultsTable();
         for (int label = 1; label <= maxLabel; label++) {
             int neighborCount = 0;
@@ -70,41 +89,15 @@ public class SpatialSingleCellType {
         String csvPath = spatialSavePath + "Neighbour_count_" + cellType + ".csv";
         outTable.save(csvPath);
 
-        // Save labeled cell image (hidden)
+        // Save labeled cell image if requested
         if (saveParametricImage) {
             IJ.saveAs(cellImg, "Tiff", spatialSavePath + "cell_labels.tif");
-            }
-
-        // old parametric image (attempt trying to get fire lut to work)
-//        if (saveParametricImage) {
-//            float[] neighborArray = new float[maxLabel];
-//            for (int i = 0; i < maxLabel; i++) neighborArray[i] = (float) outTable.getValueAsDouble(i, 1);
-//
-//            ClearCLBuffer vectorNeighbours = clij2.pushArray(neighborArray, neighborArray.length, 1, 1);
-//            ClearCLBuffer paramImg = clij2.create(cellBuffer);
-//            clij2.replaceIntensities(cellBuffer, vectorNeighbours, paramImg);
-//
-//            ImagePlus paramResult = clij2.pull(paramImg);
-//
-//            // Show parametric image only if requested
-//            paramResult.setTitle(cellType + "_parametric");
-//            paramResult.show();
-//            IJ.run(paramResult, "Fire", "");
-//
-//
-//            // Save parametric image
-//            IJ.saveAs(paramResult, "Tiff", spatialSavePath + "cell_labels_parametric.tif");
-//
-//            vectorNeighbours.close();
-//            paramImg.close();
-//        }
+        }
 
         // Cleanup GPU buffers
         cellBuffer.close();
         dilated.close();
         neighborMap.close();
-        neighborImg.close(); // safe to close, never showed
-
+        neighborImg.close();
     }
 }
-

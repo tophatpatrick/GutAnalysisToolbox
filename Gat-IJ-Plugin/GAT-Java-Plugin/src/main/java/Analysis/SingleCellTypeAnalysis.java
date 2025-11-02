@@ -6,6 +6,11 @@ import ij.plugin.frame.RoiManager;
 
 import java.io.File;
 
+/**
+ * Performs spatial analysis on a single cell type using maximum projection images,
+ * cell ROIs, and optional ganglia ROIs. Generates labeled images and executes
+ * downstream spatial analysis.
+ */
 public class SingleCellTypeAnalysis {
 
     private String maxProjPath;
@@ -16,6 +21,17 @@ public class SingleCellTypeAnalysis {
     private double labelDilation;
     private boolean saveParametricImage;
 
+    /**
+     * Constructs a single cell type analysis pipeline.
+     *
+     * @param maxProjPath maximum projection image file path
+     * @param roiPath cell ROI file path (.zip or .roi)
+     * @param roiGangliaPath ganglia ROI file path, or "NA" if not applicable
+     * @param savePath directory path for saving results
+     * @param cellType name of the cell type being analyzed
+     * @param labelDilation dilation distance for label expansion (in pixels)
+     * @param saveParametricImage whether to save intermediate parametric images
+     */
     public SingleCellTypeAnalysis(String maxProjPath, String roiPath, String roiGangliaPath,
                                   String savePath, String cellType, double labelDilation,
                                   boolean saveParametricImage) {
@@ -28,6 +44,12 @@ public class SingleCellTypeAnalysis {
         this.saveParametricImage = saveParametricImage;
     }
 
+    /**
+     * Executes the complete analysis pipeline: opens images, converts ROIs to labels,
+     * creates ganglia masks if applicable, and runs spatial analysis.
+     *
+     * @throws Exception if image loading fails or processing encounters errors
+     */
     public void execute() throws Exception {
         // Clear previous results
         IJ.run("Clear Results");
@@ -40,13 +62,6 @@ public class SingleCellTypeAnalysis {
             throw new Exception("Could not open maximum projection image: " + maxProjPath);
         }
         maxProjImage.show();
-
-        // Get file name and restrict length if necessary
-//        String fileName = new File(maxProjPath).getName();
-//        fileName = fileName.substring(0, fileName.lastIndexOf('.'));
-//        if (fileName.length() > 50) {
-//            fileName = fileName.substring(0, 39);
-//        }
 
         // Get pixel size
         double pixelWidth = maxProjImage.getCalibration().pixelWidth;
@@ -66,7 +81,7 @@ public class SingleCellTypeAnalysis {
         if (roiGangliaPath != null && !roiGangliaPath.equals("NA") && new File(roiGangliaPath).exists()) {
             roiManager.runCommand("Open", roiGangliaPath);
 
-            // Convert ROIs to label map using Java class
+            // Convert ganglia ROIs to label map
             ConvertROIToLabels.execute();
 
             Thread.sleep(10);
@@ -94,7 +109,7 @@ public class SingleCellTypeAnalysis {
         IJ.run("Select None");
         String labelCellImg = IJ.getImage().getTitle();
 
-        // Run spatial analysis using Java class
+        // Run spatial analysis
         SpatialSingleCellType.execute(cellType, labelCellImg, gangliaBinary, savePath,
                 labelDilation, saveParametricImage, pixelWidth, roiPath);
 

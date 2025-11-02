@@ -7,7 +7,12 @@ import Analysis.TwoCellTypeAnalysis;
 import javax.swing.*;
 import java.awt.*;
 
-
+/**
+ * UI panel for configuring and executing spatial analysis on cell populations.
+ * Provides two analysis modes: single cell type neighbor counting and bidirectional
+ * neighbor counting between two cell types. Supports ganglia boundary restrictions
+ * and parametric image generation.
+ */
 public class SpatialAnalysisPane extends JPanel {
 
     public static final String Name = "Spatial Analysis";
@@ -35,11 +40,17 @@ public class SpatialAnalysisPane extends JPanel {
     private JSpinner twoExpansionSpinner;
     private JCheckBox twoSaveParametricImage;
 
+    /**
+     * Constructs the spatial analysis UI panel with tabbed interface for single
+     * and two cell type analysis modes.
+     *
+     * @param navigator navigation handler for UI flow (currently unused)
+     * @param owner parent window for modal dialogs
+     */
     public SpatialAnalysisPane(Navigator navigator, Window owner) {
         super(new BorderLayout(10, 10));
         setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
 
-        // Set preferred size for this pane
         setPreferredSize(new Dimension(900, 700));
 
         // Create tabbed pane
@@ -63,6 +74,13 @@ public class SpatialAnalysisPane extends JPanel {
         add(btnPanel, BorderLayout.SOUTH);
     }
 
+    /**
+     * Executes the selected analysis in a background thread with progress dialog.
+     * Validates inputs, runs analysis, and displays success or error messages.
+     *
+     * @param tabIndex 0 for single cell type, 1 for two cell type analysis
+     * @param owner parent window for progress and message dialogs
+     */
     private void runAnalysis(int tabIndex, Window owner) {
         JDialog progress = new JDialog(owner, "Processing Spatial Analysis…", Dialog.ModalityType.APPLICATION_MODAL);
         JProgressBar bar = new JProgressBar();
@@ -75,10 +93,8 @@ public class SpatialAnalysisPane extends JPanel {
             @Override
             protected Void doInBackground() throws Exception {
                 if (tabIndex == 0) {
-                    // Single celltype analysis
                     runSingleCelltypeAnalysis();
                 } else {
-                    // Two celltype analysis
                     runTwoCelltypeAnalysis();
                 }
                 return null;
@@ -101,6 +117,12 @@ public class SpatialAnalysisPane extends JPanel {
         progress.setVisible(true);
     }
 
+    /**
+     * Validates inputs and executes single cell type neighbor analysis.
+     * Counts neighbors within dilated cell regions, optionally restricted by ganglia boundaries.
+     *
+     * @throws Exception if required inputs are missing or analysis fails
+     */
     private void runSingleCelltypeAnalysis() throws Exception {
         // Validate inputs
         if (singleMaxProjPath.getText().trim().isEmpty()) {
@@ -135,6 +157,12 @@ public class SpatialAnalysisPane extends JPanel {
         analysis.execute();
     }
 
+    /**
+     * Validates inputs and executes two cell type bidirectional neighbor analysis.
+     * Counts how many cells of each type neighbor the other type within dilated regions.
+     *
+     * @throws Exception if required inputs are missing, cell types are identical, or analysis fails
+     */
     private void runTwoCelltypeAnalysis() throws Exception {
         // Validate inputs
         if (twoMaxProjPath.getText().trim().isEmpty()) {
@@ -166,8 +194,6 @@ public class SpatialAnalysisPane extends JPanel {
         String roi2 = twoRoi2Path.getText().trim();
         String roiGanglia = twoRoiGangliaPath.getText().trim();
         String output = twoOutputPath.getText().trim();
-//        boolean assignPanNeuronal = twoAssignPanNeuronal.isSelected();
-//        String panNeuronalChoice = twoCell1Radio.isSelected() ? "Cell 1" : "Cell 2";
         double expansion = (Double) twoExpansionSpinner.getValue();
         boolean saveParametric = twoSaveParametricImage.isSelected();
 
@@ -176,13 +202,15 @@ public class SpatialAnalysisPane extends JPanel {
                 maxProj, cellType1, roi1, cellType2, roi2, roiGanglia, output,
                 expansion, saveParametric
         );
-//        TwoCellTypeAnalysis analysis = new TwoCellTypeAnalysis(
-//                maxProj, cellType1, roi1, cellType2, roi2, roiGanglia, output,
-//                assignPanNeuronal, panNeuronalChoice, expansion, saveParametric
-//        );
         analysis.execute();
     }
 
+    /**
+     * Creates the UI tab for single cell type neighbor analysis with file selection,
+     * parameter configuration, and output options.
+     *
+     * @return configured panel for single cell type analysis
+     */
     private JPanel createSingleCelltypeTab() {
         JPanel panel = new JPanel();
         panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
@@ -309,6 +337,12 @@ public class SpatialAnalysisPane extends JPanel {
         return panel;
     }
 
+    /**
+     * Creates the UI tab for two cell type bidirectional neighbor analysis with file selection,
+     * parameter configuration for both cell types, and output options.
+     *
+     * @return configured panel for two cell type analysis
+     */
     private JPanel createTwoCelltypeTab() {
         JPanel panel = new JPanel();
         panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
@@ -437,43 +471,6 @@ public class SpatialAnalysisPane extends JPanel {
 
         panel.add(Box.createVerticalStrut(10));
 
-//        // Pan-neuronal marker section
-//        JPanel panNeuronalWrapper = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
-//        JLabel panNeuronalLabel = new JLabel("Pan-neuronal Marker Options");
-//        panNeuronalLabel.setFont(new Font("SansSerif", Font.BOLD, 14));
-//        panNeuronalWrapper.add(panNeuronalLabel);
-//        panel.add(panNeuronalWrapper);
-//
-//        // Pan-neuronal hint
-//        JPanel hintRow1 = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
-//        JLabel hintLabel1 = new JLabel("<html>If using a pan-neuronal marker, make sure to assign the marker that is pan-neuronal</html>");
-//        hintLabel1.setFont(new Font("SansSerif", Font.ITALIC, 12));
-//        hintLabel1.setForeground(Color.GRAY);
-//        hintRow1.add(hintLabel1);
-//        panel.add(hintRow1);
-//
-//        twoAssignPanNeuronal = new JCheckBox("Assign as pan-neuronal");
-//        twoAssignPanNeuronal.setAlignmentX(Component.LEFT_ALIGNMENT);
-//        panel.add(twoAssignPanNeuronal);
-//
-//        // Pan-neuronal choice radio buttons
-//        JPanel panNeuronalChoiceRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
-//        panNeuronalChoiceRow.add(new JLabel("Pan-neuronal choice:"));
-//
-//        ButtonGroup panNeuronalGroup = new ButtonGroup();
-//        twoCell1Radio = new JRadioButton("Cell 1");
-//        twoCell2Radio = new JRadioButton("Cell 2");
-//        twoCell1Radio.setSelected(true);
-//
-//        panNeuronalGroup.add(twoCell1Radio);
-//        panNeuronalGroup.add(twoCell2Radio);
-//
-//        panNeuronalChoiceRow.add(twoCell1Radio);
-//        panNeuronalChoiceRow.add(twoCell2Radio);
-//        panel.add(panNeuronalChoiceRow);
-//
-//        panel.add(Box.createVerticalStrut(10));
-
         // Cell expansion parameter
         JPanel expansionRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
         expansionRow.add(new JLabel("Cell expansion distance for cells (microns):"));
@@ -488,17 +485,6 @@ public class SpatialAnalysisPane extends JPanel {
         hintLabel2.setForeground(Color.GRAY);
         hintRow2.add(hintLabel2);
         panel.add(hintRow2);
-
-//        // Enable/disable pan-neuronal options based on checkbox
-//        twoAssignPanNeuronal.addActionListener(e -> {
-//            boolean enabled = twoAssignPanNeuronal.isSelected();
-//            twoCell1Radio.setEnabled(enabled);
-//            twoCell2Radio.setEnabled(enabled);
-//        });
-//
-//        // Initially disable radio buttons
-//        twoCell1Radio.setEnabled(false);
-//        twoCell2Radio.setEnabled(false);
 
         // Save parametric image option
         twoSaveParametricImage = new JCheckBox("Save parametric image");

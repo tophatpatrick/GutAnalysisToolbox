@@ -6,6 +6,11 @@ import ij.plugin.frame.RoiManager;
 
 import java.io.File;
 
+/**
+ * Performs spatial analysis on two cell types using maximum projection images,
+ * ROIs for each cell type, and optional ganglia ROIs. Generates labeled images
+ * and executes bidirectional neighbor analysis between the two cell populations.
+ */
 public class TwoCellTypeAnalysis {
 
     private String maxProjPath;
@@ -18,6 +23,19 @@ public class TwoCellTypeAnalysis {
     private double labelDilation;
     private boolean saveParametricImage;
 
+    /**
+     * Constructs a two cell type analysis pipeline.
+     *
+     * @param maxProjPath maximum projection image file path
+     * @param cellType1 name of first cell type
+     * @param roi1Path ROI file path for first cell type (.zip or .roi)
+     * @param cellType2 name of second cell type
+     * @param roi2Path ROI file path for second cell type (.zip or .roi)
+     * @param roiGangliaPath ganglia ROI file path, or "NA" if not applicable
+     * @param savePath directory path for saving results
+     * @param labelDilation dilation distance for label expansion (in pixels)
+     * @param saveParametricImage whether to save parametric images showing neighbor distributions
+     */
     public TwoCellTypeAnalysis(String maxProjPath, String cellType1, String roi1Path,
                                String cellType2, String roi2Path, String roiGangliaPath,
                                String savePath, double labelDilation, boolean saveParametricImage) {
@@ -32,6 +50,13 @@ public class TwoCellTypeAnalysis {
         this.saveParametricImage = saveParametricImage;
     }
 
+    /**
+     * Executes the complete analysis pipeline: opens images, converts ROIs to labels for
+     * both cell types, creates ganglia masks if applicable, and runs bidirectional spatial
+     * neighbor analysis between the two cell populations.
+     *
+     * @throws Exception if image loading fails, cell types have identical names, or processing encounters errors
+     */
     public void execute() throws Exception {
         // Clear previous results
         IJ.run("Clear Results");
@@ -68,7 +93,7 @@ public class TwoCellTypeAnalysis {
         if (roiGangliaPath != null && !roiGangliaPath.equals("NA") && new File(roiGangliaPath).exists()) {
             roiManager.runCommand("Open", roiGangliaPath);
 
-            // Convert ROIs to label map using Java class
+            // Convert ganglia ROIs to label map
             ConvertROIToLabels.execute();
 
             Thread.sleep(10);
@@ -106,7 +131,7 @@ public class TwoCellTypeAnalysis {
         IJ.run("Select None");
         String labelCell2Img = IJ.getImage().getTitle();
 
-        // Run spatial analysis using Java class
+        // Run bidirectional spatial analysis
         SpatialTwoCellType.execute(cellType1, labelCell1Img, cellType2, labelCell2Img,
                 gangliaBinary, savePath, labelDilation, saveParametricImage,
                 pixelWidth, roi1Path, roi2Path);

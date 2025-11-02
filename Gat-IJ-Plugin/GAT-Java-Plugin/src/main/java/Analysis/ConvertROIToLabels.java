@@ -5,14 +5,20 @@ import ij.ImagePlus;
 import ij.WindowManager;
 import ij.plugin.frame.RoiManager;
 
-// add this import to use your existing helpers
 import Features.Core.PluginCalls;
 
+/**
+ * Converts ROIs from ROI Manager into a 16-bit label image.
+ * Creates a window named "label_mapss" where each ROI becomes a unique labeled region.
+ */
 public class ConvertROIToLabels {
 
-    // Creates (or replaces) a window called "label_mapss" with a label image
-    // built from the ROIs currently loaded in ROI Manager, using the active image
-    // as the canvas. No overlay/macro UI needed.
+    /**
+     * Converts all ROIs in ROI Manager to a label image using the active image as canvas.
+     * Replaces any existing "label_mapss" window. If no ROIs exist, creates a blank label image.
+     * ROIs are first converted to binary, then to sequential integer labels (1, 2, 3, ...).
+     * Calibration is preserved from the source image.
+     */
     public static void execute() {
         ImagePlus canvas = IJ.getImage();
         if (canvas == null) {
@@ -24,7 +30,6 @@ public class ConvertROIToLabels {
         if (rm == null) rm = new RoiManager();
         if (rm.getCount() == 0) {
             IJ.log("No ROIs in ROI Manager; creating blank label image.");
-            // ensure we still produce the expected window
             ImagePlus blank = IJ.createImage("label_mapss", "16-bit black",
                     canvas.getWidth(), canvas.getHeight(), 1);
             blank.setCalibration(canvas.getCalibration());
@@ -32,23 +37,20 @@ public class ConvertROIToLabels {
             return;
         }
 
-        // Remove any stale output from prior runs
+        // Remove previous output
         ImagePlus old = WindowManager.getImage("label_mapss");
         if (old != null) { old.changes = false; old.close(); }
 
-        // Deterministic conversion: ROIs -> binary -> labels
-        // (these helpers already exist in your codebase and do not depend on overlay)
-        ImagePlus bin = PluginCalls.roisToBinary(canvas, rm);   // same size as canvas
-        ImagePlus lab = PluginCalls.binaryToLabels(bin);        // 16-bit label map
+        // Convert: ROIs -> binary -> labels
+        ImagePlus bin = PluginCalls.roisToBinary(canvas, rm);
+        ImagePlus lab = PluginCalls.binaryToLabels(bin);
 
-        // Match calibration and publish under the fixed name that upstream code expects
         lab.setCalibration(canvas.getCalibration());
         lab.setTitle("label_mapss");
         lab.show();
 
-        // Tidy
         bin.changes = false;
         bin.close();
-        rm.reset(); // optional
+        rm.reset();
     }
 }
