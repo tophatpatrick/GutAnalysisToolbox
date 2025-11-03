@@ -1,0 +1,29 @@
+name: deploy.yml
+on:
+  push:
+    branches:
+      - Dev
+
+jobs:
+  Create_JAR:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout the repository
+        uses: actions/checkout@v5
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: "temurin"
+          java-version: 17
+
+      - name: Cache Maven packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2
+          key: ${{ runner.os }}-m2-${{ hashFiles('Gat-IJ-Plugin/GAT-Java-Plugin/pom.xml') }}
+          restore-keys: ${{ runner.os }}-m2
+
+      - name: Create JAR with Maven
+        run: mvn clean package -Dproject.build.directory=/
+        working-directory: Gat-IJ-Plugin/GAT-Java-Plugin
