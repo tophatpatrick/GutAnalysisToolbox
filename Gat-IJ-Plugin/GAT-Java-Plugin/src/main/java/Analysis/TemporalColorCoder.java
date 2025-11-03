@@ -121,8 +121,8 @@ public class TemporalColorCoder {
         }
 
         // Display results unless running in batch mode
-        if (!p.batchMode) rgbImp.show();
-        if (!p.batchMode && scaleImp != null) scaleImp.show();
+        // if (!p.batchMode) rgbImp.show();
+        // if (!p.batchMode && scaleImp != null) scaleImp.show();
 
         return new TemporalColorOutput(rgbImp, scaleImp);
     }

@@ -126,7 +126,7 @@ public class TemporalColorPane extends JPanel {
             File f = chooser.getSelectedFile();
             tfImagePath.setText(f.getAbsolutePath());
             selectedImage = IJ.openImage(f.getAbsolutePath());
-            if (selectedImage != null) selectedImage.show();
+            // Remove: if (selectedImage != null) selectedImage.show();
         }
     }
 

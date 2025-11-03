@@ -1,12 +1,14 @@
 package UI.panes.WorkflowDashboards;
 
 import Features.Core.Params;
+import ij.IJ;
 import ij.ImagePlus;
 import ij.process.ImageProcessor;
 
 import javax.swing.*;
 import java.awt.*;
 import java.awt.image.BufferedImage;
+import java.io.File;
 import java.util.Arrays;
 
 /**
@@ -30,6 +32,8 @@ public class TemporalColourDashboardPane extends JPanel {
     private double[] frameIntensity; // average intensity per frame
     private Color[] frameColors;     // LUT colors per frame
     private ImagePlus rgbStack;
+    private JPanel imageContainer;
+    private JButton saveBtn;
 
     /**
      * Constructs a new dashboard panel for displaying temporal color-coded analysis results.
@@ -39,16 +43,26 @@ public class TemporalColourDashboardPane extends JPanel {
     public TemporalColourDashboardPane(Window owner) {
         super(new BorderLayout(6,6));
 
-        // --- Parameter info panel (left) ---
+        // --- Parameter info panel (west) ---
         paramInfo = new JTextArea();
         paramInfo.setEditable(false);
         paramInfo.setBackground(getBackground());
         paramInfo.setFont(paramInfo.getFont().deriveFont(Font.PLAIN, 12f));
         add(paramInfo, BorderLayout.WEST);
 
-        // --- Image panel (center) ---
+        // --- Image panel + Save button (center) ---
+        imageContainer = new JPanel();
+        imageContainer.setLayout(new BorderLayout());
         imagePanel = new JPanel(new BorderLayout());
-        add(imagePanel, BorderLayout.CENTER);
+        imageContainer.add(imagePanel, BorderLayout.CENTER);
+
+        saveBtn = new JButton("Save Image");
+        saveBtn.addActionListener(e -> saveRGBStack());
+        JPanel btnPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        btnPanel.add(saveBtn);
+        imageContainer.add(btnPanel, BorderLayout.SOUTH);
+
+        add(imageContainer, BorderLayout.CENTER);
 
         // --- Intensity plot panel (bottom) ---
         intensityPlotPanel = new JPanel() {
@@ -148,5 +162,18 @@ public class TemporalColourDashboardPane extends JPanel {
 
         revalidate();
         repaint();
+    }
+
+    private void saveRGBStack() {
+        if (rgbStack == null) return;
+
+        JFileChooser chooser = new JFileChooser();
+        chooser.setFileSelectionMode(JFileChooser.FILES_ONLY);
+        chooser.setSelectedFile(new File("TemporalColorStack.tif"));
+        if (chooser.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
+            String path = chooser.getSelectedFile().getAbsolutePath();
+            IJ.save(rgbStack, path);
+            JOptionPane.showMessageDialog(this, "Image saved to:\n" + path);
+        }
     }
 }
