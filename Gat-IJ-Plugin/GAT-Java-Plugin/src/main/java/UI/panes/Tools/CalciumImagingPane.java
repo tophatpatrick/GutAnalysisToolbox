@@ -9,9 +9,17 @@ import java.awt.event.MouseEvent;
 import java.util.Arrays;
 import UI.panes.SettingPanes.*;
 
+/**
+ * The CalciumImagingPane class creates a panel with options for calcium imaging tasks and a
+ *"Go button to navigate to the selected task.
+ */
 public class CalciumImagingPane extends JPanel {
     public static final String Name = "Calcium imaging";
 
+    /** Constructor is creating a panel for calcium imaging tasks. 
+     * 
+     * @param navigator the Navigator class variable for UI handling
+    */
     public CalciumImagingPane(Navigator navigator) {
 
         setLayout(new BorderLayout(12,12));
@@ -69,7 +77,7 @@ public class CalciumImagingPane extends JPanel {
         private boolean selected = false;
         private OptionPanel[] siblings;
         private final Color defaultBg;
-        private final Color highlightBg = new Color(56, 56, 56); // grey for now
+        private final Color highlightBg = new Color(56, 56, 56);
 
         OptionPanel(String title, String description, String targetName) {
             this.targetName = targetName;
@@ -131,43 +139,4 @@ public class CalciumImagingPane extends JPanel {
             repaint();
         }
     }
-
-    // private static Component space() { return Box.createVerticalStrut(8); }
-
-    // private static JButton actionBtn(String label, Runnable action) {
-    //     JButton b = new JButton(label);
-    //     b.setAlignmentX(Component.LEFT_ALIGNMENT);
-    //     b.setMaximumSize(new Dimension(320, 36));
-    //     b.addActionListener(e -> action.run());
-    //     return b;
-    // }
-
-    // // ----- hook to workflows -----
-    // private void onAlignStack() {
-    //     if (IJ.getInstance() == null) {
-    //         new ImageJ();
-    //     }
-    //     AlignStack workflow = new AlignStack();
-    //     workflow.run("");
-    // }
-
-    // private void onAlignStackBatch() {
-    //     if (IJ.getInstance() == null) {
-    //         new ImageJ();
-    //     }
-    //     Features.Tools.AlignStackBatch workflow = new Features.Tools.AlignStackBatch();
-    //     workflow.run("");
-    // }
-
-    // private void onAnalysis() {
-    //     if (IJ.getInstance() == null) {
-    //         new ImageJ();
-    //     }
-    //     Analysis.CalciumAnalysis workflow = new Analysis.CalciumAnalysis(); 
-    //     workflow.run("");
-    // }
-
-    // private void onTemporalColourCode() {
-    //     JOptionPane.showMessageDialog(this, "Temporal Colour Code (GAT) (not implemented)", "Info", JOptionPane.INFORMATION_MESSAGE);
-    // }
 }

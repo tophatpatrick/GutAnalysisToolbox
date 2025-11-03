@@ -50,9 +50,14 @@ public class alignStackPane extends JPanel {
 
     private JButton runBtn;
 
+    private boolean warnTemplatePlugin = true;
+
     // Dashboard to display results
     private AlignStackDashboard alignStackDashboard;
+    private static final String PLUGIN_INSTALLATION_URL =
+        "https://sites.imagej.net/Template_Matching/";
 
+    /**alignStackPane creates a GUI panel for aligning stack settings. */
     public alignStackPane(Navigator navigator, Window owner) {
         super(new BorderLayout(10,10));
         this.owner = owner;
@@ -160,23 +165,42 @@ public class alignStackPane extends JPanel {
 
     /** Trigger alignment when run button is pressed */
     private void onRun(JButton runBtn, JTabbedPane tabs) {
-        runBtn.setEnabled(false);
         int selected = tabs.getSelectedIndex(); // 0 = single, 1 = batch
-        boolean ok = true;
+        boolean ok = (selected == 0)
+                ? InputValidation.validateImageOrShow(this, tfImagePath.getText())
+                : validateDirectoryOrShow(this, tfInputDir.getText());
 
-        // Validate input
-        if (selected == 0) {
-            ok = InputValidation.validateImageOrShow(this, tfImagePath.getText());
-        } else if (selected == 1) {
-            ok = validateDirectoryOrShow(this, tfInputDir.getText());
-        }
         if (!ok) {
             runBtn.setEnabled(true);
             return;
         }
 
+        // --- Warn user if Template Matching checkbox selected ---
+        if (selected == 0 && cbUseTemplateMatching.isSelected() && warnTemplatePlugin) {
+            JCheckBox ignoreBox = new JCheckBox("Don't warn me again");
+            Object[] params = {
+                "Align Stack XY alignment requires the Template Matching plugin.\n" +
+                "Please ensure it's installed.\nURL: " + PLUGIN_INSTALLATION_URL, ignoreBox
+            };
+            int response = JOptionPane.showConfirmDialog(
+                    this, params, "Plugin Required", JOptionPane.OK_CANCEL_OPTION, JOptionPane.WARNING_MESSAGE
+            );
+
+            warnTemplatePlugin = !ignoreBox.isSelected(); // update flag
+
+            if (response != JOptionPane.OK_OPTION) {
+                runBtn.setEnabled(true);
+                return;
+            }
+        }
+
+        // --- Create loading overlay ---
+        JDialog loadingDialog = createLoadingDialog(owner, "Running alignment, please wait...");
+        runBtn.setEnabled(false);
+
         SwingWorker<Void, Void> worker = new SwingWorker<Void, Void>() {
             private ImagePlus alignedImage;
+            private File csvFile;
 
             @Override
             protected Void doInBackground() {
@@ -184,26 +208,18 @@ public class alignStackPane extends JPanel {
                     Params params = buildParamsFromUI(selected);
 
                     if (selected == 0) {
-                        // Single stack alignment
                         AlignStack aligner = new AlignStack();
                         AlignStack.AlignResult result = aligner.run(params);
 
-                        // Load aligned image from disk
-                        String outFile = params.outputDir + File.separator +
-                                new File(params.imagePath).getName().replace(".tif", "_aligned.tif");
-                        alignedImage = IJ.openImage(outFile);
-
-                        // Update dashboard with results
-                        SwingUtilities.invokeLater(() -> {
-                            alignStackDashboard = new AlignStackDashboard();
-                            tabs.addTab("Alignment Dashboard", alignStackDashboard);
-                            alignStackDashboard.addAlignedStackWithResults(
-                                result.alignedStack,
-                                result.resultCSV
-                            );
-                        });
+                        csvFile = result.resultCSV;
+                        if (params.saveAlignedStack) {
+                            String outFile = params.outputDir + File.separator +
+                                    new File(params.imagePath).getName().replace(".tif", "_aligned.tif");
+                            alignedImage = IJ.openImage(outFile);
+                        } else {
+                            alignedImage = result.alignedStack;
+                        }
                     } else {
-                        // Batch alignment
                         runBatchAlignment(params);
                     }
                 } catch (Throwable ex) {
@@ -216,8 +232,31 @@ public class alignStackPane extends JPanel {
                 }
                 return null;
             }
+
+            @Override
+            protected void done() {
+                loadingDialog.dispose();
+                runBtn.setEnabled(true);
+
+                if (selected == 0 && alignedImage != null) {
+                    // Remove old dashboard tab if present
+                    int existingIdx = tabs.indexOfTab("Alignment Dashboard");
+                    if (existingIdx >= 0) tabs.removeTabAt(existingIdx);
+
+                    alignStackDashboard = new AlignStackDashboard();
+                    tabs.addTab("Alignment Dashboard", alignStackDashboard);
+                    tabs.setSelectedComponent(alignStackDashboard);
+
+                    alignStackDashboard.addAlignedStackWithResults(
+                            alignedImage,
+                            (csvFile != null && csvFile.exists()) ? csvFile : null
+                    );
+                }
+            }
         };
+
         worker.execute();
+        loadingDialog.setVisible(true);
     }
 
     /** Construct Params object from UI fields */
@@ -335,5 +374,26 @@ public class alignStackPane extends JPanel {
             return false;
         }
         return true;
+    }
+
+    /** Small modal dialog with an indeterminate progress bar */
+    private static JDialog createLoadingDialog(Window owner, String message) {
+        JDialog dialog = new JDialog(owner, "Please wait", Dialog.ModalityType.MODELESS);
+        JPanel panel = new JPanel(new BorderLayout(10,10));
+        panel.setBorder(BorderFactory.createEmptyBorder(15,15,15,15));
+
+        JLabel lbl = new JLabel(message);
+        JProgressBar bar = new JProgressBar();
+        bar.setIndeterminate(true);
+
+        panel.add(lbl, BorderLayout.NORTH);
+        panel.add(bar, BorderLayout.CENTER);
+
+        dialog.setDefaultCloseOperation(JDialog.DO_NOTHING_ON_CLOSE);
+        dialog.setResizable(false);
+        dialog.setContentPane(panel);
+        dialog.pack();
+        dialog.setLocationRelativeTo(owner);
+        return dialog;
     }
 }
