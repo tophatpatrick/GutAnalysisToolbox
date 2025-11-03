@@ -7,6 +7,10 @@ import ij.ImageStack;
 import ij.process.ColorProcessor;
 import ij.process.ImageProcessor;
 import ij.plugin.ZProjector;
+import ij.plugin.LutLoader;
+import ij.process.LUT;
+import java.awt.image.IndexColorModel;
+
 
 /**
  * TemporalColorCoder
@@ -117,46 +121,43 @@ public class TemporalColorCoder {
         }
 
         // Display results unless running in batch mode
-        if (!p.batchMode) rgbImp.show();
-        if (!p.batchMode && scaleImp != null) scaleImp.show();
+        // if (!p.batchMode) rgbImp.show();
+        // if (!p.batchMode && scaleImp != null) scaleImp.show();
 
         return new TemporalColorOutput(rgbImp, scaleImp);
     }
 
     /** Generates RGB lookup tables based on a named LUT */
     private static int[][] generateRGBLUT(String lutName) {
-        int size = 256;
+        final int size = 256;
         int[] r = new int[size];
         int[] g = new int[size];
         int[] b = new int[size];
 
-        for (int i = 0; i < size; i++) {
-            float t = i / (float)(size - 1);
-            switch (lutName != null ? lutName : "Fire") {
-                case "Fire":
-                    r[i] = Math.min(255, (int)(255 * t));
-                    g[i] = Math.min(255, (int)(255 * t * 0.5));
-                    b[i] = 0;
-                    break;
-                case "Ice":
-                    r[i] = 0;
-                    g[i] = Math.min(255, (int)(255 * t * 0.5));
-                    b[i] = Math.min(255, (int)(255 * t));
-                    break;
-                case "Green":
-                    r[i] = 0;
-                    g[i] = Math.min(255, (int)(255 * t));
-                    b[i] = 0;
-                    break;
-                case "Red":
-                    r[i] = Math.min(255, (int)(255 * t));
-                    g[i] = 0;
-                    b[i] = 0;
-                    break;
-                default:
-                    r[i] = Math.min(255, (int)(255 * t));
-                    g[i] = Math.min(255, (int)(255 * t * 0.5));
-                    b[i] = 0;
+        try {
+            // Use LutLoader to fetch the LUT by name
+            IndexColorModel icm = LutLoader.getLut(lutName);
+            if (icm == null) {
+                IJ.log("LUT not found: " + lutName + ". Using default Fire LUT.");
+                icm = LutLoader.getLut("Fire");
+                if (icm == null) throw new IllegalStateException("Default LUT not found.");
+            }
+
+            // Pull RGB arrays from the IndexColorModel
+            for (int i = 0; i < size; i++) {
+                r[i] = icm.getRed(i);
+                g[i] = icm.getGreen(i);
+                b[i] = icm.getBlue(i);
+            }
+
+        } catch (Exception e) {
+            IJ.log("Error loading LUT '" + lutName + "': " + e);
+            // fallback to simple ramp
+            for (int i = 0; i < size; i++) {
+                float t = i / (float)(size - 1);
+                r[i] = Math.min(255, (int)(255 * t));
+                g[i] = Math.min(255, (int)(255 * t * 0.5));
+                b[i] = 0;
             }
         }
 

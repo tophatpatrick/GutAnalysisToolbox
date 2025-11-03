@@ -13,6 +13,7 @@ import java.awt.*;
 import java.io.File;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import ij.plugin.LutLoader;
 
 /**
  * Pane for Temporal Color Coding of image stacks.
@@ -90,7 +91,12 @@ public class TemporalColorPane extends JPanel {
 
         // LUT and Projection
         c.gridx = 0; c.gridy = row; settingsPanel.add(new JLabel("LUT:"), c);
-        c.gridx = 1; cbLUT = new JComboBox<>(new String[]{"Fire","Ice","Green","Red"}); settingsPanel.add(cbLUT, c);
+        c.gridx = 1; 
+        // Fetch all available LUT names dynamically
+        String[] lutNames = getAvailableLUTNames();
+        cbLUT = new JComboBox<>(lutNames);
+        cbLUT.setSelectedItem("Fire"); // default selection
+        settingsPanel.add(cbLUT, c);
         c.gridx = 2; settingsPanel.add(new JLabel("Projection:"), c);
         c.gridx = 3; cbProjection = new JComboBox<>(new String[]{"Max Intensity","Average Intensity","Min Intensity"}); settingsPanel.add(cbProjection, c);
         row++;
@@ -120,7 +126,27 @@ public class TemporalColorPane extends JPanel {
             File f = chooser.getSelectedFile();
             tfImagePath.setText(f.getAbsolutePath());
             selectedImage = IJ.openImage(f.getAbsolutePath());
-            if (selectedImage != null) selectedImage.show();
+            // Remove: if (selectedImage != null) selectedImage.show();
+        }
+    }
+
+    
+   private static String[] getAvailableLUTNames() {
+        try {
+            // Get all LUT names from the default LUTs directory
+            java.util.List<String> lutNames = new java.util.ArrayList<>();
+            String[] builtIn = IJ.getLuts(); // this returns all built-in LUT names
+            if (builtIn != null) {
+                for (String s : builtIn) lutNames.add(s);
+            }
+            if (lutNames.isEmpty()) {
+                // fallback to minimal list
+                return new String[]{"Fire", "Ice", "Green", "Red"};
+            }
+            return lutNames.toArray(new String[0]);
+        } catch (Exception e) {
+            IJ.log("Failed to load LUT names dynamically: " + e);
+            return new String[]{"Fire", "Ice", "Green", "Red"};
         }
     }
 
