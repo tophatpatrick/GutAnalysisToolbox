@@ -100,6 +100,8 @@ public class TemporalColourDashboardPane extends JPanel {
     public void setOutputs(ImagePlus rgbStack, ImagePlus colorScale, Params p) {
         this.rgbStack = rgbStack;
 
+        rgbStack.setTitle("");
+
         // --- Display RGB image ---
         BufferedImage bi = rgbStack.getBufferedImage();
         imagePanel.removeAll();

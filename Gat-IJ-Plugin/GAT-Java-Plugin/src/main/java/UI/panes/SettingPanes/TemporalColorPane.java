@@ -174,7 +174,7 @@ public class TemporalColorPane extends JPanel {
             dashboard.add(paramSummary, BorderLayout.SOUTH);
 
             // Add tab
-            dashboardTabs.addTab(selectedImage.getTitle() + " - Temporal Color Coded", dashboard);
+            dashboardTabs.addTab("", dashboard);
             dashboardTabs.setSelectedComponent(dashboard);
 
         } catch (Exception ex) {
