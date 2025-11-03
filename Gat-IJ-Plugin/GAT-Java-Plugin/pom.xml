@@ -18,7 +18,25 @@
             <id>scijava.public</id>
             <url>https://maven.scijava.org/content/groups/public</url>
         </repository>
+        <repository>
+            <id>central</id>
+            <url>https://repo.maven.apache.org/maven2</url>
+        </repository>
     </repositories>
+
+    <!-- BOMs to manage versions -->
+    <dependencyManagement>
+        <dependencies>
+            <!-- junit -->
+            <dependency>
+                <groupId>org.junit</groupId>
+                <artifactId>junit-bom</artifactId>
+                <version>5.11.4</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
 
     <dependencies>
         <!-- ImageJ1 core -->
@@ -78,6 +96,40 @@
           <version>1.5.0</version>
         </dependency>
         -->
+
+        <!--
+            Testing framework
+        -->
+
+        <!-- junit-jupiter-api for most simple tests -->
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-api</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <!-- junit-jupiter-engine to run the tests -->
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-engine</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <!-- mockito for mocking in tests -->
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-inline</artifactId>
+            <version>4.11.0</version>
+            <scope>test</scope>
+        </dependency>
+
+        <!-- mockito extension for JUnit5 -->
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-junit-jupiter</artifactId>
+            <version>4.11.0</version>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>
@@ -120,11 +172,41 @@
                         <goals><goal>populate-app</goal></goals>
                         <configuration>
                             <!-- Point to an existing Fiji.app -->
-                            <appDirectory>${user.home}\Fiji.app</appDirectory>
+                            <appDirectory>${fiji.app.directory}</appDirectory>
                             <jars>
                                 <jar>${project.build.finalName}.jar</jar>
                             </jars>
                         </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <!-- For testing -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.2.5</version>
+                <configuration>
+                    <argLine>-Djava.awt.headless=false</argLine>
+                    <argLine>${argLine}</argLine>
+                </configuration>
+            </plugin>
+            <!--Jacoco for Test Coverage-->
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <version>0.8.10</version>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>prepare-agent</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>report</id>
+                        <phase>test</phase>
+                        <goals>
+                            <goal>report</goal>
+                        </goals>
                     </execution>
                 </executions>
             </plugin>
@@ -133,6 +215,26 @@
 
     <!-- Build a self-contained Fiji app with your plugin inside -->
     <profiles>
+        <profile>
+            <id>clean-app</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-clean-plugin</artifactId>
+                        <version>3.4.0</version>
+                        <executions>
+                            <execution>
+                                <goals>
+                                    <goal>clean</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+
         <profile>
             <id>app</id>
             <build>
@@ -172,3 +274,5 @@
 
 
 </project>
+
+
