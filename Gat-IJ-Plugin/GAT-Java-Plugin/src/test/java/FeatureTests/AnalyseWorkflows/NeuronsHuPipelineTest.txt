@@ -12,11 +12,14 @@ import Features.Core.Params;
 import Features.Core.PluginCalls;
 import Features.Tools.ImageOps;
 import Features.Tools.OutputIO;
+import Features.Tools.ProgressUI;
+import Features.Tools.RoiManagerHelper;
 import ij.IJ;
 import ij.ImagePlus;
 import ij.measure.Calibration;
 import ij.plugin.frame.RoiManager;
 
+import javax.imageio.ImageIO;
 import java.io.File;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -128,6 +131,7 @@ class NeuronsHuPipelineTest {
         params.saveFlattenedOverlay = false;
         params.cellCountsPerGanglia = false;
 
+        ProgressUI progressUI = mock(ProgressUI.class);
         ImagePlus imp = mock(ImagePlus.class);
         ImagePlus max = mock(ImagePlus.class);
         ImagePlus hu = mock(ImagePlus.class);
@@ -159,7 +163,9 @@ class NeuronsHuPipelineTest {
                 MockedStatic<OutputIO> outputIOMock = mockStatic(OutputIO.class);
                 MockedStatic<ImageOps> imageOpsMock = mockStatic(ImageOps.class);
                 MockedStatic<PluginCalls> pluginCallsMock = mockStatic(PluginCalls.class);
-                MockedStatic<RoiManager> roiManagerMock = mockStatic(RoiManager.class);
+                MockedStatic<RoiManagerHelper> rmHelperMock = mockStatic(RoiManagerHelper.class);
+                MockedStatic<RoiManagerHelper.RmHandle> rmHandleMock = mockStatic(RoiManagerHelper.RmHandle.class);
+                MockedStatic<RoiManager>  roiManagerMock = mockStatic(RoiManager.class);
                 MockedStatic<NeuronsHuPipeline> neuronsHuPipelineMock = mockStatic(NeuronsHuPipeline.class);
         ) {
             ijMock.when(IJ::getImage).thenReturn(imp);
@@ -181,6 +187,8 @@ class NeuronsHuPipelineTest {
             pluginCallsMock.when(() -> PluginCalls.roisToBinary(any(ImagePlus.class), any(RoiManager.class))).thenReturn(correctedBinary);
             pluginCallsMock.when(() -> PluginCalls.binaryToLabels(any(ImagePlus.class))).thenReturn(labelsEdited);
 
+            rmHelperMock.when(RoiManagerHelper::ensureGlobalRM).thenReturn(rmHandleMock);
+
             roiManagerMock.when(RoiManager::getInstance2).thenReturn(rm);
 
             neuronsHuPipelineMock.when(() -> NeuronsHuPipeline.applyWatershedInPlace(any(ImagePlus.class))).thenAnswer(invocation -> null);
@@ -194,7 +202,7 @@ class NeuronsHuPipelineTest {
             {
                 // Act
                 NeuronsHuPipeline pipeline = new NeuronsHuPipeline();
-                NeuronsHuPipeline.HuResult result = pipeline.run(params, true);
+                NeuronsHuPipeline.HuResult result = pipeline.run(params, true, progressUI);
 
                 // Assert
                 assertNotNull(result);
