@@ -9,6 +9,18 @@ import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.util.Arrays;
 
+/**
+ * Dashboard panel for displaying temporal color-coded image stacks and their
+ * associated analysis parameters.
+ *
+ * This panel is part of the workflow dashboard UI and provides a compact visualization
+ * of temporally color-coded calcium imaging data. It displays:
+ *
+ *  A preview of the color-coded image stack</li>
+ *  Relevant processing parameters (e.g., LUT, projection, batch mode
+ *  A dynamic bar plot showing average intensity per frame with corresponding LUT colors
+ *
+ * */
 public class TemporalColourDashboardPane extends JPanel {
 
     private JPanel imagePanel;
@@ -19,6 +31,11 @@ public class TemporalColourDashboardPane extends JPanel {
     private Color[] frameColors;     // LUT colors per frame
     private ImagePlus rgbStack;
 
+    /**
+     * Constructs a new dashboard panel for displaying temporal color-coded analysis results.
+     *
+     * @param owner the parent window that owns this panel (may be used for dialog positioning)
+     */
     public TemporalColourDashboardPane(Window owner) {
         super(new BorderLayout(6,6));
 

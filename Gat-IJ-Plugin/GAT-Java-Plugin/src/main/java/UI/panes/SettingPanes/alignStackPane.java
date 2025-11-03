@@ -57,6 +57,7 @@ public class alignStackPane extends JPanel {
     private static final String PLUGIN_INSTALLATION_URL =
         "https://sites.imagej.net/Template_Matching/";
 
+    /**alignStackPane creates a GUI panel for aligning stack settings. */
     public alignStackPane(Navigator navigator, Window owner) {
         super(new BorderLayout(10,10));
         this.owner = owner;

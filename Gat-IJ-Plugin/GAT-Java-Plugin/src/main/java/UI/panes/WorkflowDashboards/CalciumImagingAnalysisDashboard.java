@@ -10,6 +10,11 @@ import javax.swing.*;
 import java.awt.*;
 import java.io.File;
 
+/**
+ * This class is a JPanel-based dashboard for performing calcium
+ * imaging analysis steps with interactive buttons and tabs for displaying image data and analysis
+ * results.
+ */
 public class CalciumImagingAnalysisDashboard extends JPanel {
 
     private final JTabbedPane tabs = new JTabbedPane();
@@ -25,6 +30,9 @@ public class CalciumImagingAnalysisDashboard extends JPanel {
     private CalciumAnalysis analysis;
     private Params params;
 
+    /** Constructor method initialises the CalciumImagingAnalysisDashboard class with a set of parameters
+     * @param p the params passed from the options part of the UI pane as selected by the user
+    */
     public CalciumImagingAnalysisDashboard(Params p) {
         super(new BorderLayout());
         this.params = p;
@@ -97,6 +105,17 @@ public class CalciumImagingAnalysisDashboard extends JPanel {
         });
     }
 
+    /**
+     * Creates a new tab in a GUI interface to display an image with a
+     * scrollable canvas and a slider for navigating through image slices.
+     * 
+     * @param imp An ImagePlus object, which
+     * represents an image or stack of images in ImageJ/Fiji. It contains the image data and associated
+     * metadata.
+     * @param title String that represents the
+     * title of the tab that will be added to a JTabbedPane. This title will be displayed on the tab
+     * in the user interface to help identify the content of that tab.
+     */
     private void addImageTab(ImagePlus imp, String title) {
         if (imp == null) return;
 
@@ -119,6 +138,14 @@ public class CalciumImagingAnalysisDashboard extends JPanel {
         tabs.setSelectedIndex(tabs.getTabCount() - 1);
     }
 
+    /**
+     * The function reads data from a CSV file, processes it to create a plot of ROI
+     * traces, and displays the plot in ImageJ.
+     * 
+     * @param csvFile File object
+     * representing the CSV file that contains the data to be plotted. This method reads the data from
+     * the CSV file, processes it, and generates a plot of the ROI traces based on the data in the file
+     */
     private void addResultsPlot(File csvFile) {
         try (java.io.BufferedReader br = new java.io.BufferedReader(new java.io.FileReader(csvFile))) {
             java.util.List<String[]> rows = new java.util.ArrayList<>();

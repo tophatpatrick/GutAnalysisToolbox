@@ -13,6 +13,10 @@ import javax.swing.SpinnerNumberModel;
 
 import Features.Core.Params;
 
+/**
+ * This CalciumAnalysis class in provides methods for loading, processing, and analysing calcium
+ * imaging data including image manipulation, ROI management, and measurement extraction.
+ */
 public class CalciumAnalysis {
 
     private final Params p;
@@ -20,6 +24,12 @@ public class CalciumAnalysis {
     public ImagePlus maxProj;       // Max intensity projection
     public ImagePlus normStack;     // Normalized F/F0 stack
     private RoiManager rm;          // ROI Manager for handling regions
+
+    /**
+     * Constructs a new {@code CalciumAnalysis} instance using the specified parameters.
+     *
+     * @param params the analysis parameters containing file paths and processing options
+     */
 
     public CalciumAnalysis(Params params) {
         this.p = params;
