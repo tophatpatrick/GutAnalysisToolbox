@@ -58,7 +58,7 @@ public class GatPluginUI implements PlugIn {
      * <ol>
      *   <li>Define the expected StarDist model names we want to find under
      *       {@code Fiji/models} (neuron model and subtype model).</li>
-     *   <li>Call {@link UI.Preflight#runAll(String, String)} to verify the install.
+     *   <li>Call {@link UI.Preflight#runAll(String, String,String)} to verify the install.
      *       If anything important is missing (DeepImageJ engines not initialized,
      *       required plugins unavailable, required models not found), we abort and
      *       do not show the UI.</li>
@@ -73,8 +73,9 @@ public class GatPluginUI implements PlugIn {
     public void run(String arg){
         String expectedNeuronModel  = "2D_enteric_neuron_V4_1.zip";
         String expectedSubtypeModel = "2D_enteric_neuron_subtype_V4.zip";
+        String expectedGangliaModel = "2D_Ganglia_RGB_v3.bioimage.io.model";
 
-        if (!UI.Preflight.runAll(expectedNeuronModel, expectedSubtypeModel)) {
+        if (!UI.Preflight.runAll(expectedNeuronModel, expectedSubtypeModel,expectedGangliaModel)) {
             return;
         }
 

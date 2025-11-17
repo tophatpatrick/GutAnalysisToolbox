@@ -55,7 +55,7 @@ public final class Preflight {
      *       ({@link #firstRunAndDeepImageJ()}).</li>
      *   <li>Log system info / memory / GPU via {@link #reportSystem()}.</li>
      *   <li>Check that key model assets exist in {@code Fiji/models} via
-     *       {@link #checkModels(String, String)}.</li>
+     *       {@link #checkModels(String, String,String)}.</li>
      *   <li>Check that required plugins/commands are available via
      *       {@link #checkPlugins()}.</li>
      *   <li>If everything is OK, optionally close the Log window again if
@@ -70,11 +70,14 @@ public final class Preflight {
      * @param expectedSubtypeModel
      *        Filename of the subtype StarDist model we expect. May be {@code null}.
      *
+     *        @param expectedGangliaModel
+     *        Filename of the ganglia model we expect. May be {@code null}.
+     *
      * @return {@code true} if all checks pass and it is safe to continue
      *         launching the UI, {@code false} if we detected a blocking problem
      *         and already warned the user.
      */
-    public static boolean runAll(String expectedNeuronModel, String expectedSubtypeModel) {
+    public static boolean runAll(String expectedNeuronModel, String expectedSubtypeModel, String expectedGangliaModel) {
         boolean logWasOpen = isLogOpen();
         logHeader();
 
@@ -86,7 +89,7 @@ public final class Preflight {
         reportSystem();
 
         //  Check models in <Fiji>/models (no macros or IJM tables)
-        if (!checkModels(expectedNeuronModel, expectedSubtypeModel)) return false;
+        if (!checkModels(expectedNeuronModel, expectedSubtypeModel,expectedGangliaModel)) return false;
 
         // Check required commands/plugins are present
         if (!checkPlugins()) return false;
@@ -244,7 +247,7 @@ public final class Preflight {
      * @return {@code true} if models folder exists and required models are present;
      *         {@code false} (with user warning) if something is missing.
      */
-    private static boolean checkModels(String expectedNeuronModel, String expectedSubtypeModel) {
+    private static boolean checkModels(String expectedNeuronModel, String expectedSubtypeModel, String expectedGangliaModel) {
         String fijiDir = IJ.getDirectory("imagej");
         File modelsDir = new File(fijiDir, "models");
         if (!modelsDir.isDirectory()) {
@@ -277,6 +280,15 @@ public final class Preflight {
                 ok = false;
             } else {
                 IJ.log("Subtype model OK: " + expectedSubtypeModel);
+            }
+        }
+        if (expectedGangliaModel != null && !expectedGangliaModel.trim().isEmpty()){
+            File f = new File(modelsDir,expectedGangliaModel);
+            if (!f.exists()){
+                IJ.log("Missing Ganglia Model: " + expectedGangliaModel);
+                ok = false;
+            }else{
+                IJ.log("Ganglia Model OK: " + expectedGangliaModel);
             }
         }
 
@@ -344,8 +356,8 @@ public final class Preflight {
         required.put("CLIJ2 Macro Extensions", "Enable update sites for CLIJ and CLIJ2: https://clij.github.io/clij2-docs/installationInFiji");
         // StackReg (BIG-EPFL)
         required.put("StackReg", "Enable the BIG-EPFL update site.");
-        // PT-BIOP (optional but recommended)
-        required.put("Label Map to ROIs", "Enable the PT-BIOP update site: https://biop.epfl.ch/Fiji-Update/");
+        // PTBIOP (optional but recommended)
+        required.put("Label Map to ROIs", "Enable the PTBIOP update site: https://biop.epfl.ch/Fiji-Update/");
 
         @SuppressWarnings("rawtypes")
         Map commands = Menus.getCommands(); // command -> class name
