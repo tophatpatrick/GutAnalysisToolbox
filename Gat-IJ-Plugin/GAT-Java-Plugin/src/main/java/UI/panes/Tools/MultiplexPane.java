@@ -4,10 +4,16 @@ import UI.Handlers.Navigator;
 import services.multiplex.config.MultiplexConfig;
 import services.multiplex.core.MultiplexRegistrationService;
 
+import javax.swing.event.HyperlinkEvent;
 import javax.swing.*;
 import java.awt.*;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
+
+import static UI.panes.Tools.HelpAndSupportPane.buildHtml;
+import static UI.panes.Tools.HelpAndSupportPane.openInBrowser;
 
 public class MultiplexPane extends JPanel {
     public static final String Name = "Multiplex";
@@ -28,7 +34,10 @@ public class MultiplexPane extends JPanel {
     private final JTextField saveFolderTf   = new JTextField();
     private final JButton    browseSave     = new JButton("Browse");
 
+
     private final JCheckBox  finetuneCb     = new JCheckBox("Finetune_parameters");
+
+    private final LinkItem link = new LinkItem("Step-by-step tutorial (Documentation)", "https://gut-analysis-toolbox.gitbook.io/docs/");
 
     private final JButton    runBtn         = new JButton("Run");
     private final JButton    resetBtn       = new JButton("Reset");
@@ -81,6 +90,19 @@ public class MultiplexPane extends JPanel {
         // 6) Finetune
         addLabeled(form, gc, 6, "", finetuneCb);
 
+        //Help functionality
+        JEditorPane html = new JEditorPane("text/html", buildHtml());
+        html.setEditable(false);
+        html.setBorder(BorderFactory.createEmptyBorder(8,8,8,8));
+        html.addHyperlinkListener(e -> {
+            if (e.getEventType() == HyperlinkEvent.EventType.ACTIVATED) {
+                openInBrowser(e.getURL().toString());
+            }
+        });
+
+
+
+
         // Actions
         JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT));
         actions.add(resetBtn);
@@ -88,10 +110,13 @@ public class MultiplexPane extends JPanel {
 
         JPanel leftWrap = new JPanel(new BorderLayout());
         leftWrap.add(form, BorderLayout.NORTH);
+        leftWrap.add(html, BorderLayout.CENTER);
         leftWrap.add(actions, BorderLayout.SOUTH);
 
         // IMPORTANT: put in CENTER so the form can expand horizontally
         add(leftWrap, BorderLayout.CENTER);
+
+
 
         // Behavior
         browseImmuno.addActionListener(e -> chooseDirInto(immunoFolderTf));
@@ -237,6 +262,56 @@ public class MultiplexPane extends JPanel {
         if (s == null || s.trim().isEmpty()) return null;
         return new java.io.File(s.trim()).toPath();
     }
+
+    private static final class LinkItem {
+        final String label, url;
+        /**
+         * Constructs a new {@code LinkItem}.
+         *
+         * @param label human-readable label describing this link
+         * @param url   absolute URL associated with this link
+         */
+        LinkItem(String label, String url){ this.label = label; this.url = url; }
+    }
+
+    private static java.util.List<LinkItem> links(){
+        List<LinkItem> L = new ArrayList<>();
+        L.add(new LinkItem("", "https://gut-analysis-toolbox.gitbook.io/docs/7.-multiplex/multiplex-image-alignment"));
+        return L;
+    }
+
+    static String buildHtml() {
+        StringBuilder ul = new StringBuilder();
+        for (LinkItem li : links()) {
+            ul.append("<li>")
+                    .append(escape(li.label))
+                    .append(" <a href='")
+                    .append(li.url)
+                    .append("'>")
+                    .append(li.url)
+                    .append("</a></li>");
+        }
+
+        return "<html><head><style>"
+
+                + "body{font-family:Segoe UI,Roboto,Arial,sans-serif;color:#FFFFFF;font-size:13px;margin:0;padding:0;}"
+                + "h1{font-size:14 px;margin:0 0 8px 0}"
+                + ".wrap{padding:4px 8px}"
+                + ".section{margin:10px 0 0 0}"
+                + "ul{margin:6px 0 0 18px}"
+                + "a{text-decoration:none; color: #808080;}"
+                + "a:hover{text-decoration:underline}"
+                + "</style></head><body>"
+                + "<div class='wrap'>"
+                + "<div class='section'>Explanation on how this works here:"
+                + "<ul>" + ul + "</ul>"
+                + "</div></div></body></html>";
+    }
+
+    private static String escape(String s){
+        return s.replace("&","&amp;").replace("<","&lt;").replace(">","&gt;");
+    }
+
 
     private void warn(String msg) {
         JOptionPane.showMessageDialog(this, msg, "Input required", JOptionPane.WARNING_MESSAGE);

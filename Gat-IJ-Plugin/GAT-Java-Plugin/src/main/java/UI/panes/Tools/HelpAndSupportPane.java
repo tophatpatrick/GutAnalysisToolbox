@@ -58,7 +58,7 @@ public class HelpAndSupportPane extends JPanel {
      * This is used by {@link #links()} and ultimately rendered in the HTML
      * via {@link #buildHtml()}.
      */
-    private static final class LinkItem {
+    static final class LinkItem {
         final String label, url;
         /**
          * Constructs a new {@code LinkItem}.
@@ -172,7 +172,7 @@ public class HelpAndSupportPane extends JPanel {
      * @return a complete HTML document as a {@link String} suitable for
      *         {@code new JEditorPane("text/html", ...)}
      */
-    private static String buildHtml() {
+    static String buildHtml() {
         StringBuilder ul = new StringBuilder();
         for (LinkItem li : links()) {
             ul.append("<li><b>")
@@ -224,7 +224,7 @@ public class HelpAndSupportPane extends JPanel {
      *
      * @param url the URL to open; should be an absolute URI (e.g. "https://...")
      */
-    private static void openInBrowser(String url){
+    static void openInBrowser(String url){
         try {
             if (Desktop.isDesktopSupported()) {
                 Desktop.getDesktop().browse(new URI(url));
