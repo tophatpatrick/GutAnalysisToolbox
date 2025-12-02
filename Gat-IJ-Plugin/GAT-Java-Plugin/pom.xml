@@ -133,14 +133,6 @@
     </dependencies>
 
     <build>
-        <directory>../../Build Files</directory>
-        <resources>
-            <resource>
-                <directory>src/main/resources</directory>
-                <filtering>false</filtering>
-            </resource>
-        </resources>
-
         <plugins>
             <plugin>
                 <artifactId>maven-compiler-plugin</artifactId>

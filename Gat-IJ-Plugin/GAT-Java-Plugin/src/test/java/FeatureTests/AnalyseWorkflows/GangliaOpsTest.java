@@ -6,12 +6,15 @@ import Features.Core.PluginCalls;
 import Features.Tools.ProgressUI;
 import ij.IJ;
 import ij.ImagePlus;
+import ij.gui.WaitForUserDialog;
 import ij.measure.Calibration;
 import ij.plugin.frame.RoiManager;
 import ij.process.ImageProcessor;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.MockedConstruction;
 import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -23,18 +26,21 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class GangliaOpsTest {
 
+    // Mocks for segment function
+    @Mock
+    ImagePlus neuronLabels;
+
+    @Mock
+    ImagePlus maxProjection;
+
+    @Mock
+    ProgressUI progressUI;
+
     /**
      * Test the segment method of GangliaOps class with ganglia mode DEFINE_FROM_HU.
      */
     @Test
     void testSegmentDefineFromHu() {
-        // Mock ImagePlus for neuronLabels and maxProjection image
-        ImagePlus neuronLabels = mock(ImagePlus.class);
-        ImagePlus maxProjection = mock(ImagePlus.class);
-
-        // Mock progress bar
-        ProgressUI progressUI = mock(ProgressUI.class);
-
         // Mock calibration for maxCalibration image
         Calibration calibration = new Calibration();
         calibration.pixelWidth = 2.0; // 2 microns per pixel
@@ -86,13 +92,6 @@ class GangliaOpsTest {
      */
     @Test
     void testSegmentImportRoiToLabels() {
-        // Mock ImagePlus for maxProjection and neuronLabels
-        ImagePlus maxProjection = mock(ImagePlus.class);
-        ImagePlus neuronLabels = mock(ImagePlus.class);
-
-        // Mock progress bar
-        ProgressUI progressUI = mock(ProgressUI.class);
-
         // Mock calibration for maxCalibration image
         Calibration calibration = new Calibration();
         calibration.pixelWidth = 1.0; // 1 micron per pixel
@@ -150,78 +149,71 @@ class GangliaOpsTest {
     /**
      * Test the segment method of GangliaOps class with ganglia mode MANUAL.
      */
-//    @Test
-//    void testSegmentManualDrawToLabels() {
-//        // Mock ImagePlus for maxProjection and neuronLabels
-//        ImagePlus maxProjection = mock(ImagePlus.class);
-//        ImagePlus neuronLabels = mock(ImagePlus.class);
-//
-//        // Mock progress bar
-//        ProgressUI progressUI = mock(ProgressUI.class);
-//
-//        // Mock calibration for maxCalibration image
-//        Calibration calibration = new Calibration();
-//        calibration.pixelWidth = 1.0; // 1 micron per pixel
-//        when(maxProjection.getCalibration()).thenReturn(calibration);
-//
-//        // Set up Params with ganglia mode MANUAL
-//        Params p = new Params();
-//        p.gangliaMode = Params.GangliaMode.MANUAL;
-//
-//        // Mock static PluginCalls methods
-//        try (MockedStatic<PluginCalls> pluginMock = mockStatic(PluginCalls.class);
-//             MockedStatic<RoiManager> roiManagerMock = mockStatic(RoiManager.class);
-//             MockedStatic<IJ> ijMock = mockStatic(IJ.class)) {
-//
-//            // Mock RoiManager instance
-//            RoiManager rm = mock(RoiManager.class);
-//            roiManagerMock.when(RoiManager::getInstance2).thenReturn(rm);
-//
-//            // PluginCalls.roisToBinary returns a mock binary ImagePlus
-//            ImagePlus bin = mock(ImagePlus.class);
-//            pluginMock.when(() -> PluginCalls.roisToBinary(maxProjection, rm)).thenReturn(bin);
-//
-//            // PluginCalls.binaryToLabels returns a new mock ImagePlus for labels
-//            ImagePlus labels = mock(ImagePlus.class);
-//            pluginMock.when(() -> PluginCalls.binaryToLabels(bin)).thenReturn(labels);
-//
-//            // Run the method under test
-//            ImagePlus result = segment(p, maxProjection, neuronLabels, progressUI);
-//
-//            /*
-//             * Verify the following interactions:
-//             * result is not null
-//             * PluginCalls.roisToBinary is called with maxProjection and RoiManager
-//             * PluginCalls.binaryToLabels is called with neuronLabels
-//             * labels.setCalibration is called with the correct calibration
-//             */
-//
-//            // Assert result is not null
-//            assertNotNull(result);
-//
-//            // Verify roisToBinary is called
-//            pluginMock.verify(() -> PluginCalls.roisToBinary(maxProjection, rm));
-//
-//            // Verify binaryToLabels is called
-//            pluginMock.verify(() -> PluginCalls.binaryToLabels(bin));
-//
-//            // Verify calibration is set correctly
-//            verify(labels).setCalibration(calibration);
-//        }
-//    }
+    @Test
+    void testSegmentManualDrawToLabels() {
+        // Initialise relevant variables in order of call
+
+        // Non-mocks
+        Params p = new Params();                                            // params           (upon function call)
+        p.gangliaMode = Params.GangliaMode.MANUAL;
+        Calibration calibration = new Calibration();                        // calibration      (line 327)
+        calibration.pixelWidth = 1.0; // 1 micron per pixel
+
+
+        // Mocks (non-static)
+        RoiManager rm = mock(RoiManager.class);
+        ImagePlus review =  mock(ImagePlus.class);
+        ImagePlus bin = mock(ImagePlus.class);
+        ImagePlus labels = mock(ImagePlus.class);
+
+        // Mock function calls
+        when(maxProjection.getCalibration()).thenReturn(calibration);
+
+        // Mock static variables and function calls
+        try (MockedConstruction<WaitForUserDialog> mockedDialog = mockConstruction(
+                WaitForUserDialog.class,
+                (mock, context) -> doNothing().when(mock).show());
+             MockedStatic<PluginCalls> pluginMock = mockStatic(PluginCalls.class);
+             MockedStatic<RoiManager> roiManagerMock = mockStatic(RoiManager.class);
+             MockedStatic<IJ> ijMock = mockStatic(IJ.class)) {
+
+            // Mock static function calls in order
+            roiManagerMock.when(RoiManager::getInstance2).thenReturn(rm);
+            pluginMock.when(() -> PluginCalls.buildGangliaRgbForOverlay(maxProjection, p.gangliaChannel, p.huChannel)).thenReturn(review);
+            ijMock.when(() -> IJ.setTool(anyString())).thenAnswer(invocation -> null);
+            pluginMock.when(() -> PluginCalls.roisToBinary(review, rm)).thenReturn(bin);
+            pluginMock.when(() -> PluginCalls.binaryToLabels(bin)).thenReturn(labels);
+
+            // Run the method under test
+            ImagePlus result = segment(p, maxProjection, neuronLabels, progressUI);
+
+            /*
+             * Verify the following interactions:
+             * result is not null
+             * PluginCalls.roisToBinary is called with review and RoiManager
+             * PluginCalls.binaryToLabels is called with the binary image
+             * labels.setCalibration is called with the correct calibration
+             */
+
+            // Assert result is not null
+            assertNotNull(result);
+
+            // Verify roisToBinary is called
+            pluginMock.verify(() -> PluginCalls.roisToBinary(review, rm));
+
+            // Verify binaryToLabels is called
+            pluginMock.verify(() -> PluginCalls.binaryToLabels(bin));
+
+            // Verify calibration is set correctly
+            verify(labels).setCalibration(calibration);
+        }
+    }
 
     /**
      * Test the segment method of GangliaOps class with ganglia mode DEEPIMAGEJ.
      */
     @Test
     void testSegmentDeepImageJ() {
-        // Mock ImagePlus for maxProjection and neuronLabels
-        ImagePlus maxProjection = mock(ImagePlus.class);
-        ImagePlus neuronLabels = mock(ImagePlus.class);
-
-        // Mock progress bar
-        ProgressUI progressUI = mock(ProgressUI.class);
-
         // Mock calibration for maxCalibration image
         Calibration calibration = new Calibration();
         calibration.pixelWidth = 1.0; // 1 micron per pixel
@@ -275,7 +267,6 @@ class GangliaOpsTest {
     @Test
     void testCountPerGanglion() {
         // Mock ImagePlus for neuronLabels and gangliaLabels
-        ImagePlus neuronLabels = mock(ImagePlus.class);
         ImagePlus gangliaLabels = mock(ImagePlus.class);
 
         // Set up image dimensions
@@ -438,14 +429,5 @@ class GangliaOpsTest {
                 assertEquals((byte)0, bp[i], "Non-ganglion 1 pixel should be black");
             }
         }
-
-        // Calibration should be copied
-        //
-        // 27/09/2025 7:02pm
-        // Fails: Follow up with author
-        // expected [bd = 0]
-        // actual [bd = 8]
-        //
-        // assertEquals(calibration, result.getCalibration());
     }
 }
